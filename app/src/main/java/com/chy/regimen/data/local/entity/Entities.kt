@@ -58,11 +58,7 @@ data class EquipmentEntity(
             onDelete = ForeignKey.SET_NULL,
         ),
     ],
-    indices = [
-        Index("primaryMuscleGroupId"),
-        Index("createdByUserId"),
-        Index("name"),
-    ],
+    indices = [Index("primaryMuscleGroupId"), Index("createdByUserId"), Index("name")],
 )
 data class ExerciseEntity(
     @PrimaryKey val id: String,
