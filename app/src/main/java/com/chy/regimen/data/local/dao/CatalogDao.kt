@@ -28,6 +28,15 @@ interface CatalogDao {
     @Query("SELECT * FROM exercises ORDER BY name")
     fun observeExercises(): Flow<List<ExerciseEntity>>
 
+    @Query("SELECT * FROM exercises WHERE id = :id")
+    suspend fun getExercise(id: String): ExerciseEntity?
+
+    @Query("SELECT * FROM muscle_groups ORDER BY name")
+    suspend fun getMuscleGroups(): List<MuscleGroupEntity>
+
+    @Query("SELECT * FROM equipment ORDER BY name")
+    suspend fun getEquipment(): List<EquipmentEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertMuscleGroups(rows: List<MuscleGroupEntity>)
 
