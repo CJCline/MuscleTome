@@ -1,0 +1,132 @@
+package com.chy.regimen.ui.routine
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RoutineListScreen(
+    onOpenRoutine: (String) -> Unit,
+    viewModel: RoutineListViewModel = hiltViewModel(),
+) {
+    val routines by viewModel.routines.collectAsStateWithLifecycle()
+    var showCreate by rememberSaveable { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Routines") }) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showCreate = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Create routine")
+            }
+        },
+    ) { innerPadding ->
+        if (routines.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+            ) {
+                Text("No routines yet. Create Push/Pull/Legs or a custom split.")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(routines, key = { it.id }) { routine ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        ListItem(
+                            headlineContent = { Text(routine.name) },
+                            modifier = Modifier.clickable { onOpenRoutine(routine.id) },
+                            trailingContent = {
+                                IconButton(onClick = { viewModel.deleteRoutine(routine.id) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete routine")
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreate) {
+        NameDialog(
+            title = "New routine",
+            label = "Routine name",
+            confirmLabel = "Create",
+            onDismiss = { showCreate = false },
+            onConfirm = { name ->
+                viewModel.createRoutine(name)
+                showCreate = false
+            },
+        )
+    }
+}
+
+@Composable
+fun NameDialog(
+    title: String,
+    label: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(label) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.isNotBlank(),
+            ) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}

@@ -18,6 +18,7 @@ import com.chy.regimen.ui.library.AddExerciseScreen
 import com.chy.regimen.ui.library.ExerciseLibraryScreen
 import com.chy.regimen.ui.theme.RegimenTheme
 import dagger.hilt.android.AndroidEntryPoint
+import com.chy.regimen.ui.navigation.RegimenNav
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -28,21 +29,6 @@ class MainActivity : ComponentActivity() {
             RegimenTheme {
                 RegimenNav()
             }
-        }
-    }
-}
-
-@Composable
-private fun RegimenNav() {
-    val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "library") {
-        composable("library") {
-            ExerciseLibraryScreen(
-                onAddExercise = { navController.navigate("add_exercise") },
-            )
-        }
-        composable("add_exercise") {
-            AddExerciseScreen(onBack = { navController.popBackStack() })
         }
     }
 }

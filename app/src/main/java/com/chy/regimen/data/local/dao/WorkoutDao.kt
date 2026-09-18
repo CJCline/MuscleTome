@@ -14,6 +14,33 @@ interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE userId = :userId ORDER BY startedAtEpochMs DESC")
     fun observeSessions(userId: String): Flow<List<WorkoutSessionEntity>>
 
+    @Query("SELECT * FROM workout_sessions WHERE id = :id")
+    fun observeSession(id: String): Flow<WorkoutSessionEntity?>
+
+    @Query("SELECT * FROM session_slot_results WHERE sessionId = :sessionId")
+    fun observeSlotResults(sessionId: String): Flow<List<SessionSlotResultEntity>>
+
+    @Query(
+        """
+        SELECT sl.* FROM set_logs sl
+        INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id
+        WHERE ssr.sessionId = :sessionId
+        ORDER BY sl.completedAtEpochMs
+        """,
+    )
+    fun observeSetsForSession(sessionId: String): Flow<List<SetLogEntity>>
+
+    @Query(
+        """
+        SELECT sl.* FROM set_logs sl
+        INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id
+        WHERE ssr.resolvedExerciseId = :exerciseId
+        ORDER BY sl.completedAtEpochMs DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun lastSetForExercise(exerciseId: String): SetLogEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(row: WorkoutSessionEntity)
 
@@ -22,4 +49,7 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSet(row: SetLogEntity)
+
+    @Query("UPDATE workout_sessions SET endedAtEpochMs = :endedAt WHERE id = :id")
+    suspend fun endSession(id: String, endedAt: Long)
 }
