@@ -22,6 +22,7 @@ class RoutineRepository @Inject constructor(
 
     fun observeRoutine(id: String): Flow<RoutineEntity?> = routineDao.observeRoutine(id)
     fun observeDays(routineId: String): Flow<List<RoutineDayEntity>> = routineDao.observeDays(routineId)
+    fun observeAllDays(): Flow<List<RoutineDayEntity>> = routineDao.observeAllDays()
     fun observeDay(id: String): Flow<RoutineDayEntity?> = routineDao.observeDay(id)
     fun observeSlots(dayId: String): Flow<List<RoutineSlotEntity>> = routineDao.observeSlots(dayId)
 

@@ -35,6 +35,13 @@ class WorkoutRepository @Inject constructor(
     private val varietyEngine: VarietyEngine,
 ) {
     fun observeSession(id: String) = workoutDao.observeSession(id)
+
+    fun observeOpenSession() =
+        workoutDao.observeOpenSession(SeedCatalog.LOCAL_USER_ID)
+
+    fun observeLastCompletedSession() =
+        workoutDao.observeLastCompletedSession(SeedCatalog.LOCAL_USER_ID)
+
     fun observeSlotResults(sessionId: String) = workoutDao.observeSlotResults(sessionId)
     fun observeSets(sessionId: String) = workoutDao.observeSetsForSession(sessionId)
 

@@ -83,6 +83,26 @@ interface WorkoutDao {
     )
     suspend fun findOpenSession(userId: String, dayId: String): WorkoutSessionEntity?
 
+    @Query(
+        """
+        SELECT * FROM workout_sessions
+        WHERE userId = :userId AND endedAtEpochMs IS NULL
+        ORDER BY startedAtEpochMs DESC
+        LIMIT 1
+        """,
+    )
+    fun observeOpenSession(userId: String): Flow<WorkoutSessionEntity?>
+
+    @Query(
+        """
+        SELECT * FROM workout_sessions
+        WHERE userId = :userId AND endedAtEpochMs IS NOT NULL
+        ORDER BY endedAtEpochMs DESC
+        LIMIT 1
+        """,
+    )
+    fun observeLastCompletedSession(userId: String): Flow<WorkoutSessionEntity?>
+
     @Query("SELECT COUNT(*) FROM set_logs sl INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id WHERE ssr.sessionId = :sessionId")
     suspend fun setCountForSession(sessionId: String): Int
 }

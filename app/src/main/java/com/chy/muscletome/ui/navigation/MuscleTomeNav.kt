@@ -4,6 +4,7 @@ import com.chy.muscletome.ui.workout.ActiveWorkoutScreen
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -26,6 +27,7 @@ import com.chy.muscletome.ui.routine.AddSlotScreen
 import com.chy.muscletome.ui.routine.DayDetailScreen
 import com.chy.muscletome.ui.routine.RoutineDetailScreen
 import com.chy.muscletome.ui.routine.RoutineListScreen
+import com.chy.muscletome.ui.home.HomeScreen
 import androidx.compose.material.icons.filled.BarChart
 import com.chy.muscletome.ui.settings.SettingsScreen
 import com.chy.muscletome.ui.stats.StatsScreen
@@ -34,7 +36,8 @@ fun MuscleTomeNav() {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val showBottomBar = currentRoute == "routines" ||
+    val showBottomBar = currentRoute == "home" ||
+            currentRoute == "routines" ||
             currentRoute == "library" ||
             currentRoute == "stats" ||
             currentRoute == "settings"
@@ -44,10 +47,21 @@ fun MuscleTomeNav() {
             if (showBottomBar) {
                 NavigationBar {
                     NavigationBarItem(
+                        selected = currentRoute == "home",
+                        onClick = {
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        },
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                        label = { Text("Today") },
+                    )
+                    NavigationBarItem(
                         selected = currentRoute == "routines",
                         onClick = {
                             navController.navigate("routines") {
-                                popUpTo("routines") { inclusive = false }
+                                popUpTo("home") { inclusive = false }
                                 launchSingleTop = true
                             }
                         },
@@ -58,7 +72,7 @@ fun MuscleTomeNav() {
                         selected = currentRoute == "library",
                         onClick = {
                             navController.navigate("library") {
-                                popUpTo("routines") { inclusive = false }
+                                popUpTo("home") { inclusive = false }
                                 launchSingleTop = true
                             }
                         },
@@ -69,7 +83,7 @@ fun MuscleTomeNav() {
                         selected = currentRoute == "stats",
                         onClick = {
                             navController.navigate("stats") {
-                                popUpTo("routines") { inclusive = false }
+                                popUpTo("home") { inclusive = false }
                                 launchSingleTop = true
                             }
                         },
@@ -80,7 +94,7 @@ fun MuscleTomeNav() {
                         selected = currentRoute == "settings",
                         onClick = {
                             navController.navigate("settings") {
-                                popUpTo("routines") { inclusive = false }
+                                popUpTo("home") { inclusive = false }
                                 launchSingleTop = true
                             }
                         },
@@ -93,9 +107,17 @@ fun MuscleTomeNav() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "routines",
+            startDestination = "home",
             modifier = Modifier.padding(innerPadding),
         ) {
+            composable(route = "home") {
+                HomeScreen(
+                    onOpenWorkout = { sessionId -> navController.navigate("workout/$sessionId") },
+                    onOpenRoutines = {
+                        navController.navigate("routines") { launchSingleTop = true }
+                    },
+                )
+            }
             composable("routines") {
                 RoutineListScreen(
                     onOpenRoutine = { id -> navController.navigate("routine/$id") },

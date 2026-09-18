@@ -21,6 +21,9 @@ interface RoutineDao {
     @Query("SELECT * FROM routine_days WHERE routineId = :routineId ORDER BY orderIndex")
     fun observeDays(routineId: String): Flow<List<RoutineDayEntity>>
 
+    @Query("SELECT * FROM routine_days ORDER BY orderIndex")
+    fun observeAllDays(): Flow<List<RoutineDayEntity>>
+
     @Query("SELECT * FROM routine_days WHERE id = :id")
     fun observeDay(id: String): Flow<RoutineDayEntity?>
 
