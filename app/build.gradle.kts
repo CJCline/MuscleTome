@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.chy.regimen"
+    namespace = "com.chy.muscletome"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.chy.regimen"
+        applicationId = "com.chy.muscletome"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "regimen"
+rootProject.name = "MuscleTome"
 include(":app")
