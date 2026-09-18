@@ -51,4 +51,13 @@ interface CatalogDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSecondaryMuscles(rows: List<ExerciseSecondaryMuscleCrossRef>)
+
+    @Query("SELECT * FROM exercise_equipment")
+    suspend fun getExerciseEquipment(): List<ExerciseEquipmentCrossRef>
+
+    @Query("SELECT * FROM exercise_secondary_muscles")
+    suspend fun getSecondaryMuscles(): List<ExerciseSecondaryMuscleCrossRef>
+
+    @Query("SELECT * FROM exercises")
+    suspend fun getExercises(): List<ExerciseEntity>
 }

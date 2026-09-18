@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -25,13 +26,18 @@ import com.chy.muscletome.ui.routine.AddSlotScreen
 import com.chy.muscletome.ui.routine.DayDetailScreen
 import com.chy.muscletome.ui.routine.RoutineDetailScreen
 import com.chy.muscletome.ui.routine.RoutineListScreen
-
+import androidx.compose.material.icons.filled.BarChart
+import com.chy.muscletome.ui.settings.SettingsScreen
+import com.chy.muscletome.ui.stats.StatsScreen
 @Composable
 fun MuscleTomeNav() {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val showBottomBar = currentRoute == "routines" || currentRoute == "library"
+    val showBottomBar = currentRoute == "routines" ||
+            currentRoute == "library" ||
+            currentRoute == "stats" ||
+            currentRoute == "settings"
 
     Scaffold(
         bottomBar = {
@@ -58,6 +64,28 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.FitnessCenter, contentDescription = null) },
                         label = { Text("Library") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "stats",
+                        onClick = {
+                            navController.navigate("stats") {
+                                popUpTo("routines") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        },
+                        icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                        label = { Text("History") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "settings",
+                        onClick = {
+                            navController.navigate("settings") {
+                                popUpTo("routines") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        label = { Text("Settings") },
                     )
                 }
             }
@@ -116,6 +144,12 @@ fun MuscleTomeNav() {
             }
             composable("add_exercise") {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
+            }
+            composable(route = "stats") {
+                StatsScreen()
+            }
+            composable(route = "settings") {
+                SettingsScreen()
             }
             composable(
                 route = "workout/{sessionId}",

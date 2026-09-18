@@ -4,6 +4,7 @@ import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
+import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
@@ -71,6 +72,35 @@ class RoutineRepository @Inject constructor(
                 repRangeMax = repMax,
                 restSeconds = restSeconds,
             ),
+        )
+    }
+
+    suspend fun addTargetSlot(
+        dayId: String,
+        muscleGroupIds: List<String>,
+        movementType: TargetMovementType,
+        sets: Int,
+        repMin: Int,
+        repMax: Int,
+        restSeconds: Int,
+    ) {
+        val slotId = UUID.randomUUID().toString()
+        routineDao.insertSlot(
+            RoutineSlotEntity(
+                id = slotId,
+                routineDayId = dayId,
+                orderIndex = routineDao.nextSlotIndex(dayId),
+                type = SlotType.TARGET,
+                exerciseId = null,
+                targetMovementType = movementType,
+                sets = sets,
+                repRangeMin = repMin,
+                repRangeMax = repMax,
+                restSeconds = restSeconds,
+            ),
+        )
+        routineDao.insertSlotTargets(
+            muscleGroupIds.map { SlotTargetMuscleCrossRef(slotId, it) },
         )
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,9 +23,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,6 +43,7 @@ fun ActiveWorkoutScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val current = state.current
+    var showSwap by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.finished) {
         if (state.finished) onFinished()
@@ -71,6 +77,22 @@ fun ActiveWorkoutScreen(
                     "Set ${state.currentSetNumber.coerceAtMost(state.plannedSets)} of ${state.plannedSets} · ${current.slot?.repRangeMin}-${current.slot?.repRangeMax} reps",
                     style = MaterialTheme.typography.titleMedium,
                 )
+            }
+            Text(
+                viewModel.reasonLabel(),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (viewModel.canReroll()) {
+                    OutlinedButton(onClick = viewModel::reroll) {
+                        Text("Reroll")
+                    }
+                }
+                if (current != null && current.sets.isEmpty()) {
+                    OutlinedButton(onClick = { showSwap = true }) {
+                        Text("Swap")
+                    }
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -141,5 +163,31 @@ fun ActiveWorkoutScreen(
                 }
             }
         }
+    }
+
+    if (showSwap) {
+        AlertDialog(
+            onDismissRequest = { showSwap = false },
+            title = { Text("Replace exercise") },
+            text = {
+                LazyColumn {
+                    items(state.catalogExercises, key = { it.id }) { exercise ->
+                        Text(
+                            exercise.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.overrideWith(exercise.id)
+                                    showSwap = false
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSwap = false }) { Text("Cancel") }
+            },
+        )
     }
 }

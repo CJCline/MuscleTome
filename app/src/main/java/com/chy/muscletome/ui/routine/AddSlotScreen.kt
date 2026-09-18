@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.domain.model.TargetMovementType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +48,7 @@ fun AddSlotScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add exercise") },
+                title = { Text(if (state.isTargetMode) "Add target slot" else "Add exercise") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -62,17 +65,43 @@ fun AddSlotScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !state.isTargetMode,
+                    onClick = { viewModel.setTargetMode(false) },
+                    label = { Text("Fixed exercise") },
+                )
+                FilterChip(
+                    selected = state.isTargetMode,
+                    onClick = { viewModel.setTargetMode(true) },
+                    label = { Text("Target muscle") },
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(state.sets, viewModel::onSetsChange, label = { Text("Sets") }, modifier = Modifier.weight(1f))
                 OutlinedTextField(state.repMin, viewModel::onRepMinChange, label = { Text("Rep min") }, modifier = Modifier.weight(1f))
                 OutlinedTextField(state.repMax, viewModel::onRepMaxChange, label = { Text("Rep max") }, modifier = Modifier.weight(1f))
                 OutlinedTextField(state.restSeconds, viewModel::onRestChange, label = { Text("Rest") }, modifier = Modifier.weight(1f))
             }
 
+            if (state.isTargetMode) {
+                Text("Movement preference", modifier = Modifier.padding(top = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TargetMovementType.entries.forEach { type ->
+                        FilterChip(
+                            selected = state.targetMovement == type,
+                            onClick = { viewModel.setTargetMovement(type) },
+                            label = { Text(type.name) },
+                        )
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Search exercises") },
+                label = { Text(if (state.isTargetMode) "Search muscles" else "Search exercises") },
                 singleLine = true,
             )
 
@@ -81,18 +110,33 @@ fun AddSlotScreen(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                items(state.exercises, key = { it.id }) { exercise ->
-                    ListItem(
-                        headlineContent = { Text(exercise.name) },
-                        supportingContent = { Text(exercise.primaryMuscleGroupId) },
-                        leadingContent = {
-                            RadioButton(
-                                selected = state.selectedExerciseId == exercise.id,
-                                onClick = { viewModel.onExerciseSelected(exercise.id) },
-                            )
-                        },
-                        modifier = Modifier.clickable { viewModel.onExerciseSelected(exercise.id) },
-                    )
+                if (state.isTargetMode) {
+                    items(state.muscleGroups, key = { it.id }) { muscle ->
+                        ListItem(
+                            headlineContent = { Text(muscle.name) },
+                            leadingContent = {
+                                Checkbox(
+                                    checked = state.selectedMuscleIds.contains(muscle.id),
+                                    onCheckedChange = { viewModel.toggleMuscle(muscle.id) },
+                                )
+                            },
+                            modifier = Modifier.clickable { viewModel.toggleMuscle(muscle.id) },
+                        )
+                    }
+                } else {
+                    items(state.exercises, key = { it.id }) { exercise ->
+                        ListItem(
+                            headlineContent = { Text(exercise.name) },
+                            supportingContent = { Text(exercise.primaryMuscleGroupId) },
+                            leadingContent = {
+                                RadioButton(
+                                    selected = state.selectedExerciseId == exercise.id,
+                                    onClick = { viewModel.onExerciseSelected(exercise.id) },
+                                )
+                            },
+                            modifier = Modifier.clickable { viewModel.onExerciseSelected(exercise.id) },
+                        )
+                    }
                 }
             }
 

@@ -9,6 +9,7 @@ import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
+import com.chy.muscletome.data.repository.StartResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,10 +68,19 @@ class DayDetailViewModel @Inject constructor(
     private val _startSessionId = MutableSharedFlow<String>()
     val startSessionId: SharedFlow<String> = _startSessionId.asSharedFlow()
 
+    private val _errorMessage = MutableSharedFlow<String>()
+    val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
+
     fun startWorkout() {
         viewModelScope.launch {
-            val sessionId = workoutRepository.startSession(dayId)
-            _startSessionId.emit(sessionId)
+            when (val result = workoutRepository.startSession(dayId)) {
+                is StartResult.Success -> {
+                    _startSessionId.emit(result.sessionId)
+                }
+                is StartResult.NoMatch -> {
+                    _errorMessage.emit("No matching exercise for \"${result.slotLabel}\" with your equipment. Add equipment in Settings or change the slot.")
+                }
+            }
         }
     }
 }

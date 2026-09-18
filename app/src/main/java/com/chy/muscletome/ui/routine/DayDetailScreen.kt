@@ -29,6 +29,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayDetailScreen(
@@ -38,10 +44,26 @@ fun DayDetailScreen(
     viewModel: DayDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(viewModel) {
+        viewModel.startSessionId.collect { sessionId ->
+            onStartWorkout(sessionId)
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.errorMessage.collect { message ->
+            scope.launch {
+                snackbarHostState.showSnackbar(message)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+             TopAppBar(
                 title = { Text(state.day?.name ?: "Day") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -58,6 +80,7 @@ fun DayDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddSlot) {
                 Icon(Icons.Default.Add, contentDescription = "Add exercise")
@@ -74,7 +97,14 @@ fun DayDetailScreen(
             items(state.slots, key = { it.slot.id }) { row ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     ListItem(
-                        headlineContent = { Text(row.exerciseName) },
+                        headlineContent = {
+                            val title = if (row.slot.type.name == "TARGET") {
+                                "Target slot"
+                            } else {
+                                row.exerciseName
+                            }
+                            Text(title)
+                        },
                         supportingContent = {
                             Text(
                                 "${row.slot.sets} × ${row.slot.repRangeMin}–${row.slot.repRangeMax} · ${row.slot.restSeconds}s rest",

@@ -56,4 +56,10 @@ interface RoutineDao {
 
     @Query("DELETE FROM routine_slots WHERE id = :id")
     suspend fun deleteSlot(id: String)
+
+    @Query("SELECT * FROM slot_target_muscles WHERE slotId = :slotId")
+    suspend fun getSlotTargets(slotId: String): List<SlotTargetMuscleCrossRef>
+
+    @Query("SELECT * FROM slot_target_muscles")
+    fun observeAllSlotTargets(): kotlinx.coroutines.flow.Flow<List<SlotTargetMuscleCrossRef>>
 }

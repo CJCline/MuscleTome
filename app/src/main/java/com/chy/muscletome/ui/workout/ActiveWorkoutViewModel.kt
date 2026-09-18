@@ -10,6 +10,8 @@ import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
+import com.chy.muscletome.domain.model.SelectionReason
+import com.chy.muscletome.domain.model.SlotType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -36,6 +38,7 @@ data class ActiveWorkoutUiState(
     val rpe: String = "",
     val restSecondsLeft: Int = 0,
     val finished: Boolean = false,
+    val catalogExercises: List<ExerciseEntity> = emptyList(),
 ) {
     val current: ActiveSlot? get() = slots.getOrNull(currentIndex)
     val currentSetNumber: Int get() = (current?.sets?.size ?: 0) + 1
@@ -123,6 +126,7 @@ class ActiveWorkoutViewModel @Inject constructor(
             rpe = rpeText,
             restSecondsLeft = rest,
             finished = isFinished,
+            catalogExercises = exercises,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
 
@@ -194,6 +198,38 @@ class ActiveWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             workoutRepository.finishSession(sessionId)
             finished.value = true
+        }
+    }
+
+    fun reasonLabel(): String {
+        val current = uiState.value.current ?: return ""
+        return when (current.result.selectionReason) {
+            SelectionReason.FIXED -> "Pinned in your routine"
+            SelectionReason.AI_ROTATED -> "Picked for this target slot"
+            SelectionReason.USER_REROLL -> "Rerolled"
+            SelectionReason.USER_OVERRIDE -> "You chose this"
+        }
+    }
+
+    fun canReroll(): Boolean {
+        val current = uiState.value.current ?: return false
+        return current.slot?.type == SlotType.TARGET && current.sets.isEmpty()
+    }
+
+    fun reroll() {
+        val state = uiState.value
+        val current = state.current ?: return
+        if (!canReroll()) return
+        viewModelScope.launch {
+            workoutRepository.rerollSlot(current.result, state.currentIndex)
+        }
+    }
+
+    fun overrideWith(exerciseId: String) {
+        val current = uiState.value.current ?: return
+        if (current.sets.isNotEmpty()) return
+        viewModelScope.launch {
+            workoutRepository.overrideSlot(current.result, exerciseId)
         }
     }
 
