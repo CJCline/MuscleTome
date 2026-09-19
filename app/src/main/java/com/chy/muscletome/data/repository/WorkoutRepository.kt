@@ -2,8 +2,10 @@ package com.chy.muscletome.data.repository
 
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.RoutineDao
+import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
+import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
 import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
@@ -32,6 +34,7 @@ class WorkoutRepository @Inject constructor(
     private val routineDao: RoutineDao,
     private val userDao: UserDao,
     private val catalogDao: CatalogDao,
+    private val selectionHistoryDao: SelectionHistoryDao,
     private val varietyEngine: VarietyEngine,
 ) {
     fun observeSession(id: String) = workoutDao.observeSession(id)
@@ -156,7 +159,15 @@ class WorkoutRepository @Inject constructor(
     }
 
     suspend fun finishSession(sessionId: String) {
-        workoutDao.endSession(sessionId, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        workoutDao.endSession(sessionId, now)
+        workoutDao.getSlotResults(sessionId).forEach { result ->
+            recordCompletion(result.resolvedExerciseId, now)
+        }
+    }
+
+    suspend fun discardSession(sessionId: String) {
+        workoutDao.deleteSession(sessionId)
     }
 
     suspend fun rerollSlot(result: SessionSlotResultEntity, slotIndex: Int): String? {
@@ -196,6 +207,7 @@ class WorkoutRepository @Inject constructor(
             catalog,
         ) ?: return null
 
+        recordReroll(result.resolvedExerciseId)
         workoutDao.updateSlotResult(
             result.copy(
                 resolvedExerciseId = pick.exercise.id,
@@ -218,13 +230,59 @@ class WorkoutRepository @Inject constructor(
         val exercises = catalogDao.getExercises()
         val equipmentLinks = catalogDao.getExerciseEquipment().groupBy { it.exerciseId }
         val secondaryLinks = catalogDao.getSecondaryMuscles().groupBy { it.exerciseId }
+        val allHistory = selectionHistoryDao.getAll(SeedCatalog.LOCAL_USER_ID)
+            .groupBy { it.exerciseId }
+
+        val lastUsedMap = allHistory.mapValues { (_, rows) -> rows.maxOf { it.lastUsedAtEpochMs } }
+        val affinityMap = allHistory.mapValues { (_, rows) -> rows.maxOf { it.affinity } }
+
         return exercises.map { exercise ->
             EngineCandidate(
                 exercise = exercise,
                 equipmentIds = equipmentLinks[exercise.id].orEmpty().map { it.equipmentId }.toSet(),
                 secondaryMuscleIds = secondaryLinks[exercise.id].orEmpty().map { it.muscleGroupId }.toSet(),
-                lastUsedAtEpochMs = workoutDao.lastSetForExercise(exercise.id)?.completedAtEpochMs,
+                lastUsedAtEpochMs = lastUsedMap[exercise.id]
+                    ?: workoutDao.lastSetForExercise(exercise.id)?.completedAtEpochMs,
+                affinity = affinityMap[exercise.id] ?: 0f,
             )
         }
+    }
+
+    private suspend fun recordCompletion(exerciseId: String, now: Long) {
+        val exercise = catalogDao.getExercises().find { it.id == exerciseId } ?: return
+        val muscleId = exercise.primaryMuscleGroupId
+        val current = selectionHistoryDao.get(SeedCatalog.LOCAL_USER_ID, exerciseId, muscleId)
+        selectionHistoryDao.upsert(
+            ExerciseSelectionHistoryEntity(
+                userId = SeedCatalog.LOCAL_USER_ID,
+                exerciseId = exerciseId,
+                muscleGroupId = muscleId,
+                lastUsedAtEpochMs = now,
+                useCount30d = (current?.useCount30d ?: 0) + 1,
+                useCount90d = (current?.useCount90d ?: 0) + 1,
+                completedCount = (current?.completedCount ?: 0) + 1,
+                rerollCount = current?.rerollCount ?: 0,
+                affinity = ((current?.affinity ?: 0f) + 0.15f).coerceAtMost(1f),
+            ),
+        )
+    }
+
+    private suspend fun recordReroll(exerciseId: String) {
+        val exercise = catalogDao.getExercises().find { it.id == exerciseId } ?: return
+        val muscleId = exercise.primaryMuscleGroupId
+        val current = selectionHistoryDao.get(SeedCatalog.LOCAL_USER_ID, exerciseId, muscleId)
+        selectionHistoryDao.upsert(
+            ExerciseSelectionHistoryEntity(
+                userId = SeedCatalog.LOCAL_USER_ID,
+                exerciseId = exerciseId,
+                muscleGroupId = muscleId,
+                lastUsedAtEpochMs = current?.lastUsedAtEpochMs ?: 0L,
+                useCount30d = current?.useCount30d ?: 0,
+                useCount90d = current?.useCount90d ?: 0,
+                completedCount = current?.completedCount ?: 0,
+                rerollCount = (current?.rerollCount ?: 0) + 1,
+                affinity = ((current?.affinity ?: 0f) - 0.2f).coerceAtLeast(-1f),
+            ),
+        )
     }
 }

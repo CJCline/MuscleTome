@@ -30,6 +30,7 @@ import com.chy.muscletome.ui.routine.RoutineListScreen
 import com.chy.muscletome.ui.home.HomeScreen
 import androidx.compose.material.icons.filled.BarChart
 import com.chy.muscletome.ui.settings.SettingsScreen
+import com.chy.muscletome.ui.stats.SessionDetailScreen
 import com.chy.muscletome.ui.stats.StatsScreen
 @Composable
 fun MuscleTomeNav() {
@@ -116,6 +117,7 @@ fun MuscleTomeNav() {
                     onOpenRoutines = {
                         navController.navigate("routines") { launchSingleTop = true }
                     },
+                    onOpenRoutine = { routineId -> navController.navigate("routine/$routineId") },
                 )
             }
             composable("routines") {
@@ -168,7 +170,15 @@ fun MuscleTomeNav() {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
             }
             composable(route = "stats") {
-                StatsScreen()
+                StatsScreen(
+                    onOpenSession = { sessionId -> navController.navigate("session/$sessionId") }
+                )
+            }
+            composable(
+                route = "session/{sessionId}",
+                arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+            ) {
+                SessionDetailScreen(onBack = { navController.popBackStack() })
             }
             composable(route = "settings") {
                 SettingsScreen()

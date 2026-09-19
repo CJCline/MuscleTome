@@ -21,6 +21,9 @@ interface WorkoutDao {
     @Query("SELECT * FROM session_slot_results WHERE sessionId = :sessionId")
     fun observeSlotResults(sessionId: String): Flow<List<SessionSlotResultEntity>>
 
+    @Query("SELECT * FROM session_slot_results WHERE sessionId = :sessionId")
+    suspend fun getSlotResults(sessionId: String): List<SessionSlotResultEntity>
+
     @Query(
         """
         SELECT sl.* FROM set_logs sl
@@ -56,6 +59,9 @@ interface WorkoutDao {
 
     @Query("UPDATE workout_sessions SET endedAtEpochMs = :endedAt WHERE id = :id")
     suspend fun endSession(id: String, endedAt: Long)
+
+    @Query("DELETE FROM workout_sessions WHERE id = :id")
+    suspend fun deleteSession(id: String)
 
     @Query("SELECT * FROM session_slot_results")
     fun observeAllSlotResults(): kotlinx.coroutines.flow.Flow<List<com.chy.muscletome.data.local.entity.SessionSlotResultEntity>>

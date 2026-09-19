@@ -1,7 +1,9 @@
 package com.chy.muscletome.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun HomeScreen(
     onOpenWorkout: (String) -> Unit,
     onOpenRoutines: () -> Unit,
+    onOpenRoutine: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,10 +60,16 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text("Workout in progress", style = MaterialTheme.typography.titleMedium)
-                            Button(
-                                onClick = viewModel::resumeOpenSession,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) { Text("Resume") }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = viewModel::resumeOpenSession,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Resume") }
+                                Button(
+                                    onClick = viewModel::discardOpenSession,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Discard") }
+                            }
                         }
                     }
                 }
@@ -103,7 +112,11 @@ fun HomeScreen(
 
             item { Text("Routines", style = MaterialTheme.typography.titleMedium) }
             items(state.routines, key = { it.id }) { routine ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenRoutine(routine.id) },
+                ) {
                     ListItem(headlineContent = { Text(routine.name) })
                 }
             }

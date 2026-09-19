@@ -73,8 +73,18 @@ fun ActiveWorkoutScreen(
                 style = MaterialTheme.typography.labelLarge,
             )
             if (current != null) {
+                val setInfo = if (state.plannedSets > 0) {
+                    "Set ${state.currentSetNumber.coerceAtMost(state.plannedSets)} of ${state.plannedSets}"
+                } else {
+                    "Set ${state.currentSetNumber}"
+                }
+                val repInfo = if (current.slot != null) {
+                    " · ${current.slot.repRangeMin}-${current.slot.repRangeMax} reps"
+                } else {
+                    ""
+                }
                 Text(
-                    "Set ${state.currentSetNumber.coerceAtMost(state.plannedSets)} of ${state.plannedSets} · ${current.slot?.repRangeMin}-${current.slot?.repRangeMax} reps",
+                    "$setInfo$repInfo",
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -131,7 +141,7 @@ fun ActiveWorkoutScreen(
 
             Button(
                 onClick = viewModel::logSet,
-                enabled = current != null && !state.isCurrentComplete && !state.finished,
+                enabled = current != null && !state.finished,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Log set")

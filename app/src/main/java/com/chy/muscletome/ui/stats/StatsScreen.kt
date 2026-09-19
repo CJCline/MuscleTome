@@ -1,5 +1,6 @@
 package com.chy.muscletome.ui.stats
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +30,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
+    onOpenSession: (String) -> Unit,
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -87,7 +89,11 @@ fun StatsScreen(
 
             item { Text("Sessions", style = MaterialTheme.typography.titleMedium) }
             items(state.sessions, key = { it.session.id }) { row ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenSession(row.session.id) },
+                ) {
                     ListItem(
                         headlineContent = {
                             Text(dateFormat.format(Date(row.session.startedAtEpochMs)))

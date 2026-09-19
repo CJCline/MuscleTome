@@ -56,6 +56,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { _startSessionId.emit(sessionId) }
     }
 
+    fun discardOpenSession() {
+        val sessionId = uiState.value.openSession?.id ?: return
+        viewModelScope.launch {
+            workoutRepository.discardSession(sessionId)
+        }
+    }
+
     fun startNextDay() {
         val dayId = uiState.value.nextDay?.id ?: return
         viewModelScope.launch {

@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.RoutineDao
+import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.EquipmentEntity
@@ -54,4 +55,5 @@ abstract class MuscleTomeDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao
     abstract fun routineDao(): RoutineDao
     abstract fun workoutDao(): WorkoutDao
+    abstract fun selectionHistoryDao(): SelectionHistoryDao
 }

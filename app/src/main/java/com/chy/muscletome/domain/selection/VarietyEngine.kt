@@ -13,6 +13,7 @@ data class EngineCandidate(
     val equipmentIds: Set<String>,
     val secondaryMuscleIds: Set<String>,
     val lastUsedAtEpochMs: Long? = null,
+    val affinity: Float = 0f,
 )
 
 data class EngineRequest(
@@ -33,8 +34,9 @@ data class EnginePick(
     val score: Double,
 )
 
-class VarietyEngine @Inject constructor() {
+class VarietyEngine @Inject constructor(
     private val random: Random = Random.Default
+) {
 
     fun pickWithFallback(
         request: EngineRequest,
@@ -96,7 +98,10 @@ class VarietyEngine @Inject constructor() {
                 preferCompoundEarly = request.preferCompoundEarly,
                 slotIndex = request.slotIndex,
             )
-            val score = (0.35 * recency) + (0.35 * primaryBonus) + (0.20 * movementFit) + (0.10 * 0.5)
+            val score = (0.30 * recency) +
+                    (0.30 * primaryBonus) +
+                    (0.20 * movementFit) +
+                    (0.20 * ((candidate.affinity + 1f) / 2f).toDouble())
             EnginePick(candidate.exercise, primary, score)
         }.sortedByDescending { it.score }
 

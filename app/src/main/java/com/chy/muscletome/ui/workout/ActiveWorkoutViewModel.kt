@@ -44,9 +44,9 @@ data class ActiveWorkoutUiState(
     val currentSetNumber: Int get() = (current?.sets?.size ?: 0) + 1
     val plannedSets: Int get() = current?.slot?.sets ?: 0
     val isCurrentComplete: Boolean get() =
-        current != null && plannedSets > 0 && current!!.sets.size >= plannedSets
+        current == null || plannedSets == 0 || current!!.sets.size >= plannedSets
     val isLastExercise: Boolean get() =
-        slots.isNotEmpty() && currentIndex == slots.lastIndex
+        slots.isEmpty() || currentIndex == slots.lastIndex
 }
 
 @HiltViewModel
@@ -164,7 +164,6 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun logSet() {
         val state = uiState.value
         val current = state.current ?: return
-        if (state.isCurrentComplete) return
         val weightValue = state.weight.toDoubleOrNull() ?: return
         val repsValue = state.reps.toIntOrNull() ?: return
         val rpeValue = state.rpe.toFloatOrNull()
