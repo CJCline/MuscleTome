@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
@@ -52,6 +53,23 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Text("Exercise catalog")
+            val importState by viewModel.importProgress.collectAsStateWithLifecycle()
+            Button(
+                onClick = viewModel::importFromWger,
+                enabled = !importState.running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (importState.running) "Importing…" else "Import from wger")
+            }
+            if (importState.message.isNotBlank()) {
+                Text(importState.message)
+            }
+            if (importState.error != null) {
+                Text("Error: ${importState.error}")
+            }
+            Text("Uses wger.de public API. Exercise text is typically CC-BY-SA; attribution is stored on each exercise.")
 
             Text("Available equipment")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

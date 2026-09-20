@@ -7,6 +7,8 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.UserRepository
+import com.chy.muscletome.data.repository.WgerImportProgress
+import com.chy.muscletome.data.repository.WgerImportRepository
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +30,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     catalogRepository: CatalogRepository,
+    private val wgerImportRepository: WgerImportRepository,
 ) : ViewModel() {
 
     val uiState = combine(
@@ -45,6 +48,14 @@ class SettingsViewModel @Inject constructor(
             excludedExerciseIds = excluded.toSet(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    val importProgress = wgerImportRepository.progress
+
+    fun importFromWger() {
+        viewModelScope.launch {
+            wgerImportRepository.importAll()
+        }
+    }
 
     fun setUnit(unit: WeightUnit) = viewModelScope.launch { userRepository.setWeightUnit(unit) }
     fun setStrictness(value: MatchStrictness) = viewModelScope.launch { userRepository.setMatchStrictness(value) }
