@@ -16,6 +16,8 @@ data class WgerExerciseInfo(
     val licenseName: String?,
     val englishName: String?,
     val englishDescription: String?,
+    val hasEnglish: Boolean,
+    val mainImageUrl: String?,
 )
 
 data class WgerMuscle(

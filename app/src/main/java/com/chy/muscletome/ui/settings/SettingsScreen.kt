@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,7 +62,13 @@ fun SettingsScreen(
                 enabled = !importState.running,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (importState.running) "Importing…" else "Import from wger")
+                Text(if (importState.running) "Importing…" else "Import from wger (English)")
+            }
+            if (importState.running || importState.fraction > 0f) {
+                LinearProgressIndicator(
+                    progress = { importState.fraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             if (importState.message.isNotBlank()) {
                 Text(importState.message)
@@ -69,7 +76,10 @@ fun SettingsScreen(
             if (importState.error != null) {
                 Text("Error: ${importState.error}")
             }
-            Text("Uses wger.de public API. Exercise text is typically CC-BY-SA; attribution is stored on each exercise.")
+            Text(
+                "English translations only. Main demo image URL is stored when wger provides one. " +
+                    "Text is typically CC-BY-SA; attribution is saved on each exercise.",
+            )
 
             Text("Available equipment")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

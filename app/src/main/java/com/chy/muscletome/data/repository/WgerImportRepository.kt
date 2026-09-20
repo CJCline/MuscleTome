@@ -16,9 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class WgerImportProgress(
     val running: Boolean = false,
+    val total: Int = 0,
     val fetched: Int = 0,
     val imported: Int = 0,
     val skipped: Int = 0,
+    /** 0f..1f for the progress bar; 0 when total unknown */
+    val fraction: Float = 0f,
     val message: String = "",
     val error: String? = null,
 )
@@ -38,12 +41,20 @@ class WgerImportRepository @Inject constructor(
         var imported = 0
         var skipped = 0
         var fetched = 0
+        var total = 0
         try {
             repeat(maxPages) { page ->
                 val pageData = api.fetchPage(offset = offset, limit = 50)
+                if (page == 0) total = pageData.count
                 if (pageData.results.isEmpty()) return@repeat
                 fetched += pageData.results.size
+
                 for (item in pageData.results) {
+                    // English-only
+                    if (!item.hasEnglish) {
+                        skipped++
+                        continue
+                    }
                     val name = item.englishName?.trim().orEmpty()
                     if (name.isBlank()) {
                         skipped++
@@ -55,6 +66,7 @@ class WgerImportRepository @Inject constructor(
                         skipped++
                         continue
                     }
+
                     val id = WgerMapper.exerciseId(item.id)
                     val equipmentIds = item.equipment.map { WgerMapper.equipmentId(it.name) }.distinct()
                     if (equipmentIds.isNotEmpty()) {
@@ -67,11 +79,13 @@ class WgerImportRepository @Inject constructor(
                             },
                         )
                     }
+
                     val attribution = buildString {
                         append("Source: wger.de")
                         item.licenseName?.let { append(" · $it") }
                         item.licenseAuthor?.let { append(" · $it") }
                     }
+
                     catalogDao.insertExercises(
                         listOf(
                             ExerciseEntity(
@@ -88,6 +102,7 @@ class WgerImportRepository @Inject constructor(
                                 createdByUserId = null,
                                 source = ExerciseSource.SEED,
                                 notes = attribution,
+                                demoUri = item.mainImageUrl,
                             ),
                         ),
                     )
@@ -105,29 +120,39 @@ class WgerImportRepository @Inject constructor(
                     }
                     imported++
                 }
+
+                val fraction = if (total > 0) (fetched.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 0f
                 _progress.value = WgerImportProgress(
                     running = true,
+                    total = total,
                     fetched = fetched,
                     imported = imported,
                     skipped = skipped,
-                    message = "Imported $imported (page ${page + 1})",
+                    fraction = fraction,
+                    message = "Imported $imported of ~$total (skipped $skipped)",
                 )
+
                 if (pageData.next.isNullOrBlank()) return@repeat
                 offset += 50
             }
+
             _progress.value = WgerImportProgress(
                 running = false,
+                total = total,
                 fetched = fetched,
                 imported = imported,
                 skipped = skipped,
+                fraction = 1f,
                 message = "Done. Imported $imported, skipped $skipped.",
             )
         } catch (t: Throwable) {
             _progress.value = WgerImportProgress(
                 running = false,
+                total = total,
                 fetched = fetched,
                 imported = imported,
                 skipped = skipped,
+                fraction = if (total > 0) fetched.toFloat() / total else 0f,
                 message = "Stopped after $imported imports.",
                 error = t.message ?: "Import failed",
             )

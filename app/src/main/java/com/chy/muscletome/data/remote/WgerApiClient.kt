@@ -60,11 +60,13 @@ class WgerApiClient @Inject constructor() {
         }
         var englishName: String? = null
         var englishDescription: String? = null
+        var hasEnglish = false
         val translations = obj.optJSONArray("translations")
         if (translations != null) {
             for (i in 0 until translations.length()) {
                 val t = translations.getJSONObject(i)
                 if (t.optInt("language") == 2) {
+                    hasEnglish = true
                     englishName = t.optString("name").ifBlank { null }
                     englishDescription = stripHtml(t.optString("description"))
                     break
@@ -76,6 +78,22 @@ class WgerApiClient @Inject constructor() {
                 englishDescription = stripHtml(t.optString("description"))
             }
         }
+
+        val images = obj.optJSONArray("images")
+        var mainImageUrl: String? = null
+        if (images != null) {
+            for (i in 0 until images.length()) {
+                val img = images.getJSONObject(i)
+                if (img.optBoolean("is_main")) {
+                    mainImageUrl = img.optString("image").ifBlank { null }
+                    break
+                }
+            }
+            if (mainImageUrl == null && images.length() > 0) {
+                mainImageUrl = images.getJSONObject(0).optString("image").ifBlank { null }
+            }
+        }
+
         val license = obj.optJSONObject("license")
         return WgerExerciseInfo(
             id = obj.getInt("id"),
@@ -87,6 +105,8 @@ class WgerApiClient @Inject constructor() {
             licenseName = license?.optString("short_name"),
             englishName = englishName,
             englishDescription = englishDescription,
+            hasEnglish = hasEnglish,
+            mainImageUrl = mainImageUrl,
         )
     }
 

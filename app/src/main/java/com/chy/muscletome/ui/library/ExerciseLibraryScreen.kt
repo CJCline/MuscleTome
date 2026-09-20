@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -26,8 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,6 +115,15 @@ private fun ExerciseRow(exercise: ExerciseEntity) {
                     Text("Custom", style = MaterialTheme.typography.labelSmall)
                 }
             },
+            leadingContent = {
+                if (!exercise.demoUri.isNullOrBlank()) {
+                    AsyncImage(
+                        model = exercise.demoUri,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
+            }
         )
     }
 }
