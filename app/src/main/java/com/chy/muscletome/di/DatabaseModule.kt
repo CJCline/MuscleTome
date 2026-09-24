@@ -25,7 +25,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             MuscleTomeDatabase::class.java,
-            "regimen.db",
+            "muscletome.db",
         )
             // Safe only while you have no real workout history.
             .fallbackToDestructiveMigration(dropAllTables = true)
