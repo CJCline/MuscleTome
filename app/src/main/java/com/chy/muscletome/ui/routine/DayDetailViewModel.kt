@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /** Fields on a slot that can be edited inline on the day screen. */
 enum class SlotField { SETS, REP_MIN, REP_MAX, REST }
@@ -164,18 +166,22 @@ class DayDetailViewModel @Inject constructor(
         val state = uiState.value
         if (!state.canSave) return
         viewModelScope.launch {
-            state.slots.filter { it.hasUnsavedChanges }.forEach { row ->
-                val d = drafts.value[row.slot.id] ?: return@forEach
-                routineRepository.updateSlot(
-                    id = row.slot.id,
-                    sets = d.sets.toIntOrNull() ?: return@forEach,
-                    repMin = d.repMin.toIntOrNull() ?: return@forEach,
-                    repMax = d.repMax.toIntOrNull() ?: return@forEach,
-                    restSeconds = d.restSeconds.toIntOrNull() ?: return@forEach,
-                )
+            // NonCancellable so the DB write survives the user navigating back
+            // mid-save (BackConfirm dialog launches save then pops).
+            withContext(NonCancellable) {
+                state.slots.filter { it.hasUnsavedChanges }.forEach { row ->
+                    val d = drafts.value[row.slot.id] ?: return@forEach
+                    routineRepository.updateSlot(
+                        id = row.slot.id,
+                        sets = d.sets.toIntOrNull() ?: return@forEach,
+                        repMin = d.repMin.toIntOrNull() ?: return@forEach,
+                        repMax = d.repMax.toIntOrNull() ?: return@forEach,
+                        restSeconds = d.restSeconds.toIntOrNull() ?: return@forEach,
+                    )
+                }
+                drafts.value = emptyMap()
+                _savedTick.value += 1
             }
-            drafts.value = emptyMap()
-            _savedTick.value += 1
         }
     }
 
