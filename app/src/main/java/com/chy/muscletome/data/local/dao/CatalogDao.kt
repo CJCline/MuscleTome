@@ -28,8 +28,27 @@ interface CatalogDao {
     @Query("SELECT * FROM exercises ORDER BY name")
     fun observeExercises(): Flow<List<ExerciseEntity>>
 
+    @Query(
+        """
+        SELECT * FROM exercises
+        WHERE (:query = '' OR name LIKE '%' || :query || '%' ESCAPE '\')
+          AND (:muscleGroupId IS NULL OR primaryMuscleGroupId = :muscleGroupId)
+        ORDER BY name
+        """,
+    )
+    fun searchExercises(query: String, muscleGroupId: String?): Flow<List<ExerciseEntity>>
+
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun getExercise(id: String): ExerciseEntity?
+
+    @Query("SELECT * FROM exercises WHERE id = :id")
+    fun observeExercise(id: String): Flow<ExerciseEntity?>
+
+    @Query("SELECT * FROM exercises WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun getExerciseByName(name: String): ExerciseEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM exercises WHERE name = :name COLLATE NOCASE)")
+    fun observeNameTaken(name: String): Flow<Boolean>
 
     @Query("SELECT * FROM muscle_groups ORDER BY name")
     suspend fun getMuscleGroups(): List<MuscleGroupEntity>
@@ -60,4 +79,27 @@ interface CatalogDao {
 
     @Query("SELECT * FROM exercises")
     suspend fun getExercises(): List<ExerciseEntity>
+
+    @Query("SELECT name FROM exercises")
+    suspend fun getExerciseNames(): List<String>
+
+    @Query(
+        """
+        SELECT e.* FROM equipment e
+        INNER JOIN exercise_equipment ee ON e.id = ee.equipmentId
+        WHERE ee.exerciseId = :exerciseId
+        ORDER BY e.name
+        """,
+    )
+    fun observeEquipmentForExercise(exerciseId: String): Flow<List<EquipmentEntity>>
+
+    @Query(
+        """
+        SELECT mg.* FROM muscle_groups mg
+        INNER JOIN exercise_secondary_muscles esm ON mg.id = esm.muscleGroupId
+        WHERE esm.exerciseId = :exerciseId
+        ORDER BY mg.name
+        """,
+    )
+    fun observeSecondaryMusclesForExercise(exerciseId: String): Flow<List<MuscleGroupEntity>>
 }

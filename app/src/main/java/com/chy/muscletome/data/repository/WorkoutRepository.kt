@@ -51,6 +51,12 @@ class WorkoutRepository @Inject constructor(
     suspend fun lastSetForExercise(exerciseId: String): SetLogEntity? =
         workoutDao.lastSetForExercise(exerciseId)
 
+    suspend fun bestWeightForExercise(exerciseId: String): Double? =
+        workoutDao.bestWeightForExercise(exerciseId)
+
+    suspend fun sessionCountForExercise(exerciseId: String): Int =
+        workoutDao.sessionCountForExercise(exerciseId)
+
     suspend fun startSession(dayId: String): StartResult {
         val existing = workoutDao.findOpenSession(SeedCatalog.LOCAL_USER_ID, dayId)
         if (existing != null) return StartResult.Success(existing.id)

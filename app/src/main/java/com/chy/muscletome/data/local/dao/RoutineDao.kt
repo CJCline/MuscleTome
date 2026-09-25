@@ -60,6 +60,21 @@ interface RoutineDao {
     @Query("DELETE FROM routine_slots WHERE id = :id")
     suspend fun deleteSlot(id: String)
 
+    @Query(
+        """
+        UPDATE routine_slots
+        SET sets = :sets, repRangeMin = :repMin, repRangeMax = :repMax, restSeconds = :restSeconds
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateSlotMetrics(
+        id: String,
+        sets: Int,
+        repMin: Int,
+        repMax: Int,
+        restSeconds: Int,
+    )
+
     @Query("SELECT * FROM slot_target_muscles WHERE slotId = :slotId")
     suspend fun getSlotTargets(slotId: String): List<SlotTargetMuscleCrossRef>
 

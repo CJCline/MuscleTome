@@ -20,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -77,12 +76,6 @@ fun AddSlotScreen(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(state.sets, viewModel::onSetsChange, label = { Text("Sets") }, modifier = Modifier.weight(1f))
-                OutlinedTextField(state.repMin, viewModel::onRepMinChange, label = { Text("Rep min") }, modifier = Modifier.weight(1f))
-                OutlinedTextField(state.repMax, viewModel::onRepMaxChange, label = { Text("Rep max") }, modifier = Modifier.weight(1f))
-                OutlinedTextField(state.restSeconds, viewModel::onRestChange, label = { Text("Rest") }, modifier = Modifier.weight(1f))
-            }
 
             if (state.isTargetMode) {
                 Text("Movement preference", modifier = Modifier.padding(top = 8.dp))
@@ -129,9 +122,9 @@ fun AddSlotScreen(
                             headlineContent = { Text(exercise.name) },
                             supportingContent = { Text(exercise.primaryMuscleGroupId) },
                             leadingContent = {
-                                RadioButton(
-                                    selected = state.selectedExerciseId == exercise.id,
-                                    onClick = { viewModel.onExerciseSelected(exercise.id) },
+                                Checkbox(
+                                    checked = state.selectedExerciseIds.contains(exercise.id),
+                                    onCheckedChange = { viewModel.onExerciseSelected(exercise.id) },
                                 )
                             },
                             modifier = Modifier.clickable { viewModel.onExerciseSelected(exercise.id) },
@@ -147,7 +140,8 @@ fun AddSlotScreen(
                     .fillMaxWidth()
                     .height(48.dp),
             ) {
-                Text("Add to day")
+                val count = if (state.isTargetMode) state.selectedMuscleIds.size else state.selectedExerciseIds.size
+                Text(if (count > 1) "Add $count exercises" else "Add to day")
             }
         }
     }

@@ -66,6 +66,12 @@ fun AddExerciseScreen(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Name") },
                 singleLine = true,
+                isError = state.nameTaken,
+                supportingText = if (state.nameTaken) {
+                    { Text("An exercise with this name already exists") }
+                } else {
+                    null
+                },
             )
             OutlinedTextField(
                 value = state.description,

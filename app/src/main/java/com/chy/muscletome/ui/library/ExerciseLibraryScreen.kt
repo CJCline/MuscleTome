@@ -36,6 +36,7 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 @Composable
 fun ExerciseLibraryScreen(
     onAddExercise: () -> Unit,
+    onOpenExercise: (String) -> Unit,
     viewModel: ExerciseLibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,7 +93,10 @@ fun ExerciseLibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.exercises, key = { it.id }) { exercise ->
-                    ExerciseRow(exercise)
+                    ExerciseRow(
+                        exercise = exercise,
+                        onClick = { onOpenExercise(exercise.id) },
+                    )
                 }
             }
         }
@@ -100,8 +104,11 @@ fun ExerciseLibraryScreen(
 }
 
 @Composable
-private fun ExerciseRow(exercise: ExerciseEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun ExerciseRow(
+    exercise: ExerciseEntity,
+    onClick: () -> Unit,
+) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         ListItem(
             headlineContent = { Text(exercise.name) },
             supportingContent = {

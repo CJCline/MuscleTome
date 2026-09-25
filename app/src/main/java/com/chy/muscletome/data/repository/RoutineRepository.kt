@@ -55,10 +55,10 @@ class RoutineRepository @Inject constructor(
     suspend fun addFixedSlot(
         dayId: String,
         exerciseId: String,
-        sets: Int,
-        repMin: Int,
-        repMax: Int,
-        restSeconds: Int,
+        sets: Int = DEFAULT_SETS,
+        repMin: Int = DEFAULT_REP_MIN,
+        repMax: Int = DEFAULT_REP_MAX,
+        restSeconds: Int = DEFAULT_REST_SECONDS,
     ) {
         routineDao.insertSlot(
             RoutineSlotEntity(
@@ -76,14 +76,19 @@ class RoutineRepository @Inject constructor(
         )
     }
 
+    /** Adds one slot per exercise, preserving the given order. */
+    suspend fun addFixedSlots(dayId: String, exerciseIds: List<String>) {
+        exerciseIds.forEach { addFixedSlot(dayId, it) }
+    }
+
     suspend fun addTargetSlot(
         dayId: String,
         muscleGroupIds: List<String>,
         movementType: TargetMovementType,
-        sets: Int,
-        repMin: Int,
-        repMax: Int,
-        restSeconds: Int,
+        sets: Int = DEFAULT_SETS,
+        repMin: Int = DEFAULT_REP_MIN,
+        repMax: Int = DEFAULT_REP_MAX,
+        restSeconds: Int = DEFAULT_REST_SECONDS,
     ) {
         val slotId = UUID.randomUUID().toString()
         routineDao.insertSlot(
@@ -106,6 +111,21 @@ class RoutineRepository @Inject constructor(
     }
 
     suspend fun deleteRoutine(id: String) = routineDao.deleteRoutine(id)
+
+    suspend fun updateSlot(
+        id: String,
+        sets: Int,
+        repMin: Int,
+        repMax: Int,
+        restSeconds: Int,
+    ) = routineDao.updateSlotMetrics(id, sets, repMin, repMax, restSeconds)
+
+    companion object {
+        const val DEFAULT_SETS = 3
+        const val DEFAULT_REP_MIN = 8
+        const val DEFAULT_REP_MAX = 12
+        const val DEFAULT_REST_SECONDS = 90
+    }
     suspend fun deleteDay(id: String) = routineDao.deleteDay(id)
     suspend fun deleteSlot(id: String) = routineDao.deleteSlot(id)
 }

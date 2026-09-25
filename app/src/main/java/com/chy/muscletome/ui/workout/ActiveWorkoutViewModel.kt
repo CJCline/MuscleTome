@@ -39,6 +39,7 @@ data class ActiveWorkoutUiState(
     val restSecondsLeft: Int = 0,
     val finished: Boolean = false,
     val catalogExercises: List<ExerciseEntity> = emptyList(),
+    val swapQuery: String = "",
 ) {
     val current: ActiveSlot? get() = slots.getOrNull(currentIndex)
     val currentSetNumber: Int get() = (current?.sets?.size ?: 0) + 1
@@ -66,6 +67,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val rpe = MutableStateFlow("")
     private val restSecondsLeft = MutableStateFlow(0)
     private val finished = MutableStateFlow(false)
+    private val swapQuery = MutableStateFlow("")
     private var restJob: Job? = null
     private var loadedDefaultsForResultId: String? = null
 
@@ -89,6 +91,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         rpe,
         restSecondsLeft,
         finished,
+        swapQuery,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val results = values[0] as List<SessionSlotResultEntity>
@@ -104,6 +107,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val rpeText = values[7] as String
         val rest = values[8] as Int
         val isFinished = values[9] as Boolean
+        val swapFilter = values[10] as String
 
         val exerciseMap = exercises.associateBy { it.id }
         val slotMap = routineSlots.associateBy { it.id }
@@ -126,7 +130,10 @@ class ActiveWorkoutViewModel @Inject constructor(
             rpe = rpeText,
             restSecondsLeft = rest,
             finished = isFinished,
-            catalogExercises = exercises,
+            catalogExercises = exercises.filter {
+                it.name.contains(swapFilter, ignoreCase = true)
+            },
+            swapQuery = swapFilter,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
 
@@ -150,6 +157,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun onWeightChange(value: String) { weight.value = value }
     fun onRepsChange(value: String) { reps.value = value }
     fun onRpeChange(value: String) { rpe.value = value }
+    fun onSwapQueryChange(value: String) { swapQuery.value = value }
 
     fun bumpWeight(delta: Double) {
         val current = weight.value.toDoubleOrNull() ?: 0.0

@@ -5,16 +5,23 @@ import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.CreateExerciseResult
 import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 data class AddExerciseUiState(
     val name: String = "",
@@ -24,10 +31,12 @@ data class AddExerciseUiState(
     val primaryMuscleGroupId: String? = null,
     val movementType: MovementType = MovementType.COMPOUND,
     val selectedEquipmentIds: Set<String> = emptySet(),
+    val nameTaken: Boolean = false,
     val canSave: Boolean = false,
     val saved: Boolean = false,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class AddExerciseViewModel @Inject constructor(
     private val repository: CatalogRepository,
@@ -40,6 +49,12 @@ class AddExerciseViewModel @Inject constructor(
     private val selectedEquipmentIds = MutableStateFlow<Set<String>>(emptySet())
     private val saved = MutableStateFlow(false)
 
+    private val nameTaken = name
+        .debounce(250.milliseconds)
+        .flatMapLatest { value ->
+            if (value.isBlank()) flowOf(false) else repository.observeNameTaken(value)
+        }
+
     val uiState = combine(
         repository.observeMuscleGroups(),
         repository.observeEquipment(),
@@ -48,6 +63,7 @@ class AddExerciseViewModel @Inject constructor(
         primaryMuscleGroupId,
         movementType,
         selectedEquipmentIds,
+        nameTaken,
         saved,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
@@ -60,7 +76,8 @@ class AddExerciseViewModel @Inject constructor(
         val type = values[5] as MovementType
         @Suppress("UNCHECKED_CAST")
         val equipmentIds = values[6] as Set<String>
-        val isSaved = values[7] as Boolean
+        val isNameTaken = values[7] as Boolean
+        val isSaved = values[8] as Boolean
 
         AddExerciseUiState(
             name = currentName,
@@ -70,7 +87,8 @@ class AddExerciseViewModel @Inject constructor(
             primaryMuscleGroupId = muscleId,
             movementType = type,
             selectedEquipmentIds = equipmentIds,
-            canSave = currentName.isNotBlank() && muscleId != null && equipmentIds.isNotEmpty(),
+            nameTaken = isNameTaken,
+            canSave = currentName.isNotBlank() && !isNameTaken && muscleId != null && equipmentIds.isNotEmpty(),
             saved = isSaved,
         )
     }.stateIn(
@@ -95,7 +113,7 @@ class AddExerciseViewModel @Inject constructor(
         val muscleId = state.primaryMuscleGroupId ?: return
         if (!state.canSave) return
         viewModelScope.launch {
-            repository.createCustomExercise(
+            val result = repository.createCustomExercise(
                 name = state.name,
                 description = state.description,
                 primaryMuscleGroupId = muscleId,
@@ -105,7 +123,9 @@ class AddExerciseViewModel @Inject constructor(
                 equipmentIds = state.selectedEquipmentIds.toList(),
                 secondaryMuscleGroupIds = emptyList(),
             )
-            saved.value = true
+            if (result == CreateExerciseResult.SUCCESS) {
+                saved.value = true
+            }
         }
     }
 }

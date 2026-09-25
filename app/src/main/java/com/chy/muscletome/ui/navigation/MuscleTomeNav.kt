@@ -22,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.chy.muscletome.ui.library.AddExerciseScreen
+import com.chy.muscletome.ui.library.ExerciseDetailScreen
 import com.chy.muscletome.ui.library.ExerciseLibraryScreen
 import com.chy.muscletome.ui.routine.AddSlotScreen
 import com.chy.muscletome.ui.routine.DayDetailScreen
@@ -164,10 +165,17 @@ fun MuscleTomeNav() {
             composable("library") {
                 ExerciseLibraryScreen(
                     onAddExercise = { navController.navigate("add_exercise") },
+                    onOpenExercise = { exerciseId -> navController.navigate("exercise/$exerciseId") },
                 )
             }
             composable("add_exercise") {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "exercise/{exerciseId}",
+                arguments = listOf(navArgument("exerciseId") { type = NavType.StringType }),
+            ) {
+                ExerciseDetailScreen(onBack = { navController.popBackStack() })
             }
             composable(route = "stats") {
                 StatsScreen(

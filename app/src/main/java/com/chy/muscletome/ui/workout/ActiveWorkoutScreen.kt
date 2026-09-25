@@ -177,21 +177,43 @@ fun ActiveWorkoutScreen(
 
     if (showSwap) {
         AlertDialog(
-            onDismissRequest = { showSwap = false },
+            onDismissRequest = {
+                showSwap = false
+                viewModel.onSwapQueryChange("")
+            },
             title = { Text("Replace exercise") },
             text = {
-                LazyColumn {
-                    items(state.catalogExercises, key = { it.id }) { exercise ->
-                        Text(
-                            exercise.name,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.overrideWith(exercise.id)
-                                    showSwap = false
-                                }
-                                .padding(vertical = 8.dp),
-                        )
+                Column {
+                    OutlinedTextField(
+                        value = state.swapQuery,
+                        onValueChange = viewModel::onSwapQueryChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Search exercises") },
+                    )
+                    LazyColumn {
+                        items(state.catalogExercises, key = { it.id }) { exercise ->
+                            Text(
+                                exercise.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.overrideWith(exercise.id)
+                                        showSwap = false
+                                        viewModel.onSwapQueryChange("")
+                                    }
+                                    .padding(vertical = 8.dp),
+                            )
+                        }
+                        if (state.catalogExercises.isEmpty()) {
+                            item {
+                                Text(
+                                    "No exercises match your search",
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
                     }
                 }
             },

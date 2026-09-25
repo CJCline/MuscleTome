@@ -45,6 +45,24 @@ interface WorkoutDao {
     )
     suspend fun lastSetForExercise(exerciseId: String): SetLogEntity?
 
+    @Query(
+        """
+        SELECT MAX(sl.weight) FROM set_logs sl
+        INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id
+        WHERE ssr.resolvedExerciseId = :exerciseId
+        """,
+    )
+    suspend fun bestWeightForExercise(exerciseId: String): Double?
+
+    @Query(
+        """
+        SELECT COUNT(DISTINCT ssr.sessionId) FROM session_slot_results ssr
+        INNER JOIN set_logs sl ON sl.sessionSlotResultId = ssr.id
+        WHERE ssr.resolvedExerciseId = :exerciseId
+        """,
+    )
+    suspend fun sessionCountForExercise(exerciseId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(row: WorkoutSessionEntity)
 

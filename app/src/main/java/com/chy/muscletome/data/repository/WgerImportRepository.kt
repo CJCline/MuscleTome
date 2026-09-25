@@ -20,6 +20,7 @@ data class WgerImportProgress(
     val fetched: Int = 0,
     val imported: Int = 0,
     val skipped: Int = 0,
+    val duplicates: Int = 0,
     /** 0f..1f for the progress bar; 0 when total unknown */
     val fraction: Float = 0f,
     val message: String = "",
@@ -40,8 +41,11 @@ class WgerImportRepository @Inject constructor(
         var offset = 0
         var imported = 0
         var skipped = 0
+        var duplicates = 0
         var fetched = 0
         var total = 0
+        val existingNames = catalogDao.getExerciseNames()
+            .mapTo(mutableSetOf()) { it.trim().lowercase() }
         try {
             repeat(maxPages) { page ->
                 val pageData = api.fetchPage(offset = offset, limit = 50)
@@ -64,6 +68,11 @@ class WgerImportRepository @Inject constructor(
                         ?: item.musclesSecondary.firstNotNullOfOrNull { WgerMapper.muscleId(it.nameEn) }
                     if (primary == null) {
                         skipped++
+                        continue
+                    }
+
+                    if (!existingNames.add(name.lowercase())) {
+                        duplicates++
                         continue
                     }
 
@@ -128,8 +137,9 @@ class WgerImportRepository @Inject constructor(
                     fetched = fetched,
                     imported = imported,
                     skipped = skipped,
+                    duplicates = duplicates,
                     fraction = fraction,
-                    message = "Imported $imported of ~$total (skipped $skipped)",
+                    message = "Imported $imported of ~$total (skipped $skipped, duplicates $duplicates)",
                 )
 
                 if (pageData.next.isNullOrBlank()) return@repeat
@@ -142,8 +152,9 @@ class WgerImportRepository @Inject constructor(
                 fetched = fetched,
                 imported = imported,
                 skipped = skipped,
+                duplicates = duplicates,
                 fraction = 1f,
-                message = "Done. Imported $imported, skipped $skipped.",
+                message = "Done. Imported $imported, skipped $skipped, duplicates $duplicates.",
             )
         } catch (t: Throwable) {
             _progress.value = WgerImportProgress(
@@ -152,6 +163,7 @@ class WgerImportRepository @Inject constructor(
                 fetched = fetched,
                 imported = imported,
                 skipped = skipped,
+                duplicates = duplicates,
                 fraction = if (total > 0) fetched.toFloat() / total else 0f,
                 message = "Stopped after $imported imports.",
                 error = t.message ?: "Import failed",

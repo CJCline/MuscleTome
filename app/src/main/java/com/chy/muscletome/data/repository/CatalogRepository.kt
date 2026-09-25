@@ -16,6 +16,8 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+enum class CreateExerciseResult { SUCCESS, NAME_TAKEN }
+
 @Singleton
 class CatalogRepository @Inject constructor(
     private val catalogDao: CatalogDao,
@@ -23,6 +25,22 @@ class CatalogRepository @Inject constructor(
     fun observeExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeExercises()
     fun observeMuscleGroups(): Flow<List<MuscleGroupEntity>> = catalogDao.observeMuscleGroups()
     fun observeEquipment(): Flow<List<EquipmentEntity>> = catalogDao.observeEquipment()
+
+    fun searchExercises(query: String, muscleGroupId: String?): Flow<List<ExerciseEntity>> =
+        catalogDao.searchExercises(escapeLike(query), muscleGroupId)
+
+    fun observeExercise(id: String): Flow<ExerciseEntity?> = catalogDao.observeExercise(id)
+
+    fun observeEquipmentForExercise(id: String): Flow<List<EquipmentEntity>> =
+        catalogDao.observeEquipmentForExercise(id)
+
+    fun observeSecondaryMusclesForExercise(id: String): Flow<List<MuscleGroupEntity>> =
+        catalogDao.observeSecondaryMusclesForExercise(id)
+
+    fun observeNameTaken(name: String): Flow<Boolean> = catalogDao.observeNameTaken(name.trim())
+
+    suspend fun getExerciseByName(name: String): ExerciseEntity? =
+        catalogDao.getExerciseByName(name.trim())
 
     suspend fun createCustomExercise(
         name: String,
@@ -33,7 +51,11 @@ class CatalogRepository @Inject constructor(
         difficulty: Difficulty,
         equipmentIds: List<String>,
         secondaryMuscleGroupIds: List<String>,
-    ) {
+    ): CreateExerciseResult {
+        val trimmedName = name.trim()
+        if (catalogDao.getExerciseByName(trimmedName) != null) {
+            return CreateExerciseResult.NAME_TAKEN
+        }
         val id = "user_${UUID.randomUUID()}"
         catalogDao.insertExercises(
             listOf(
@@ -57,5 +79,10 @@ class CatalogRepository @Inject constructor(
         catalogDao.insertSecondaryMuscles(
             secondaryMuscleGroupIds.map { ExerciseSecondaryMuscleCrossRef(id, it) },
         )
+        return CreateExerciseResult.SUCCESS
     }
+
+    /** Escapes SQL LIKE wildcards so user input matches literally (DAO uses ESCAPE '\\'). */
+    private fun escapeLike(input: String): String =
+        input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 }
