@@ -11,6 +11,7 @@ import com.chy.muscletome.data.repository.StartResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
@@ -24,6 +25,7 @@ data class HomeUiState(
     val nextRoutineName: String? = null,
     val lastCompleted: WorkoutSessionEntity? = null,
     val routines: List<RoutineEntity> = emptyList(),
+    val startingWorkout: Boolean = false,
 )
 
 @HiltViewModel
@@ -35,12 +37,20 @@ class HomeViewModel @Inject constructor(
     private val _startSessionId = MutableSharedFlow<String>()
     val startSessionId: SharedFlow<String> = _startSessionId.asSharedFlow()
 
+    // True while a fresh workout start is in flight. The open session is inserted
+    // into the DB before navigation completes, which would otherwise make the
+    // home screen briefly flash the "Workout in progress" card (Resume/Discard)
+    // on the way to the workout screen. HomeScreen clears the flag once it has
+    // fully left composition (i.e. after the navigation transition finishes).
+    private val _startingWorkout = MutableStateFlow(false)
+
     val uiState = combine(
         workoutRepository.observeOpenSession(),
         workoutRepository.observeLastCompletedSession(),
         routineRepository.observeRoutines(),
         routineRepository.observeAllDays(),
-    ) { open, lastCompleted, routines, days ->
+        _startingWorkout,
+    ) { open, lastCompleted, routines, days, starting ->
         val next = nextDay(lastCompleted, days)
         HomeUiState(
             openSession = open,
@@ -48,6 +58,7 @@ class HomeViewModel @Inject constructor(
             nextRoutineName = routines.find { it.id == next?.routineId }?.name,
             lastCompleted = lastCompleted,
             routines = routines,
+            startingWorkout = starting,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
@@ -65,12 +76,29 @@ class HomeViewModel @Inject constructor(
 
     fun startNextDay() {
         val dayId = uiState.value.nextDay?.id ?: return
+        if (_startingWorkout.value) return
         viewModelScope.launch {
-            when (val result = workoutRepository.startSession(dayId)) {
-                is StartResult.Success -> _startSessionId.emit(result.sessionId)
-                is StartResult.NoMatch -> { /* ignore or add an error message later */ }
+            _startingWorkout.value = true
+            var navigated = false
+            try {
+                when (val result = workoutRepository.startSession(dayId)) {
+                    is StartResult.Success -> {
+                        _startSessionId.emit(result.sessionId)
+                        navigated = true
+                    }
+                    is StartResult.NoMatch -> { /* ignore or add an error message later */ }
+                }
+            } finally {
+                // On success the flag stays set: the navigation transition is still
+                // running and the open-session card would flash while fading out.
+                // HomeScreen clears it via clearStartingWorkout() once it is gone.
+                if (!navigated) _startingWorkout.value = false
             }
         }
+    }
+
+    fun clearStartingWorkout() {
+        _startingWorkout.value = false
     }
 
     private fun nextDay(

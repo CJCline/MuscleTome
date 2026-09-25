@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -42,6 +43,12 @@ fun HomeScreen(
         }
     }
 
+    // Clear the "starting workout" flag once Home has fully left composition
+    // (i.e. the navigation transition to the workout screen has finished).
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.clearStartingWorkout() }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("Today") }) },
     ) { innerPadding ->
@@ -52,7 +59,11 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (state.openSession != null) {
+            // While a workout start is in flight, keep showing the "Up next" card.
+            // The open session row already exists at that point and would otherwise
+            // flash the "Workout in progress" (Resume/Discard) card before
+            // navigation lands on the workout screen.
+            if (state.openSession != null && !state.startingWorkout) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
@@ -88,6 +99,7 @@ fun HomeScreen(
                             )
                             Button(
                                 onClick = viewModel::startNextDay,
+                                enabled = !state.startingWorkout,
                                 modifier = Modifier.fillMaxWidth(),
                             ) { Text("Start workout") }
                         }
