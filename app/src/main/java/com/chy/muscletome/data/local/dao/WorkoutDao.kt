@@ -10,6 +10,15 @@ import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
 import kotlinx.coroutines.flow.Flow
 
+/** One logged set for an exercise, with the session it belongs to. */
+data class ExerciseSetPoint(
+    val sessionId: String,
+    val sessionStartEpochMs: Long,
+    val completedAtEpochMs: Long,
+    val weight: Double,
+    val reps: Int,
+)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE userId = :userId ORDER BY startedAtEpochMs DESC")
@@ -44,6 +53,22 @@ interface WorkoutDao {
         """,
     )
     suspend fun lastSetForExercise(exerciseId: String): SetLogEntity?
+
+    @Query(
+        """
+        SELECT ssr.sessionId AS sessionId,
+               ws.startedAtEpochMs AS sessionStartEpochMs,
+               sl.completedAtEpochMs AS completedAtEpochMs,
+               sl.weight AS weight,
+               sl.reps AS reps
+        FROM set_logs sl
+        INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id
+        INNER JOIN workout_sessions ws ON ssr.sessionId = ws.id
+        WHERE ssr.resolvedExerciseId = :exerciseId
+        ORDER BY sl.completedAtEpochMs ASC
+        """,
+    )
+    fun observeExerciseSetPoints(exerciseId: String): Flow<List<ExerciseSetPoint>>
 
     @Query(
         """

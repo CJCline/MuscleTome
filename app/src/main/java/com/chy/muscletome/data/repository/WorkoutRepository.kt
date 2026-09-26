@@ -1,6 +1,7 @@
 package com.chy.muscletome.data.repository
 
 import com.chy.muscletome.data.local.dao.CatalogDao
+import com.chy.muscletome.data.local.dao.ExerciseSetPoint
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
@@ -56,6 +57,9 @@ class WorkoutRepository @Inject constructor(
 
     suspend fun sessionCountForExercise(exerciseId: String): Int =
         workoutDao.sessionCountForExercise(exerciseId)
+
+    fun observeExerciseSetPoints(exerciseId: String): Flow<List<ExerciseSetPoint>> =
+        workoutDao.observeExerciseSetPoints(exerciseId)
 
     suspend fun startSession(dayId: String): StartResult {
         val existing = workoutDao.findOpenSession(SeedCatalog.LOCAL_USER_ID, dayId)

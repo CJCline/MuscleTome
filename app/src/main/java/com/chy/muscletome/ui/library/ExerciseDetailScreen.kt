@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
@@ -96,55 +95,12 @@ internal fun ExerciseDetailContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (!exercise.demoUri.isNullOrBlank()) {
-            AsyncImage(
-                model = exercise.demoUri,
-                contentDescription = exercise.name,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("About") },
-                supportingContent = {
-                    Text(
-                        listOfNotNull(
-                            exercise.description.takeIf { it.isNotBlank() },
-                            "Movement: ${exercise.movementType.name.lowercase()} " +
-                                "(${exercise.movementPattern.name.lowercase()})",
-                            "Difficulty: ${exercise.difficulty.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                            if (exercise.isCustom) "Custom exercise" else null,
-                        ).joinToString("\n"),
-                    )
-                },
-            )
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("Muscles") },
-                supportingContent = {
-                    val secondary = state.secondaryMuscles.joinToString { it.name }
-                    Text(
-                        if (secondary.isBlank()) state.primaryMuscleName
-                        else "${state.primaryMuscleName} (also: $secondary)",
-                    )
-                },
-            )
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("Equipment") },
-                supportingContent = {
-                    Text(
-                        if (state.equipment.isEmpty()) "None"
-                        else state.equipment.joinToString { it.name },
-                    )
-                },
-            )
-        }
+        ExerciseInfoContent(
+            exercise = exercise,
+            equipment = state.equipment,
+            secondaryMuscles = state.secondaryMuscles,
+            primaryMuscleName = state.primaryMuscleName,
+        )
 
         Card(modifier = Modifier.fillMaxWidth()) {
             ListItem(

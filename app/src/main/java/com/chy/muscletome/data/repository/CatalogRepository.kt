@@ -39,6 +39,11 @@ class CatalogRepository @Inject constructor(
 
     fun observeNameTaken(name: String): Flow<Boolean> = catalogDao.observeNameTaken(name.trim())
 
+    /** Persists the user's personal note for an exercise across sessions. */
+    suspend fun updateExerciseNotes(exerciseId: String, notes: String) {
+        catalogDao.updateExerciseNotes(exerciseId, notes)
+    }
+
     suspend fun getExerciseByName(name: String): ExerciseEntity? =
         catalogDao.getExerciseByName(name.trim())
 

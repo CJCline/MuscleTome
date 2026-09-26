@@ -50,6 +50,9 @@ interface CatalogDao {
     @Query("SELECT EXISTS(SELECT 1 FROM exercises WHERE name = :name COLLATE NOCASE)")
     fun observeNameTaken(name: String): Flow<Boolean>
 
+    @Query("UPDATE exercises SET notes = :notes WHERE id = :exerciseId")
+    suspend fun updateExerciseNotes(exerciseId: String, notes: String)
+
     @Query("SELECT * FROM muscle_groups ORDER BY name")
     suspend fun getMuscleGroups(): List<MuscleGroupEntity>
 
