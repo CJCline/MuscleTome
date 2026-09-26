@@ -6,8 +6,10 @@ import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
 import com.chy.muscletome.data.repository.RoutineRepository
-import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.data.repository.StartResult
+import com.chy.muscletome.data.repository.UserRepository
+import com.chy.muscletome.data.repository.WorkoutRepository
+import com.chy.muscletome.data.timer.RestTimerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,17 +27,24 @@ data class HomeUiState(
     val nextRoutineName: String? = null,
     val lastCompleted: WorkoutSessionEntity? = null,
     val routines: List<RoutineEntity> = emptyList(),
+    val activeRoutineId: String? = null,
     val startingWorkout: Boolean = false,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
+    private val userRepository: UserRepository,
     routineRepository: RoutineRepository,
+    private val restTimerManager: RestTimerManager,
 ) : ViewModel() {
 
     private val _startSessionId = MutableSharedFlow<String>()
     val startSessionId: SharedFlow<String> = _startSessionId.asSharedFlow()
+
+    /** Emits when starting a workout failed (e.g. no exercise matches a slot). */
+    private val _startError = MutableSharedFlow<String>()
+    val startError: SharedFlow<String> = _startError.asSharedFlow()
 
     // True while a fresh workout start is in flight. The open session is inserted
     // into the DB before navigation completes, which would otherwise make the
@@ -48,16 +57,29 @@ class HomeViewModel @Inject constructor(
         workoutRepository.observeOpenSession(),
         workoutRepository.observeLastCompletedSession(),
         routineRepository.observeRoutines(),
-        routineRepository.observeAllDays(),
+        // Days + the active-routine pointer flow together as one source so
+        // the outer combine stays within its typed overload.
+        combine(
+            routineRepository.observeAllDays(),
+            userRepository.observeUser(),
+        ) { days, user -> days to user?.activeRoutineId },
         _startingWorkout,
-    ) { open, lastCompleted, routines, days, starting ->
-        val next = nextDay(lastCompleted, days)
+    ) { open, lastCompleted, routines, daysAndActive, starting ->
+        val (days, activeRoutineId) = daysAndActive
+        // The explicit choice wins; a stale pointer (deleted routine) or no
+        // choice yet falls back to the newest routine — "Up next" is always
+        // scoped to one routine, never a global interleave of programs.
+        val effectiveActive = activeRoutineId
+            ?.takeIf { id -> routines.any { it.id == id } }
+            ?: routines.firstOrNull()?.id
+        val next = nextDay(effectiveActive, lastCompleted, days)
         HomeUiState(
             openSession = open,
             nextDay = next,
             nextRoutineName = routines.find { it.id == next?.routineId }?.name,
             lastCompleted = lastCompleted,
             routines = routines,
+            activeRoutineId = effectiveActive,
             startingWorkout = starting,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
@@ -70,6 +92,9 @@ class HomeViewModel @Inject constructor(
     fun discardOpenSession() {
         val sessionId = uiState.value.openSession?.id ?: return
         viewModelScope.launch {
+            // A discarded session must not leave a stray rest notification
+            // behind or fire a beep later.
+            restTimerManager.cancel()
             workoutRepository.discardSession(sessionId)
         }
     }
@@ -86,7 +111,7 @@ class HomeViewModel @Inject constructor(
                         _startSessionId.emit(result.sessionId)
                         navigated = true
                     }
-                    is StartResult.NoMatch -> { /* ignore or add an error message later */ }
+                    is StartResult.NoMatch -> _startError.emit(noMatchMessage(result.slotLabel))
                 }
             } finally {
                 // On success the flag stays set: the navigation transition is still
@@ -97,20 +122,38 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Explicit "switch program" control — pins Home's "Up next" to a routine. */
+    fun setActiveRoutine(routineId: String) {
+        if (uiState.value.activeRoutineId == routineId) return
+        viewModelScope.launch { userRepository.setActiveRoutine(routineId) }
+    }
+
     fun clearStartingWorkout() {
         _startingWorkout.value = false
     }
 
+    private fun noMatchMessage(slotLabel: String): String =
+        "No matching exercise for \"$slotLabel\" with your equipment. " +
+            "Add equipment in Settings or change the slot."
+
+    /**
+     * Next-up day of the [activeRoutineId] program only, advancing from the
+     * last completed day with wrap-around. Sessions finished in *other*
+     * routines never advance this pointer — programs don't interleave.
+     */
     private fun nextDay(
+        activeRoutineId: String?,
         lastCompleted: WorkoutSessionEntity?,
         days: List<RoutineDayEntity>,
     ): RoutineDayEntity? {
-        if (days.isEmpty()) return null
-        val ordered = days.sortedWith(compareBy({ it.routineId }, { it.orderIndex }))
+        if (activeRoutineId == null) return null
+        val routineDays = days
+            .filter { it.routineId == activeRoutineId }
+            .sortedBy { it.orderIndex }
+        if (routineDays.isEmpty()) return null
         val lastDayId = lastCompleted?.routineDayId
-        if (lastDayId == null) return ordered.first()
-        val index = ordered.indexOfFirst { it.id == lastDayId }
-        if (index < 0) return ordered.first()
-        return ordered[(index + 1) % ordered.size]
+        val index = routineDays.indexOfFirst { it.id == lastDayId }
+        if (index < 0) return routineDays.first()
+        return routineDays[(index + 1) % routineDays.size]
     }
 }

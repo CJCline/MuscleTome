@@ -2,9 +2,11 @@ package com.chy.muscletome.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Card
-import androidx.compose.material3.ListItem
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,6 +15,8 @@ import coil.compose.AsyncImage
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
+import com.chy.muscletome.ui.components.LedgerDivider
+import com.chy.muscletome.ui.components.SectionHeader
 
 /**
  * The wger-sourced reference info for an exercise: demo image, description,
@@ -39,46 +43,51 @@ internal fun ExerciseInfoContent(
             )
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("About") },
-                supportingContent = {
-                    Text(
-                        listOfNotNull(
-                            exercise.description.takeIf { it.isNotBlank() },
-                            "Movement: ${exercise.movementType.name.lowercase()} " +
-                                "(${exercise.movementPattern.name.lowercase()})",
-                            "Difficulty: ${exercise.difficulty.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                            if (exercise.isCustom) "Custom exercise" else null,
-                        ).joinToString("\n"),
-                    )
-                },
+        LedgerInfoBlock(label = "About") {
+            Text(
+                listOfNotNull(
+                    exercise.description.takeIf { it.isNotBlank() },
+                    "Movement: ${exercise.movementType.name.lowercase()} " +
+                        "(${exercise.movementPattern.name.lowercase()})",
+                    "Difficulty: ${exercise.difficulty.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    if (exercise.isCustom) "Custom exercise" else null,
+                ).joinToString("\n"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("Muscles") },
-                supportingContent = {
-                    val secondary = secondaryMuscles.joinToString { it.name }
-                    Text(
-                        if (secondary.isBlank()) primaryMuscleName
-                        else "$primaryMuscleName (also: $secondary)",
-                    )
-                },
+        LedgerInfoBlock(label = "Muscles") {
+            val secondary = secondaryMuscles.joinToString { it.name }
+            Text(
+                if (secondary.isBlank()) primaryMuscleName
+                else "$primaryMuscleName (also: $secondary)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("Equipment") },
-                supportingContent = {
-                    Text(
-                        if (equipment.isEmpty()) "None"
-                        else equipment.joinToString { it.name },
-                    )
-                },
+        LedgerInfoBlock(label = "Equipment") {
+            Text(
+                if (equipment.isEmpty()) "None"
+                else equipment.joinToString { it.name },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** A ledger entry block: section header, steel body, hairline below. */
+@Composable
+private fun LedgerInfoBlock(
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionHeader(label)
+        Row(modifier = Modifier.padding(start = 13.dp)) { content() }
+        Spacer(Modifier.padding(top = 0.dp))
+        LedgerDivider()
     }
 }

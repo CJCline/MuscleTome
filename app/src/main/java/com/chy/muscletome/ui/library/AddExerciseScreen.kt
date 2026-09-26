@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.MovementType
+import com.chy.muscletome.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +81,7 @@ fun AddExerciseScreen(
                 label = { Text("Description") },
             )
 
-            Text("Primary muscle")
+            SectionHeader("Primary muscle")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.muscles.forEach { muscle ->
                     FilterChip(
@@ -91,7 +92,7 @@ fun AddExerciseScreen(
                 }
             }
 
-            Text("Movement type")
+            SectionHeader("Movement type")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MovementType.entries.forEach { type ->
                     FilterChip(
@@ -102,7 +103,7 @@ fun AddExerciseScreen(
                 }
             }
 
-            Text("Equipment")
+            SectionHeader("Equipment")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.equipment.forEach { item ->
                     FilterChip(

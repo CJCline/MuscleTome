@@ -11,13 +11,19 @@ import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
+import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
+import com.chy.muscletome.data.timer.RestTimerManager
+import com.chy.muscletome.di.ApplicationScope
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
+import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -91,7 +97,11 @@ data class ActiveWorkoutUiState(
     val lastSessions: List<ExerciseSessionSummary> = emptyList(),
     val progressPoints: List<ProgressPoint> = emptyList(),
     val progressSpan: ProgressSpan = ProgressSpan.LAST_30,
+    /** Shared exercise cues (persist on the exercise, cross-session). */
     val note: String = "",
+    /** Remark about the on-screen exercise in THIS session only. */
+    val sessionNote: String = "",
+    val weightUnit: WeightUnit = WeightUnit.KG,
 ) {
     val current: ActiveSlot? get() = slots.getOrNull(currentIndex)
     val currentSetNumber: Int get() = (current?.sets?.size ?: 0) + 1
@@ -100,6 +110,12 @@ data class ActiveWorkoutUiState(
         current == null || plannedSets == 0 || current!!.sets.size >= plannedSets
     val isLastExercise: Boolean get() =
         slots.isEmpty() || currentIndex == slots.lastIndex
+
+    /** Stepper increment driven by the user's unit: 2.5 kg / 5 lb. */
+    val weightStep: Double get() = if (weightUnit == WeightUnit.LB) 5.0 else 2.5
+    /** Long-press micro increment (half plate: 1.25 kg / 2.5 lb). */
+    val weightLongStep: Double get() = weightStep / 2.0
+    val weightUnitSuffix: String get() = if (weightUnit == WeightUnit.LB) " lb" else " kg"
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -109,6 +125,9 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val routineDao: RoutineDao,
     private val catalogRepository: CatalogRepository,
+    userRepository: UserRepository,
+    private val restTimerManager: RestTimerManager,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     private val sessionId: String = checkNotNull(savedStateHandle["sessionId"])
@@ -123,6 +142,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val finished = MutableStateFlow(false)
     private val swapQuery = MutableStateFlow("")
     private val note = MutableStateFlow("")
+    private val sessionNote = MutableStateFlow("")
     private var restJob: Job? = null
     private var loadedDefaultsForResultId: String? = null
 
@@ -131,6 +151,12 @@ class ActiveWorkoutViewModel @Inject constructor(
     private var noteLoadedForExerciseId: String? = null
     private var noteSaveJob: Job? = null
 
+    // Session note belongs to the slot result (this exercise, this workout).
+    private var sessionNoteLoadedForResultId: String? = null
+    private var sessionNoteSaveJob: Job? = null
+
+    private val currentUser: Flow<UserEntity?> = userRepository.observeUser()
+
     init {
         viewModelScope.launch {
             workoutRepository.observeSession(sessionId).collect { session ->
@@ -138,6 +164,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                 slotsByDay.value = routineDao.getSlots(dayId)
             }
         }
+        // The rest countdown outlives the process — pick it back up here.
+        val remaining = restTimerManager.remainingSeconds()
+        if (remaining > 0) runCountdownUI(remaining)
     }
 
     // ID of the exercise shown on screen; follows rerolls and swaps because those
@@ -201,6 +230,8 @@ class ActiveWorkoutViewModel @Inject constructor(
         currentExerciseSets,
         progressSpan,
         note,
+        currentUser,
+        sessionNote,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val results = values[0] as List<SessionSlotResultEntity>
@@ -221,6 +252,9 @@ class ActiveWorkoutViewModel @Inject constructor(
         val exerciseSetPoints = values[11] as List<ExerciseSetPoint>
         val span = values[12] as ProgressSpan
         val noteText = values[13] as String
+        @Suppress("UNCHECKED_CAST")
+        val user = values[14] as UserEntity?
+        val sessionNoteText = values[15] as String
 
         val exerciseMap = exercises.associateBy { it.id }
         val slotMap = routineSlots.associateBy { it.id }
@@ -251,6 +285,8 @@ class ActiveWorkoutViewModel @Inject constructor(
             progressPoints = buildProgressPoints(exerciseSetPoints, span),
             progressSpan = span,
             note = noteText,
+            sessionNote = sessionNoteText,
+            weightUnit = user?.weightUnit ?: WeightUnit.KG,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
 
@@ -324,6 +360,11 @@ class ActiveWorkoutViewModel @Inject constructor(
                     noteLoadedForExerciseId = exerciseId
                     note.value = current.exercise?.notes.orEmpty()
                 }
+                // Session notes belong to this exercise in THIS workout.
+                if (sessionNoteLoadedForResultId != current.result.id) {
+                    sessionNoteLoadedForResultId = current.result.id
+                    sessionNote.value = current.result.sessionNote
+                }
             }
         }
     }
@@ -338,25 +379,53 @@ class ActiveWorkoutViewModel @Inject constructor(
         scheduleNoteSave()
     }
 
-    // Notes autosave: debounce writes so keystrokes don't hammer Room, and
-    // flush immediately whenever the user moves on from the exercise.
+    fun onSessionNoteChange(value: String) {
+        sessionNote.value = value
+        scheduleSessionNoteSave()
+    }
+
+    // Autosave (both notes): debounce writes so keystrokes don't hammer Room.
+    // Target id AND text are captured up front — by the time the debounce fires
+    // the user may already have moved to another exercise whose note has been
+    // loaded into the field. Saves run on the application scope so they still
+    // land when the ViewModel is torn down mid-debounce (Back now leaves the
+    // session open and is the normal exit).
     private fun scheduleNoteSave() {
         val exerciseId = uiState.value.current?.result?.resolvedExerciseId ?: return
+        val text = note.value
         noteSaveJob?.cancel()
-        noteSaveJob = viewModelScope.launch {
+        noteSaveJob = applicationScope.launch {
             delay(600)
-            catalogRepository.updateExerciseNotes(exerciseId, note.value)
+            catalogRepository.updateExerciseNotes(exerciseId, text)
         }
     }
 
     private fun flushNoteSave() {
         val pending = noteSaveJob ?: return
         val exerciseId = uiState.value.current?.result?.resolvedExerciseId ?: return
+        val text = note.value
         pending.cancel()
         noteSaveJob = null
-        viewModelScope.launch {
-            catalogRepository.updateExerciseNotes(exerciseId, note.value)
+        applicationScope.launch { catalogRepository.updateExerciseNotes(exerciseId, text) }
+    }
+
+    private fun scheduleSessionNoteSave() {
+        val resultId = uiState.value.current?.result?.id ?: return
+        val text = sessionNote.value
+        sessionNoteSaveJob?.cancel()
+        sessionNoteSaveJob = applicationScope.launch {
+            delay(600)
+            workoutRepository.updateSessionNote(resultId, text)
         }
+    }
+
+    private fun flushSessionNoteSave() {
+        val pending = sessionNoteSaveJob ?: return
+        val resultId = uiState.value.current?.result?.id ?: return
+        val text = sessionNote.value
+        pending.cancel()
+        sessionNoteSaveJob = null
+        applicationScope.launch { workoutRepository.updateSessionNote(resultId, text) }
     }
 
     fun bumpWeight(delta: Double) {
@@ -388,22 +457,53 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
+    /** Undoes the most recent set of the on-screen exercise. */
+    fun undoLastSet() {
+        val current = uiState.value.current ?: return
+        val last = current.sets.lastOrNull() ?: return
+        viewModelScope.launch { workoutRepository.deleteSet(last) }
+    }
+
+    /** Corrects a mis-logged set in place (tap-to-edit). */
+    fun updateSet(set: SetLogEntity, weight: Double, reps: Int, rpe: Float?) {
+        viewModelScope.launch {
+            workoutRepository.updateSet(set.copy(weight = weight, reps = reps, rpe = rpe))
+        }
+    }
+
+    fun deleteSet(set: SetLogEntity) {
+        viewModelScope.launch { workoutRepository.deleteSet(set) }
+    }
+
     fun nextExercise() {
         val state = uiState.value
         if (state.isLastExercise) return
         flushNoteSave()
+        flushSessionNoteSave()
         restJob?.cancel()
         restSecondsLeft.value = 0
+        restTimerManager.cancel()
         currentIndex.update { it + 1 }
     }
 
     fun skipRest() {
         restJob?.cancel()
         restSecondsLeft.value = 0
+        restTimerManager.cancel()
+    }
+
+    /** Adds [seconds] to the countdown; restarts the timer from the new total. */
+    fun addRest(seconds: Int) {
+        val current = restSecondsLeft.value
+        if (current <= 0) return
+        restTimerManager.addSeconds(seconds)
+        runCountdownUI(current + seconds)
     }
 
     fun finishWorkout() {
         flushNoteSave()
+        flushSessionNoteSave()
+        restTimerManager.cancel()
         viewModelScope.launch {
             workoutRepository.finishSession(sessionId)
             finished.value = true
@@ -450,11 +550,20 @@ class ActiveWorkoutViewModel @Inject constructor(
             restSecondsLeft.value = 0
             return
         }
+        // The notification + alarm survive screen-off and process death; the
+        // coroutine only drives the on-screen ring.
+        restTimerManager.startRest(seconds, uiState.value.current?.exercise?.name.orEmpty())
+        runCountdownUI(seconds)
+    }
+
+    /** Drives the on-screen ring only — no alarm/notification side effects. */
+    private fun runCountdownUI(seconds: Int) {
+        restJob?.cancel()
         restJob = viewModelScope.launch {
             restSecondsLeft.value = seconds
             while (restSecondsLeft.value > 0) {
                 delay(1_000)
-                restSecondsLeft.update { it - 1 }
+                restSecondsLeft.update { (it - 1).coerceAtLeast(0) }
             }
         }
     }

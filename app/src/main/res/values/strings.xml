@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Muscle Tome</string>
+    <string name="app_name">MuscleTome</string>
+    <string name="tagline">Every rep, a page.</string>
 </resources>

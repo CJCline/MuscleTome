@@ -8,6 +8,7 @@ import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.template.RoutineTemplate
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -111,6 +112,42 @@ class RoutineRepository @Inject constructor(
     }
 
     suspend fun deleteRoutine(id: String) = routineDao.deleteRoutine(id)
+
+    /**
+     * Materializes a [RoutineTemplate] into a real routine with days and
+     * slots. Returns the new routine id. Used by onboarding; the template's
+     * FIXED ids are validated against the seed catalog by RoutineTemplatesTest.
+     */
+    suspend fun applyTemplate(template: RoutineTemplate): String {
+        val routineId = createRoutine(template.name)
+        template.days.forEach { day ->
+            val dayId = addDay(routineId, day.name)
+            day.slots.forEach { slot ->
+                when (slot.type) {
+                    SlotType.FIXED -> addFixedSlot(
+                        dayId = dayId,
+                        exerciseId = requireNotNull(slot.exerciseId) {
+                            "Template FIXED slot is missing an exerciseId"
+                        },
+                        sets = slot.sets,
+                        repMin = slot.repRangeMin,
+                        repMax = slot.repRangeMax,
+                        restSeconds = slot.restSeconds,
+                    )
+                    SlotType.TARGET -> addTargetSlot(
+                        dayId = dayId,
+                        muscleGroupIds = slot.targetMuscleIds,
+                        movementType = slot.targetMovementType,
+                        sets = slot.sets,
+                        repMin = slot.repRangeMin,
+                        repMax = slot.repRangeMax,
+                        restSeconds = slot.restSeconds,
+                    )
+                }
+            }
+        }
+        return routineId
+    }
 
     suspend fun updateSlot(
         id: String,

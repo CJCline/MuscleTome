@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Room: export schema JSON to app/schemas/ so migrations can be written (and
+// validated) against a committed schema history. Keep the generated JSON in
+// git — CI fails if it drifts from the entities.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.chy.muscletome"
     compileSdk {

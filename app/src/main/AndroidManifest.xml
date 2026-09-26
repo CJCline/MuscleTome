@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".MuscleTomeApp"
@@ -23,6 +24,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- End-of-rest beep: scheduled via AlarmManager, delivered even if the
+             app process was killed mid-rest. -->
+        <receiver
+            android:name=".data.timer.RestAlarmReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

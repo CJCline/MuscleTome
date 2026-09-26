@@ -7,6 +7,9 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
 kotlin = "2.2.10"
+# KSP2 (>= 2.3.0) is versioned independently of the Kotlin compiler — the old
+# "<kotlin-version>-<ksp-version>" pinning scheme is gone, so ksp 2.3.12 pairs
+# with Kotlin 2.2.10 by design. CI (test + assembleDebug) guards this combo.
 ksp = "2.3.12"
 composeBom = "2026.02.01"
 room = "2.8.5"

@@ -8,7 +8,6 @@ import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
-import com.chy.muscletome.domain.model.SubscriptionStatus
 import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.model.WeightUnit
 
@@ -39,7 +38,4 @@ class Converters {
 
     @TypeConverter fun fromMatchStrictness(v: MatchStrictness) = v.name
     @TypeConverter fun toMatchStrictness(v: String) = MatchStrictness.valueOf(v)
-
-    @TypeConverter fun fromSubscriptionStatus(v: SubscriptionStatus) = v.name
-    @TypeConverter fun toSubscriptionStatus(v: String) = SubscriptionStatus.valueOf(v)
 }

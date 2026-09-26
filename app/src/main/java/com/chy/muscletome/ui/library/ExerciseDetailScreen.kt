@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +32,8 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.ui.components.MonoText
+import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 
@@ -102,24 +103,37 @@ internal fun ExerciseDetailContent(
             primaryMuscleName = state.primaryMuscleName,
         )
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ListItem(
-                headlineContent = { Text("History") },
-                supportingContent = {
-                    val history = state.history
-                    if (history.lastSet == null) {
-                        Text("No sets logged yet", style = MaterialTheme.typography.bodyMedium)
-                    } else {
-                        Text(
-                            "Last set: ${history.lastSet.weight} × ${history.lastSet.reps}\n" +
-                                "Best weight: ${history.bestWeight ?: 0.0}\n" +
-                                "Logged in ${history.sessionCount} session" +
-                                if (history.sessionCount == 1) "" else "s",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                },
-            )
+        // History ledger block — numbers are monospace, the ledger way.
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionHeader("History")
+            val history = state.history
+            if (history.lastSet == null) {
+                Text(
+                    "No sets logged yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(start = 13.dp),
+                ) {
+                    MonoText(
+                        text = "Last set: ${history.lastSet.weight} × ${history.lastSet.reps}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    MonoText(
+                        text = "Best weight: ${history.bestWeight ?: 0.0}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    MonoText(
+                        text = "Logged in ${history.sessionCount} session" +
+                            if (history.sessionCount == 1) "" else "s",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }

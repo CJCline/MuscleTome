@@ -1,5 +1,7 @@
 package com.chy.muscletome.data.repository
 
+import androidx.room.withTransaction
+import com.chy.muscletome.data.local.MuscleTomeDatabase
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.ExerciseSetPoint
 import com.chy.muscletome.data.local.dao.RoutineDao
@@ -37,6 +39,7 @@ class WorkoutRepository @Inject constructor(
     private val catalogDao: CatalogDao,
     private val selectionHistoryDao: SelectionHistoryDao,
     private val varietyEngine: VarietyEngine,
+    private val database: MuscleTomeDatabase,
 ) {
     fun observeSession(id: String) = workoutDao.observeSession(id)
 
@@ -116,27 +119,27 @@ class WorkoutRepository @Inject constructor(
             resolved += ResolvedSlot(slot.id, resolvedId, reason)
         }
 
+        // Single atomic write: the session row and all of its resolved slot
+        // results land together or not at all — a crash mid-insert can no
+        // longer strand a session with missing results.
         val sessionId = UUID.randomUUID().toString()
-        workoutDao.insertSession(
-            WorkoutSessionEntity(
+        workoutDao.startSessionTransaction(
+            session = WorkoutSessionEntity(
                 id = sessionId,
                 userId = SeedCatalog.LOCAL_USER_ID,
                 routineDayId = dayId,
                 startedAtEpochMs = System.currentTimeMillis(),
             ),
-        )
-
-        resolved.forEach { res ->
-            workoutDao.insertSlotResult(
+            slotResults = resolved.map { res ->
                 SessionSlotResultEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
                     routineSlotId = res.slotId,
                     resolvedExerciseId = res.exerciseId,
                     selectionReason = res.reason,
-                ),
-            )
-        }
+                )
+            },
+        )
         return StartResult.Success(sessionId)
     }
 
@@ -170,15 +173,66 @@ class WorkoutRepository @Inject constructor(
 
     suspend fun finishSession(sessionId: String) {
         val now = System.currentTimeMillis()
-        workoutDao.endSession(sessionId, now)
-        workoutDao.getSlotResults(sessionId).forEach { result ->
-            recordCompletion(result.resolvedExerciseId, now)
+        val results = workoutDao.getSlotResults(sessionId)
+        val exercises = catalogDao.getExercises().associateBy { it.id }
+        val existing = selectionHistoryDao
+            .getAll(SeedCatalog.LOCAL_USER_ID)
+            .associateBy { it.exerciseId }
+
+        // One read-modify-write per exercise (a session may resolve the same
+        // exercise in several slots), batched so the history update lands in
+        // the same transaction as the end-of-session write.
+        val updated = results
+            .groupBy { it.resolvedExerciseId }
+            .mapNotNull { (exerciseId, group) ->
+                val exercise = exercises[exerciseId] ?: return@mapNotNull null
+                val current = existing[exerciseId]
+                val completed = group.size
+                ExerciseSelectionHistoryEntity(
+                    userId = SeedCatalog.LOCAL_USER_ID,
+                    exerciseId = exerciseId,
+                    muscleGroupId = exercise.primaryMuscleGroupId,
+                    lastUsedAtEpochMs = now,
+                    useCount30d = (current?.useCount30d ?: 0) + completed,
+                    useCount90d = (current?.useCount90d ?: 0) + completed,
+                    completedCount = (current?.completedCount ?: 0) + completed,
+                    rerollCount = current?.rerollCount ?: 0,
+                    affinity = ((current?.affinity ?: 0f) + (0.15f * completed)).coerceAtMost(1f),
+                )
+            }
+
+        // Atomic: the session only flips to "finished" if its history rows
+        // land too — no half-finished sessions with partial history.
+        database.withTransaction {
+            workoutDao.endSession(sessionId, now)
+            if (updated.isNotEmpty()) selectionHistoryDao.upsertAll(updated)
         }
     }
 
     suspend fun discardSession(sessionId: String) {
         workoutDao.deleteSession(sessionId)
     }
+
+    /** Corrects a mis-logged set (fat-fingered weight/reps must be fixable). */
+    suspend fun updateSet(set: SetLogEntity) = workoutDao.updateSet(set)
+
+    /**
+     * Deletes a mis-logged set and renumbers the slot result's remaining
+     * sets so they stay gapless.
+     */
+    suspend fun deleteSet(set: SetLogEntity) {
+        workoutDao.deleteSetById(set.id)
+        workoutDao.getSetsForSlotResult(set.sessionSlotResultId)
+            .forEachIndexed { index, remaining ->
+                if (remaining.setNumber != index + 1) {
+                    workoutDao.updateSet(remaining.copy(setNumber = index + 1))
+                }
+            }
+    }
+
+    /** Session-specific remark for one resolved exercise in one session. */
+    suspend fun updateSessionNote(slotResultId: String, note: String) =
+        workoutDao.updateSessionNote(slotResultId, note)
 
     suspend fun rerollSlot(result: SessionSlotResultEntity, slotIndex: Int): String? {
         val slotId = result.routineSlotId ?: return null
@@ -217,13 +271,15 @@ class WorkoutRepository @Inject constructor(
             catalog,
         ) ?: return null
 
-        recordReroll(result.resolvedExerciseId)
-        workoutDao.updateSlotResult(
-            result.copy(
-                resolvedExerciseId = pick.exercise.id,
-                selectionReason = SelectionReason.USER_REROLL,
-            ),
-        )
+        database.withTransaction {
+            recordReroll(result.resolvedExerciseId)
+            workoutDao.updateSlotResult(
+                result.copy(
+                    resolvedExerciseId = pick.exercise.id,
+                    selectionReason = SelectionReason.USER_REROLL,
+                ),
+            )
+        }
         return pick.exercise.id
     }
 
@@ -256,25 +312,6 @@ class WorkoutRepository @Inject constructor(
                 affinity = affinityMap[exercise.id] ?: 0f,
             )
         }
-    }
-
-    private suspend fun recordCompletion(exerciseId: String, now: Long) {
-        val exercise = catalogDao.getExercises().find { it.id == exerciseId } ?: return
-        val muscleId = exercise.primaryMuscleGroupId
-        val current = selectionHistoryDao.get(SeedCatalog.LOCAL_USER_ID, exerciseId, muscleId)
-        selectionHistoryDao.upsert(
-            ExerciseSelectionHistoryEntity(
-                userId = SeedCatalog.LOCAL_USER_ID,
-                exerciseId = exerciseId,
-                muscleGroupId = muscleId,
-                lastUsedAtEpochMs = now,
-                useCount30d = (current?.useCount30d ?: 0) + 1,
-                useCount90d = (current?.useCount90d ?: 0) + 1,
-                completedCount = (current?.completedCount ?: 0) + 1,
-                rerollCount = current?.rerollCount ?: 0,
-                affinity = ((current?.affinity ?: 0f) + 0.15f).coerceAtMost(1f),
-            ),
-        )
     }
 
     private suspend fun recordReroll(exerciseId: String) {

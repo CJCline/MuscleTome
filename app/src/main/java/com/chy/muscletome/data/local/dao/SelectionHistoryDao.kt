@@ -24,4 +24,7 @@ interface SelectionHistoryDao {
 
     @Upsert
     suspend fun upsert(row: ExerciseSelectionHistoryEntity)
+
+    @Upsert
+    suspend fun upsertAll(rows: List<ExerciseSelectionHistoryEntity>)
 }

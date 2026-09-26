@@ -1,7 +1,9 @@
 package com.chy.muscletome.ui.stats
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,11 +11,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -23,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.MonoText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,17 +52,36 @@ fun SessionDetailScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(state.exercises, key = { it.exerciseName + it.reason }) { row ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    ListItem(
-                        headlineContent = { Text(row.exerciseName) },
-                        supportingContent = {
-                            val sets = row.sets.joinToString { "${it.weight} × ${it.reps}" }
-                            Text("${row.reason}\n$sets")
-                        },
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        row.exerciseName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
+                    MicroTag(
+                        text = row.reason,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    row.sets.forEachIndexed { index, set ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            MonoText(
+                                text = "SET ${(index + 1).toString().padStart(2, '0')}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                            MonoText(
+                                text = "${set.weight} × ${set.reps}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                    }
                 }
             }
         }

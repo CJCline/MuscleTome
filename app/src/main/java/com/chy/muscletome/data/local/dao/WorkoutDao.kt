@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
@@ -99,6 +100,31 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSet(row: SetLogEntity)
+
+    @Query("SELECT * FROM set_logs WHERE sessionSlotResultId = :resultId ORDER BY setNumber")
+    suspend fun getSetsForSlotResult(resultId: String): List<SetLogEntity>
+
+    @Update
+    suspend fun updateSet(row: SetLogEntity)
+
+    @Query("DELETE FROM set_logs WHERE id = :id")
+    suspend fun deleteSetById(id: String)
+
+    @Query("UPDATE session_slot_results SET sessionNote = :note WHERE id = :id")
+    suspend fun updateSessionNote(id: String, note: String)
+
+    /**
+     * Session row + its resolved slot results land atomically — a crash
+     * mid-insert can no longer strand a session with missing results.
+     */
+    @Transaction
+    suspend fun startSessionTransaction(
+        session: WorkoutSessionEntity,
+        slotResults: List<SessionSlotResultEntity>,
+    ) {
+        insertSession(session)
+        slotResults.forEach { insertSlotResult(it) }
+    }
 
     @Query("UPDATE workout_sessions SET endedAtEpochMs = :endedAt WHERE id = :id")
     suspend fun endSession(id: String, endedAt: Long)

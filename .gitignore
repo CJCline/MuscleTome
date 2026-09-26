@@ -1,15 +1,31 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+# Gradle
+.gradle/
 /build
+/app/build
+
+# Kotlin compiler session caches
+.kotlin/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
 /captures
 .externalNativeBuild
 .cxx
+
+# Built app artifacts — never commit binaries
+*.apk
+*.aab
+*.zip
+
+# Local Room/SQLite database dumps
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local configuration (SDK path, signing secrets)
 local.properties
+
+# OS
+.DS_Store

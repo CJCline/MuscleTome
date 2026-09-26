@@ -6,7 +6,7 @@ enum class MovementType { COMPOUND, ISOLATION }
 
 enum class Difficulty { BEGINNER, INTERMEDIATE, ADVANCED }
 
-enum class ExerciseSource { SEED, USER_CREATED }
+enum class ExerciseSource { SEED, WGER, USER_CREATED }
 
 enum class SlotType { FIXED, TARGET }
 
@@ -17,5 +17,3 @@ enum class SelectionReason { FIXED, AI_ROTATED, USER_OVERRIDE, USER_REROLL }
 enum class WeightUnit { KG, LB }
 
 enum class MatchStrictness { STRICT, LOOSE }
-
-enum class SubscriptionStatus { FREE, VARIETY, LLM }

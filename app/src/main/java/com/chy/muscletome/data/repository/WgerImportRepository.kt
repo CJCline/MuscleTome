@@ -109,7 +109,7 @@ class WgerImportRepository @Inject constructor(
                                 difficulty = WgerMapper.difficulty(name),
                                 isCustom = false,
                                 createdByUserId = null,
-                                source = ExerciseSource.SEED,
+                                source = ExerciseSource.WGER,
                                 notes = attribution,
                                 demoUri = item.mainImageUrl,
                             ),

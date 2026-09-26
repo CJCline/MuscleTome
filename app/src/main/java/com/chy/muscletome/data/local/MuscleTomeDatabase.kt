@@ -46,8 +46,8 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 1,
-    exportSchema = false,
+    version = 3,
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class MuscleTomeDatabase : RoomDatabase() {

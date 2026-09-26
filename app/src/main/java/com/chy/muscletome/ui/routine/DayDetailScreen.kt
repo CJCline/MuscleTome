@@ -1,28 +1,35 @@
 package com.chy.muscletome.ui.routine
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,6 +53,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.chy.muscletome.ui.components.EmptyState
+import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.MonoText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +69,7 @@ fun DayDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    var showBackConfirm by rememberSaveable { mutableStateOf(false) }
+    var showBackConfirm by rememberSaveable { mutableStateOf(value = false) }
 
     LaunchedEffect(viewModel) {
         viewModel.startSessionId.collect { sessionId ->
@@ -102,7 +112,15 @@ fun DayDetailScreen(
                         onClick = viewModel::startWorkout,
                         enabled = state.slots.isNotEmpty() && !state.hasUnsavedChanges,
                     ) {
-                        Text("Start")
+                        Text(
+                            "Start".uppercase(),
+                            color = if (state.slots.isNotEmpty() && !state.hasUnsavedChanges) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                     // Always visible so it is discoverable; disabled when there is
                     // nothing to save, and hidden while a Back-confirm dialog is up.
@@ -119,86 +137,172 @@ fun DayDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddSlot) {
+            FloatingActionButton(
+                onClick = onAddSlot,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = MaterialTheme.shapes.large,
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add exercise")
             }
         },
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(state.slots, key = { it.slot.id }) { row ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    ListItem(
-                        headlineContent = {
-                            val title = if (row.slot.type.name == "TARGET") {
-                                "Target slot"
-                            } else {
-                                row.exerciseName
-                            }
-                            Text(title)
-                        },
-                        trailingContent = {
-                            IconButton(onClick = { viewModel.deleteSlot(row.slot.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove slot")
-                            }
-                        },
-                    )
+        if (state.slots.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                EmptyState(
+                    title = "Blank page",
+                    body = "Add exercises to fill this day of the tome.",
+                )
+                Button(
+                    onClick = onAddSlot,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) { Text("Add first exercise".uppercase()) }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                itemsIndexed(state.slots, key = { _, row -> row.slot.id }) { index, row ->
+                    // Amber spine while the row has unsaved edits — dirty pages glow.
+                    val spineColor = if (row.hasUnsavedChanges) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            ),
                     ) {
-                        SlotMetricField(
-                            label = "Sets",
-                            value = row.draftSets,
-                            onValueChange = { viewModel.onSlotFieldChange(row.slot.id, SlotField.SETS, it) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        SlotMetricField(
-                            label = "Rep min",
-                            value = row.draftRepMin,
-                            onValueChange = { viewModel.onSlotFieldChange(row.slot.id, SlotField.REP_MIN, it) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        SlotMetricField(
-                            label = "Rep max",
-                            value = row.draftRepMax,
-                            onValueChange = { viewModel.onSlotFieldChange(row.slot.id, SlotField.REP_MAX, it) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        SlotMetricField(
-                            label = "Rest (s)",
-                            value = row.draftRestSeconds,
-                            onValueChange = { viewModel.onSlotFieldChange(row.slot.id, SlotField.REST, it) },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    AnimatedVisibility(visible = row.hasUnsavedChanges) {
-                        Row(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (!row.isDraftValid) {
-                                Text(
-                                    "Enter valid numbers",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
+                                .width(4.dp)
+                                .height(IntrinsicSize.Max)
+                                .background(spineColor),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 12.dp, end = 4.dp, top = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                MonoText(
+                                    text = (index + 1).toString().padStart(2, '0'),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(end = 12.dp),
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    val title = if (row.slot.type.name == "TARGET") {
+                                        "Target slot"
+                                    } else {
+                                        row.exerciseName
+                                    }
+                                    Text(
+                                        title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                    )
+                                    MonoText(
+                                        text = "${row.draftSets} × " +
+                                            "${row.draftRepMin}-${row.draftRepMax} · " +
+                                            "${row.draftRestSeconds}s",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.deleteSlot(row.slot.id) }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Remove slot",
+                                        tint = MaterialTheme.colorScheme.outline,
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                SlotMetricField(
+                                    label = "Sets",
+                                    value = row.draftSets,
+                                    onValueChange = {
+                                        viewModel.onSlotFieldChange(row.slot.id, SlotField.SETS, it)
+                                    },
                                     modifier = Modifier.weight(1f),
                                 )
-                            } else {
-                                Spacer(modifier = Modifier.weight(1f))
+                                SlotMetricField(
+                                    label = "Rep min",
+                                    value = row.draftRepMin,
+                                    onValueChange = {
+                                        viewModel.onSlotFieldChange(row.slot.id, SlotField.REP_MIN, it)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                SlotMetricField(
+                                    label = "Rep max",
+                                    value = row.draftRepMax,
+                                    onValueChange = {
+                                        viewModel.onSlotFieldChange(row.slot.id, SlotField.REP_MAX, it)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                SlotMetricField(
+                                    label = "Rest (s)",
+                                    value = row.draftRestSeconds,
+                                    onValueChange = {
+                                        viewModel.onSlotFieldChange(row.slot.id, SlotField.REST, it)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
                             }
-                            TextButton(onClick = { viewModel.discardChanges(row.slot.id) }) {
-                                Text("Discard")
+                            AnimatedVisibility(visible = row.hasUnsavedChanges) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (!row.isDraftValid) {
+                                        MicroTag(
+                                            text = "Enter valid numbers",
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                    TextButton(onClick = { viewModel.discardChanges(row.slot.id) }) {
+                                        Text("Discard")
+                                    }
+                                }
                             }
                         }
                     }

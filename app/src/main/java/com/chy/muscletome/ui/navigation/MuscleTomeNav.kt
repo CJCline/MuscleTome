@@ -10,11 +10,16 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,20 +29,43 @@ import androidx.navigation.navArgument
 import com.chy.muscletome.ui.library.AddExerciseScreen
 import com.chy.muscletome.ui.library.ExerciseDetailScreen
 import com.chy.muscletome.ui.library.ExerciseLibraryScreen
+import com.chy.muscletome.ui.onboarding.OnboardingScreen
+import com.chy.muscletome.ui.onboarding.OnboardingViewModel
 import com.chy.muscletome.ui.routine.AddSlotScreen
 import com.chy.muscletome.ui.routine.DayDetailScreen
 import com.chy.muscletome.ui.routine.RoutineDetailScreen
 import com.chy.muscletome.ui.routine.RoutineListScreen
 import com.chy.muscletome.ui.home.HomeScreen
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material3.MaterialTheme
 import com.chy.muscletome.ui.settings.SettingsScreen
 import com.chy.muscletome.ui.stats.SessionDetailScreen
 import com.chy.muscletome.ui.stats.StatsScreen
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+/** Iron nav bar colors: amber selected, steel unselected. */
+@Composable
+private fun navItemColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = MaterialTheme.colorScheme.primary,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
 @Composable
 fun MuscleTomeNav() {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
+    // First-run gate: a brand-new install routes straight to setup, which
+    // self-pops back to Home when done.
+    val onboardingViewModel: OnboardingViewModel = hiltViewModel()
+    val onboardingDone by onboardingViewModel.completed.collectAsStateWithLifecycle()
+    var onboardingDismissed by remember { mutableStateOf(false) }
+    val showOnboarding = !onboardingDone && !onboardingDismissed
+
     val showBottomBar = currentRoute == "home" ||
             currentRoute == "routines" ||
             currentRoute == "library" ||
@@ -47,7 +75,10 @@ fun MuscleTomeNav() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 0.dp,
+                ) {
                     NavigationBarItem(
                         selected = currentRoute == "home",
                         onClick = {
@@ -58,6 +89,7 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.Home, contentDescription = null) },
                         label = { Text("Today") },
+                        colors = navItemColors(),
                     )
                     NavigationBarItem(
                         selected = currentRoute == "routines",
@@ -69,6 +101,7 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.List, contentDescription = null) },
                         label = { Text("Routines") },
+                        colors = navItemColors(),
                     )
                     NavigationBarItem(
                         selected = currentRoute == "library",
@@ -80,6 +113,7 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.FitnessCenter, contentDescription = null) },
                         label = { Text("Library") },
+                        colors = navItemColors(),
                     )
                     NavigationBarItem(
                         selected = currentRoute == "stats",
@@ -91,6 +125,7 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
                         label = { Text("History") },
+                        colors = navItemColors(),
                     )
                     NavigationBarItem(
                         selected = currentRoute == "settings",
@@ -102,11 +137,15 @@ fun MuscleTomeNav() {
                         },
                         icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                         label = { Text("Settings") },
+                        colors = navItemColors(),
                     )
                 }
             }
         },
     ) { innerPadding ->
+        if (showOnboarding) {
+            OnboardingScreen(onDone = { onboardingDismissed = true })
+        } else {
         NavHost(
             navController = navController,
             startDestination = "home",
@@ -179,7 +218,13 @@ fun MuscleTomeNav() {
             }
             composable(route = "stats") {
                 StatsScreen(
-                    onOpenSession = { sessionId -> navController.navigate("session/$sessionId") }
+                    onOpenSession = { sessionId -> navController.navigate("session/$sessionId") },
+                    onOpenHome = {
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(
@@ -196,9 +241,11 @@ fun MuscleTomeNav() {
                 arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
             ) {
                 ActiveWorkoutScreen(
+                    onBack = { navController.popBackStack() },
                     onFinished = { navController.popBackStack() },
                 )
             }
+        }
         }
     }
 }

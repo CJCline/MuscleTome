@@ -35,7 +35,9 @@ data class EnginePick(
 )
 
 class VarietyEngine @Inject constructor(
-    private val random: Random = Random.Default
+    private val random: Random = Random.Default,
+    /** Injectable clock — keeps recency scoring deterministic under test. */
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
 
     fun pickWithFallback(
@@ -116,9 +118,14 @@ class VarietyEngine @Inject constructor(
         return top.first()
     }
 
-    private fun recencyScore(lastUsed: Long?): Double {
-        if (lastUsed == null) return 0.7
-        val days = (System.currentTimeMillis() - lastUsed) / 86_400_000.0
+    /**
+     * Freshness 0..1. Never-used exercises score full freshness; a used one
+     * ramps back up to full after two weeks idle. (Never-used ties with
+     * 14-days-stale by design — ties then break on the other score factors.)
+     */
+    internal fun recencyScore(lastUsed: Long?): Double {
+        if (lastUsed == null) return 1.0
+        val days = (now() - lastUsed) / 86_400_000.0
         return (days / 14.0).coerceIn(0.0, 1.0)
     }
 

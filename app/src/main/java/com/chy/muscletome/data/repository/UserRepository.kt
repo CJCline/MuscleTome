@@ -36,6 +36,12 @@ class UserRepository @Inject constructor(
         userDao.update(user.copy(preferCompoundEarly = value))
     }
 
+    /** Points Home's "Up next" at [routineId]; null falls back to the newest routine. */
+    suspend fun setActiveRoutine(routineId: String?) {
+        val user = userDao.getUser(userId) ?: return
+        userDao.update(user.copy(activeRoutineId = routineId))
+    }
+
     suspend fun setAvailableEquipment(ids: Set<String>) {
         userDao.clearAvailableEquipment(userId)
         userDao.insertAvailableEquipment(ids.map { UserAvailableEquipmentCrossRef(userId, it) })

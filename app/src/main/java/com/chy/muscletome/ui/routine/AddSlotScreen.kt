@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,7 +79,7 @@ fun AddSlotScreen(
 
 
             if (state.isTargetMode) {
-                Text("Movement preference", modifier = Modifier.padding(top = 8.dp))
+                SectionHeader("Movement preference", modifier = Modifier.padding(top = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TargetMovementType.entries.forEach { type ->
                         FilterChip(
@@ -138,7 +139,7 @@ fun AddSlotScreen(
                 enabled = state.canSave,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(56.dp),
             ) {
                 val count = if (state.isTargetMode) state.selectedMuscleIds.size else state.selectedExerciseIds.size
                 Text(if (count > 1) "Add $count exercises" else "Add to day")

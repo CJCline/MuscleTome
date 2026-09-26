@@ -16,7 +16,9 @@ import kotlin.random.Random
 
 class VarietyEngineTest {
 
-    private val engine = VarietyEngine(Random(0))
+    /** Fixed "now" so recency scoring is deterministic. */
+    private val now: Long = 1_760_000_000_000L
+    private val engine = VarietyEngine(Random(0), now = { now })
 
     @Test
     fun picksOnlyCandidateThatHitsTargetMuscle() {
@@ -141,6 +143,30 @@ class VarietyEngineTest {
         assertTrue((wins["b"] ?: 0) > (wins["a"] ?: 0))
     }
 
+    @Test
+    fun neverUsedScoresFullFreshness() {
+        assertEquals(1.0, engine.recencyScore(null), 1e-9)
+    }
+
+    @Test
+    fun usedTodayScoresZeroFreshness() {
+        assertEquals(0.0, engine.recencyScore(now), 1e-9)
+    }
+
+    @Test
+    fun twoWeeksStaleRecoversFullFreshness() {
+        assertEquals(1.0, engine.recencyScore(now - 14L * 86_400_000L), 1e-9)
+    }
+
+    @Test
+    fun neverUsedOutscoresRecentlyUsedWhenOtherwiseEqual() {
+        val recent = candidate("recent", primary = "chest", equipment = setOf("barbell"), lastUsedAt = now)
+        val unseen = candidate("unseen", primary = "chest", equipment = setOf("barbell"), lastUsedAt = null)
+        val recentScore = engine.pick(request(targetMuscleIds = setOf("chest")), listOf(recent))!!.score
+        val unseenScore = engine.pick(request(targetMuscleIds = setOf("chest")), listOf(unseen))!!.score
+        assertTrue(unseenScore > recentScore)
+    }
+
     private fun request(
         targetMuscleIds: Set<String>,
         targetMovementType: TargetMovementType = TargetMovementType.ANY,
@@ -169,6 +195,7 @@ class VarietyEngineTest {
         type: MovementType = MovementType.COMPOUND,
         difficulty: Difficulty = Difficulty.INTERMEDIATE,
         affinity: Float = 0f,
+        lastUsedAt: Long? = null,
     ) = EngineCandidate(
         exercise = ExerciseEntity(
             id = id,
@@ -181,7 +208,7 @@ class VarietyEngineTest {
         ),
         equipmentIds = equipment,
         secondaryMuscleIds = secondary,
-        lastUsedAtEpochMs = null,
+        lastUsedAtEpochMs = lastUsedAt,
         affinity = affinity,
     )
 }

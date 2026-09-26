@@ -34,8 +34,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
+import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -55,7 +55,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Units")
+            SectionHeader("Units")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WeightUnit.entries.forEach { unit ->
                     FilterChip(
@@ -66,7 +66,7 @@ fun SettingsScreen(
                 }
             }
 
-            Text("Exercise catalog")
+            SectionHeader("Exercise catalog")
             val importState by viewModel.importProgress.collectAsStateWithLifecycle()
             Button(
                 onClick = viewModel::importFromWger,
@@ -92,7 +92,7 @@ fun SettingsScreen(
                     "Text is typically CC-BY-SA; attribution is saved on each exercise.",
             )
 
-            Text("Available equipment")
+            SectionHeader("Available equipment")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.equipment.forEach { item ->
                     FilterChip(
@@ -103,7 +103,7 @@ fun SettingsScreen(
                 }
             }
 
-            Text("Primary match")
+            SectionHeader("Primary match")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MatchStrictness.entries.forEach { value ->
                     FilterChip(
@@ -122,7 +122,7 @@ fun SettingsScreen(
                 )
             }
 
-            Text("Excluded exercises")
+            SectionHeader("Excluded exercises")
             val excludeQuery by viewModel.excludeSearchQuery.collectAsStateWithLifecycle()
             val excludeResults by viewModel.excludeSearchResults.collectAsStateWithLifecycle()
 

@@ -1,5 +1,6 @@
 package com.chy.muscletome.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -11,7 +12,6 @@ import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
-import com.chy.muscletome.domain.model.SubscriptionStatus
 import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.model.WeightUnit
 
@@ -24,9 +24,13 @@ data class UserEntity(
     val primaryMatchStrictness: MatchStrictness = MatchStrictness.LOOSE,
     val preferCompoundEarly: Boolean = true,
     val maxDifficulty: Difficulty = Difficulty.ADVANCED,
-    val subscriptionStatus: SubscriptionStatus = SubscriptionStatus.FREE,
-    val subscriptionExpiryEpochMs: Long? = null,
-    val lastVerifiedEntitlementEpochMs: Long? = null,
+    /**
+     * The routine Home's "Up next" trains. Null (or a stale pointer to a
+     * deleted routine) falls back to the newest routine; the user switches
+     * programs explicitly on Home. No FK on purpose: deleting the pointed-to
+     * routine is re-selection, not an error.
+     */
+    val activeRoutineId: String? = null,
 )
 
 @Entity(tableName = "muscle_groups")
@@ -202,6 +206,12 @@ data class SessionSlotResultEntity(
     val routineSlotId: String?,
     val resolvedExerciseId: String,
     val selectionReason: SelectionReason,
+    /**
+     * Free-form remark about this exercise *in this session* — distinct from
+     * the shared exercise cues in `ExerciseEntity.notes`. The DB default
+     * matches the ALTER TABLE migration that added the column.
+     */
+    @ColumnInfo(defaultValue = "") val sessionNote: String = "",
 )
 
 @Entity(
