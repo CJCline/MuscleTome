@@ -16,6 +16,9 @@ interface RoutineDao {
     @Query("SELECT * FROM routines WHERE ownerId = :userId ORDER BY createdAtEpochMs DESC")
     fun observeRoutines(userId: String): Flow<List<RoutineEntity>>
 
+    @Query("SELECT * FROM routines WHERE ownerId = :userId ORDER BY createdAtEpochMs")
+    suspend fun getRoutines(userId: String): List<RoutineEntity>
+
     @Query("SELECT * FROM routines WHERE id = :id")
     fun observeRoutine(id: String): Flow<RoutineEntity?>
 
@@ -47,7 +50,13 @@ interface RoutineDao {
     suspend fun insertDay(row: RoutineDayEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDays(rows: List<RoutineDayEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSlot(row: RoutineSlotEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSlots(rows: List<RoutineSlotEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSlotTargets(rows: List<SlotTargetMuscleCrossRef>)
@@ -93,6 +102,21 @@ interface RoutineDao {
 
     @Update
     suspend fun updateSlots(rows: List<RoutineSlotEntity>)
+
+    @Query("SELECT exerciseId FROM routine_slots WHERE exerciseId IS NOT NULL")
+    suspend fun getFixedSlotExerciseIds(): List<String>
+
+    @Query("SELECT * FROM routine_days")
+    suspend fun getAllDays(): List<RoutineDayEntity>
+
+    @Query("SELECT * FROM routine_slots")
+    suspend fun getAllSlots(): List<RoutineSlotEntity>
+
+    @Query("SELECT * FROM slot_target_muscles")
+    suspend fun getAllSlotTargets(): List<SlotTargetMuscleCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRoutines(rows: List<RoutineEntity>)
 
     @Query("SELECT * FROM slot_target_muscles")
     fun observeAllSlotTargets(): kotlinx.coroutines.flow.Flow<List<SlotTargetMuscleCrossRef>>

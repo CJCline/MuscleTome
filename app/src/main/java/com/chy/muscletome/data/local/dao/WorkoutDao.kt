@@ -23,16 +23,32 @@ data class ExerciseSetPoint(
 @Dao
 interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE userId = :userId ORDER BY startedAtEpochMs DESC")
+    suspend fun getSessions(userId: String): List<WorkoutSessionEntity>
+
+    @Query("SELECT * FROM workout_sessions WHERE userId = :userId ORDER BY startedAtEpochMs DESC")
     fun observeSessions(userId: String): Flow<List<WorkoutSessionEntity>>
 
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     fun observeSession(id: String): Flow<WorkoutSessionEntity?>
+
+    @Query("SELECT DISTINCT resolvedExerciseId FROM session_slot_results")
+    suspend fun getResolvedExerciseIds(): List<String>
 
     @Query("SELECT * FROM session_slot_results WHERE sessionId = :sessionId")
     fun observeSlotResults(sessionId: String): Flow<List<SessionSlotResultEntity>>
 
     @Query("SELECT * FROM session_slot_results WHERE sessionId = :sessionId")
     suspend fun getSlotResults(sessionId: String): List<SessionSlotResultEntity>
+
+    @Query(
+        """
+        SELECT sl.* FROM set_logs sl
+        INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id
+        WHERE ssr.sessionId = :sessionId
+        ORDER BY sl.completedAtEpochMs
+        """,
+    )
+    suspend fun getSetsForSession(sessionId: String): List<SetLogEntity>
 
     @Query(
         """
@@ -94,6 +110,21 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSlotResult(row: SessionSlotResultEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSlotResults(rows: List<SessionSlotResultEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSessions(rows: List<WorkoutSessionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSetLogs(rows: List<SetLogEntity>)
+
+    @Query("SELECT * FROM session_slot_results")
+    suspend fun getAllSlotResults(): List<SessionSlotResultEntity>
+
+    @Query("SELECT * FROM set_logs")
+    suspend fun getAllSetLogs(): List<SetLogEntity>
 
     @Update
     suspend fun updateSlotResult(row: SessionSlotResultEntity)

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
@@ -67,6 +68,22 @@ interface CatalogDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertExercises(rows: List<ExerciseEntity>)
+
+    /** Backup import restores the full row (notes, edits) — upsert, not ignore. */
+    @Upsert
+    suspend fun upsertExercises(rows: List<ExerciseEntity>)
+
+    @Upsert
+    suspend fun upsertMuscleGroups(rows: List<MuscleGroupEntity>)
+
+    @Upsert
+    suspend fun upsertEquipment(rows: List<EquipmentEntity>)
+
+    @Upsert
+    suspend fun upsertExerciseEquipment(rows: List<ExerciseEquipmentCrossRef>)
+
+    @Upsert
+    suspend fun upsertSecondaryMuscles(rows: List<ExerciseSecondaryMuscleCrossRef>)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertExerciseEquipment(rows: List<ExerciseEquipmentCrossRef>)

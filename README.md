@@ -51,10 +51,19 @@ MuscleTome is a modern, clean, and intuitive workout tracking application for An
     1.  Bump the `@Database` `version` (e.g. `1` → `2`).
     2.  Add the matching `Migration` (e.g. `MIGRATION_1_2`) to `MuscleTomeMigrations.ALL` with the exact SQL.
     3.  Rebuild with `./gradlew assembleDebug` and commit the regenerated `app/schemas/.../<version>.json` together with the code change.
+*   Migrations are covered by an instrumented test (`MigrationTest`, runs via `./gradlew connectedDebugAndroidTest`) that seeds a realistic v1 database and walks the full chain, asserting the data transformations.
 
 ## 🧪 CI
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./gradlew test` and `./gradlew assembleDebug` on every push to `main` and on every pull request, then verifies that the Room schema JSON in `app/schemas/` is committed and up to date.
+
+## 💾 Backup & restore
+
+MuscleTome is local-first: **your data lives in this app's Room database and nowhere else**.
+
+*   **`allowBackup` is `false`** — workout history (and any future entitlement state) must not silently ride Android's default Auto Backup to Google's cloud. There is no reviewed backup spec yet, so nothing leaves the device without you explicitly doing it.
+*   **Settings → Backup & restore** exports a complete JSON document (catalog edits, routines, slots, full log history, user prefs) via the system file picker — save it anywhere: Documents, Drive, another phone.
+*   **Import merges** — every row is an upsert, so restoring on a new device preserves anything already there. A backup with a newer format version is rejected with a clear message rather than half-imported.
 
 ## 📄 License
 

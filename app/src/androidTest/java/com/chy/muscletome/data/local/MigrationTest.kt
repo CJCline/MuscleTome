@@ -1,0 +1,126 @@
+package com.chy.muscletome.data.local
+
+import androidx.room.Room
+import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SimpleSQLiteQuery
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * Walks the full migration chain from a seeded v1 database to the current
+ * version and asserts the data transformations of each step:
+ *  - v1 → v2: wger rows retagged to WGER, billing columns dropped (replaced
+ *    by activeRoutineId), everything else untouched.
+ *  - v2 → v3: sessionNote added with '' default.
+ *
+ * Room itself validates the schema at the end of the chain; these assertions
+ * cover the data, which Room does not check.
+ */
+@RunWith(AndroidJUnit4::class)
+class MigrationTest {
+
+    private val testDb = "migration-test"
+
+    @get:Rule
+    val helper = MigrationTestHelper(
+        InstrumentationRegistry.getInstrumentation(),
+        MuscleTomeDatabase::class.java,
+    )
+
+    @Test
+    fun migrateAllFromV1PreservesData() {
+        // Seed a realistic v1 database, including the legacy columns.
+        helper.createDatabase(testDb, 1).apply {
+            execSQL(
+                "INSERT INTO users (`id`, `name`, `weightUnit`, `defaultRestSeconds`, " +
+                    "`primaryMatchStrictness`, `preferCompoundEarly`, `maxDifficulty`, " +
+                    "`subscriptionStatus`, `subscriptionExpiryEpochMs`, `lastVerifiedEntitlementEpochMs`) " +
+                    "VALUES ('local-user', 'You', 'KG', 90, 'LOOSE', 1, 'ADVANCED', 'VARIETY', 12345, 12346)",
+            )
+            execSQL("INSERT INTO muscle_groups (`id`, `name`, `parentGroupId`) VALUES ('chest', 'Chest', NULL)")
+            execSQL("INSERT INTO equipment (`id`, `name`) VALUES ('barbell', 'Barbell')")
+            execSQL(
+                "INSERT INTO exercises (`id`, `name`, `description`, `movementPattern`, `movementType`, " +
+                    "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
+                    "`source`, `notes`, `demoUri`) " +
+                    "VALUES ('barbell_bench_press', 'Barbell Bench Press', '', 'PUSH', 'COMPOUND', 'chest', " +
+                    "'INTERMEDIATE', 0, NULL, 0, 'SEED', 'cues here', NULL)",
+            )
+            // A wger import from before source tagging existed: stored as SEED.
+            execSQL(
+                "INSERT INTO exercises (`id`, `name`, `description`, `movementPattern`, `movementType`, " +
+                    "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
+                    "`source`, `notes`, `demoUri`) " +
+                    "VALUES ('wger_123', 'Imported Thing', '', 'PUSH', 'COMPOUND', 'chest', " +
+                    "'INTERMEDIATE', 0, NULL, 0, 'SEED', 'Source: wger.de', NULL)",
+            )
+            execSQL("INSERT INTO routines (`id`, `name`, `ownerId`, `createdAtEpochMs`) VALUES ('r1', 'PPL', 'local-user', 1000)")
+            execSQL("INSERT INTO routine_days (`id`, `routineId`, `name`, `orderIndex`) VALUES ('d1', 'r1', 'Push', 0)")
+            execSQL(
+                "INSERT INTO routine_slots (`id`, `routineDayId`, `orderIndex`, `type`, `exerciseId`, " +
+                    "`targetMovementType`, `sets`, `repRangeMin`, `repRangeMax`, `restSeconds`, `targetRpe`) " +
+                    "VALUES ('slot1', 'd1', 0, 'FIXED', 'barbell_bench_press', 'ANY', 3, 8, 12, 90, NULL)",
+            )
+            execSQL(
+                "INSERT INTO workout_sessions (`id`, `userId`, `routineDayId`, `startedAtEpochMs`, `endedAtEpochMs`) " +
+                    "VALUES ('ws1', 'local-user', 'd1', 2000, 3000)",
+            )
+            execSQL(
+                "INSERT INTO session_slot_results (`id`, `sessionId`, `routineSlotId`, `resolvedExerciseId`, `selectionReason`) " +
+                    "VALUES ('ssr1', 'ws1', 'slot1', 'barbell_bench_press', 'FIXED')",
+            )
+            execSQL(
+                "INSERT INTO set_logs (`id`, `sessionSlotResultId`, `setNumber`, `weight`, `reps`, `rpe`, " +
+                    "`restSecondsActual`, `completedAtEpochMs`) " +
+                    "VALUES ('set1', 'ssr1', 1, 100.0, 8, 8.5, 90, 2500)",
+            )
+            close()
+        }
+
+        // Opening the database runs v1 → v2 → v3; Room validates the final
+        // schema against the exported 3.json.
+        val db = Room.databaseBuilder(
+            InstrumentationRegistry.getInstrumentation().targetContext,
+            MuscleTomeDatabase::class.java,
+            testDb,
+        ).addMigrations(*MuscleTomeMigrations.ALL).build()
+
+        db.openHelper.writableDatabase
+
+        // v1 → v2: wger retag — only the id prefix matches, seed stays SEED.
+        db.query(SimpleSQLiteQuery("SELECT `source` FROM exercises WHERE `id` = 'wger_123'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("WGER", cursor.getString(0))
+        }
+        db.query(SimpleSQLiteQuery("SELECT `source`, `notes` FROM exercises WHERE `id` = 'barbell_bench_press'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("SEED", cursor.getString(0))
+            assertEquals("cues here", cursor.getString(1))
+        }
+
+        // v1 → v2: users table rebuilt — billing state gone, activeRoutineId null.
+        db.query(SimpleSQLiteQuery("SELECT `activeRoutineId` FROM users WHERE `id` = 'local-user'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+        }
+
+        // v2 → v3: sessionNote exists and defaulted to '' for pre-existing rows.
+        db.query(SimpleSQLiteQuery("SELECT `sessionNote` FROM session_slot_results WHERE `id` = 'ssr1'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("", cursor.getString(0))
+        }
+
+        // The workout history survived the whole chain.
+        db.query(SimpleSQLiteQuery("SELECT COUNT(*) FROM set_logs")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+
+        db.close()
+    }
+}

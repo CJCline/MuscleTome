@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,20 +22,27 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.OutlinedButton
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -45,8 +51,26 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val user = state.user
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { innerPadding ->
+    // SAF: the user picks where the backup lands (Documents, Drive, whatever) —
+    // no storage permission needed.
+    val exportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let(viewModel::exportBackup) }
+    val importPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importBackup) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Settings") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -90,7 +114,32 @@ fun SettingsScreen(
             Text(
                 "English translations only. Main demo image URL is stored when wger provides one. " +
                     "Text is typically CC-BY-SA; attribution is saved on each exercise.",
+                style = MaterialTheme.typography.bodySmall,
             )
+
+            SectionHeader("Backup & restore")
+            Text(
+                "Everything lives on this device. Export a JSON backup to move devices or keep " +
+                    "a copy — import merges it back (routines, logs, catalog edits).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = {
+                    exportPicker.launch("muscletome-backup.json")
+                },
+                enabled = !backupState.running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (backupState.running) "Working…" else "Export backup")
+            }
+            OutlinedButton(
+                onClick = { importPicker.launch(arrayOf("application/json")) },
+                enabled = !backupState.running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Import backup")
+            }
 
             SectionHeader("Available equipment")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

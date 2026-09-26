@@ -3,7 +3,9 @@ package com.chy.muscletome.data.local.entity
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(
     tableName = "exercise_equipment",
     primaryKeys = ["exerciseId", "equipmentId"],
@@ -18,6 +20,7 @@ data class ExerciseEquipmentCrossRef(
     val equipmentId: String,
 )
 
+@Serializable
 @Entity(
     tableName = "exercise_secondary_muscles",
     primaryKeys = ["exerciseId", "muscleGroupId"],
@@ -32,6 +35,7 @@ data class ExerciseSecondaryMuscleCrossRef(
     val muscleGroupId: String,
 )
 
+@Serializable
 @Entity(
     tableName = "slot_target_muscles",
     primaryKeys = ["slotId", "muscleGroupId"],
@@ -46,6 +50,7 @@ data class SlotTargetMuscleCrossRef(
     val muscleGroupId: String,
 )
 
+@Serializable
 @Entity(
     tableName = "slot_equipment_filters",
     primaryKeys = ["slotId", "equipmentId"],
@@ -60,6 +65,7 @@ data class SlotEquipmentFilterCrossRef(
     val equipmentId: String,
 )
 
+@Serializable
 @Entity(
     tableName = "user_available_equipment",
     primaryKeys = ["userId", "equipmentId"],
@@ -74,6 +80,7 @@ data class UserAvailableEquipmentCrossRef(
     val equipmentId: String,
 )
 
+@Serializable
 @Entity(
     tableName = "user_excluded_exercises",
     primaryKeys = ["userId", "exerciseId"],

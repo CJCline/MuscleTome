@@ -14,7 +14,9 @@ import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.model.WeightUnit
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "users")
 data class UserEntity(
     @PrimaryKey val id: String,
@@ -33,6 +35,7 @@ data class UserEntity(
     val activeRoutineId: String? = null,
 )
 
+@Serializable
 @Entity(tableName = "muscle_groups")
 data class MuscleGroupEntity(
     @PrimaryKey val id: String,
@@ -40,12 +43,14 @@ data class MuscleGroupEntity(
     val parentGroupId: String? = null,
 )
 
+@Serializable
 @Entity(tableName = "equipment")
 data class EquipmentEntity(
     @PrimaryKey val id: String,
     val name: String,
 )
 
+@Serializable
 @Entity(
     tableName = "exercises",
     foreignKeys = [
@@ -80,6 +85,7 @@ data class ExerciseEntity(
     val demoUri: String? = null,
 )
 
+@Serializable
 @Entity(
     tableName = "routines",
     foreignKeys = [
@@ -99,6 +105,7 @@ data class RoutineEntity(
     val createdAtEpochMs: Long,
 )
 
+@Serializable
 @Entity(
     tableName = "routine_days",
     foreignKeys = [
@@ -118,6 +125,7 @@ data class RoutineDayEntity(
     val orderIndex: Int,
 )
 
+@Serializable
 @Entity(
     tableName = "routine_slots",
     foreignKeys = [
@@ -150,6 +158,7 @@ data class RoutineSlotEntity(
     val targetRpe: Float? = null,
 )
 
+@Serializable
 @Entity(
     tableName = "workout_sessions",
     foreignKeys = [
@@ -176,6 +185,7 @@ data class WorkoutSessionEntity(
     val endedAtEpochMs: Long? = null,
 )
 
+@Serializable
 @Entity(
     tableName = "session_slot_results",
     foreignKeys = [
@@ -214,6 +224,7 @@ data class SessionSlotResultEntity(
     @ColumnInfo(defaultValue = "") val sessionNote: String = "",
 )
 
+@Serializable
 @Entity(
     tableName = "set_logs",
     foreignKeys = [
@@ -237,6 +248,7 @@ data class SetLogEntity(
     val completedAtEpochMs: Long,
 )
 
+@Serializable
 @Entity(
     tableName = "exercise_selection_history",
     primaryKeys = ["userId", "exerciseId", "muscleGroupId"],

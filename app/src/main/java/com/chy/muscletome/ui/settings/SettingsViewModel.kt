@@ -1,7 +1,9 @@
 package com.chy.muscletome.ui.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chy.muscletome.data.backup.BackupRepository
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.UserEntity
@@ -12,9 +14,12 @@ import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -34,6 +39,7 @@ class SettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     catalogRepository: CatalogRepository,
     private val wgerImportRepository: WgerImportRepository,
+    private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
     val uiState = combine(
@@ -75,6 +81,36 @@ class SettingsViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val importProgress = wgerImportRepository.progress
+    val backupState = backupRepository.state
+
+    fun exportBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                backupRepository.export(uri)
+                snackbarMessage("Backup exported")
+            } catch (t: Throwable) {
+                snackbarMessage("Export failed: ${t.message}")
+            }
+        }
+    }
+
+    fun importBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                backupRepository.import(uri)
+                snackbarMessage("Backup imported")
+            } catch (t: Throwable) {
+                snackbarMessage("Import failed: ${t.message}")
+            }
+        }
+    }
+
+    private fun snackbarMessage(message: String) {
+        viewModelScope.launch { _messages.emit(message) }
+    }
+
+    private val _messages = MutableSharedFlow<String>()
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     fun importFromWger() {
         viewModelScope.launch {
