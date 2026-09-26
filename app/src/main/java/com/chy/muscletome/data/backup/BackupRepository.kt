@@ -11,6 +11,7 @@ import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
 import com.chy.muscletome.data.local.seed.SeedCatalog
+import com.chy.muscletome.domain.session.WeightUnits
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -100,6 +101,20 @@ class BackupRepository @Inject constructor(
         }
 
         database.withTransaction {
+            // Sets are stored in the user's unit. The device's existing logs
+            // are in the *device's* unit; the incoming user row may prefer a
+            // different one — convert the device's logs to the incoming unit
+            // BEFORE the user row lands, or a kg-device importing an lb backup
+            // would read its own history as pounds. Imported set logs already
+            // speak the backup's unit, matching the incoming user row.
+            val incomingUnit = doc.user.weightUnit
+            val deviceUser = userDao.getUser(SeedCatalog.LOCAL_USER_ID)
+            if (deviceUser != null && deviceUser.weightUnit != incomingUnit) {
+                workoutDao.scaleAllWeights(
+                    WeightUnits.convert(1.0, from = deviceUser.weightUnit, to = incomingUnit),
+                )
+            }
+
             // Order matters — everything references the catalog and user first.
             catalogDao.upsertMuscleGroups(doc.muscleGroups)
             catalogDao.upsertEquipment(doc.equipment)
@@ -112,6 +127,10 @@ class BackupRepository @Inject constructor(
             userDao.insertAvailableEquipment(doc.availableEquipment)
             userDao.clearExcluded(doc.user.id)
             userDao.insertAllExcluded(doc.excludedExercises)
+            // Volume targets reference muscle groups; both land above.
+            if (doc.volumeTargets.isNotEmpty()) {
+                userDao.upsertVolumeTargets(doc.volumeTargets)
+            }
 
             routineDao.insertRoutines(doc.routines)
             routineDao.insertDays(doc.routineDays)
@@ -148,6 +167,7 @@ class BackupRepository @Inject constructor(
             availableEquipment = userDao.getAvailableEquipmentIds(SeedCatalog.LOCAL_USER_ID)
                 .map { UserAvailableEquipmentCrossRef(SeedCatalog.LOCAL_USER_ID, it) },
             excludedExercises = userDao.getExcluded(SeedCatalog.LOCAL_USER_ID),
+            volumeTargets = userDao.getVolumeTargets(SeedCatalog.LOCAL_USER_ID),
             routines = routineDao.getRoutines(SeedCatalog.LOCAL_USER_ID),
             routineDays = routineDao.getAllDays(),
             routineSlots = routineDao.getAllSlots(),

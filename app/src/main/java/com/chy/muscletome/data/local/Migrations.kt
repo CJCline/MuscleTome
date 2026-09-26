@@ -117,10 +117,40 @@ object MuscleTomeMigrations {
         }
     }
 
+    /**
+     * v5 → v6: weekly volume targets per muscle. `muscle_volume_targets`
+     * holds the user's weekly set goal for a muscle group; no row = no
+     * target. Volume history itself is derived from set_logs and never
+     * stored — only the goal lives here.
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `muscle_volume_targets` (" +
+                    "`userId` TEXT NOT NULL, `muscleGroupId` TEXT NOT NULL, " +
+                    "`weeklySetTarget` INTEGER, " +
+                    "PRIMARY KEY(`userId`, `muscleGroupId`), " +
+                    "FOREIGN KEY(`userId`) REFERENCES `users`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`muscleGroupId`) REFERENCES `muscle_groups`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_muscle_volume_targets_userId` " +
+                    "ON `muscle_volume_targets` (`userId`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_muscle_volume_targets_muscleGroupId` " +
+                    "ON `muscle_volume_targets` (`muscleGroupId`)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
         MIGRATION_4_5,
+        MIGRATION_5_6,
     )
 }

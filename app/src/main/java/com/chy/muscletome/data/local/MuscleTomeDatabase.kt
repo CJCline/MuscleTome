@@ -14,6 +14,7 @@ import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
+import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
@@ -39,6 +40,7 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         SessionSlotResultEntity::class,
         SetLogEntity::class,
         ExerciseSelectionHistoryEntity::class,
+        MuscleVolumeTargetEntity::class,
         ExerciseEquipmentCrossRef::class,
         ExerciseSecondaryMuscleCrossRef::class,
         SlotTargetMuscleCrossRef::class,
@@ -46,7 +48,7 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

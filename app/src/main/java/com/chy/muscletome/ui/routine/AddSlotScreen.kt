@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,9 +32,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.layout.ContentScale
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.ui.components.ExerciseDemoImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,10 +159,23 @@ fun AddSlotScreen(
                             headlineContent = { Text(exercise.name) },
                             supportingContent = { Text(exercise.primaryMuscleGroupId) },
                             leadingContent = {
-                                Checkbox(
-                                    checked = state.selectedExerciseIds.contains(exercise.id),
-                                    onCheckedChange = { viewModel.onExerciseSelected(exercise.id) },
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(
+                                        checked = state.selectedExerciseIds.contains(exercise.id),
+                                        onCheckedChange = { viewModel.onExerciseSelected(exercise.id) },
+                                    )
+                                    if (!exercise.demoUri.isNullOrBlank()) {
+                                        ExerciseDemoImage(
+                                            uri = exercise.demoUri,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(36.dp),
+                                            contentScale = ContentScale.Crop,
+                                        )
+                                    }
+                                }
                             },
                             modifier = Modifier.clickable { viewModel.onExerciseSelected(exercise.id) },
                         )

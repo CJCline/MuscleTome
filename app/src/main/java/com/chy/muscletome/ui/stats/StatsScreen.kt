@@ -11,28 +11,35 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.data.repository.MuscleVolume
+import com.chy.muscletome.domain.session.WeightUnits
+import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.ui.components.StatBlock
 import com.chy.muscletome.ui.components.VolumeBar
-import com.chy.muscletome.ui.components.EmptyState
-import com.chy.muscletome.ui.components.EmptyState
-import com.chy.muscletome.ui.components.LedgerIndex
+import androidx.compose.ui.text.font.FontWeight
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,6 +55,9 @@ fun StatsScreen(
     val dateFormat = SimpleDateFormat("EEE d MMM HH:mm", Locale.getDefault())
     val maxWeeklyVolume = state.muscles.maxOfOrNull { it.volumeThisWeek } ?: 1.0
     val hasAnything = state.completedSessionCount > 0 || state.sessions.isNotEmpty()
+
+    // Target editing dialog: the row the user tapped (null = closed).
+    var targetRow by remember { mutableStateOf<MuscleVolume?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("History") }) },
@@ -105,28 +115,108 @@ fun StatsScreen(
                 }
             }
             items(state.muscles, key = { it.muscle.id }) { row ->
+                val target = row.weeklySetTarget
+                val fraction = if (target != null && target > 0) {
+                    (row.setsThisWeek.toDouble() / target).coerceAtMost(1.0)
+                } else {
+                    row.volumeThisWeek / maxWeeklyVolume
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable { targetRow = row }
                         .padding(vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             row.muscle.name,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            MonoText(
+                                text = if (target != null) {
+                                    "${row.setsThisWeek} / $target sets"
+                                } else {
+                                    "${row.setsThisWeek} sets · ${row.volumeThisWeek.toInt()} vol"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (target != null && row.setsThisWeek >= target) {
+                                MicroTag(text = "Target met")
+                            }
+                        }
+                    }
+                    VolumeBar(fraction = fraction.toFloat())
+                    if (target == null) {
+                        Text(
+                            "Tap to set a weekly set target",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+            }
+
+            // --- Personal records: the best-ever ledger ----------------------
+            item { SectionHeader("Personal records") }
+            if (state.personalRecords.isEmpty()) {
+                item {
+                    Text(
+                        "Beat your best e1RM on an exercise and it's recorded here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(state.personalRecords, key = { it.exercise.id }) { record ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                        Text(
+                            record.exercise.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
                         MonoText(
-                            text = "${row.setsThisWeek} sets · ${row.volumeThisWeek.toInt()} vol",
+                            text = dateFormat.format(Date(record.set.completedAtEpochMs)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    VolumeBar(fraction = (row.volumeThisWeek / maxWeeklyVolume).toFloat())
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        MonoText(
+                            text = WeightUnits.displayText(record.set.weight) +
+                                WeightUnits.suffix(state.weightUnit) +
+                                " × ${record.set.reps}",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        MonoText(
+                            text = "e1RM ${record.e1rm.toInt()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
 
@@ -152,7 +242,8 @@ fun StatsScreen(
                         )
                     }
                     val last = if (row.lastWeight != null && row.lastReps != null) {
-                        "Last ${row.lastWeight} × ${row.lastReps}"
+                        "Last ${WeightUnits.displayText(row.lastWeight)}" +
+                            "${WeightUnits.suffix(state.weightUnit)} × ${row.lastReps}"
                     } else {
                         "No sets yet"
                     }
@@ -221,5 +312,43 @@ fun StatsScreen(
             }
         }
         }
+    }
+
+    // Tap-a-muscle target editor: set, adjust, or clear the weekly set goal.
+    val row = targetRow
+    if (row != null) {
+        var text by remember(row.muscle.id) { mutableStateOf(row.weeklySetTarget?.toString() ?: "") }
+        AlertDialog(
+            onDismissRequest = { targetRow = null },
+            title = { Text("${row.muscle.name} weekly target") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { value ->
+                            text = value.filter { it.isDigit() }.take(3)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Sets per week") },
+                        supportingText = { Text("Blank = no target") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setWeeklySetTarget(
+                            row.muscle.id,
+                            text.toIntOrNull(),
+                        )
+                        targetRow = null
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { targetRow = null }) { Text("Cancel") }
+            },
+        )
     }
 }

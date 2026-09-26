@@ -22,9 +22,12 @@ import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.domain.session.EffortScales
+import com.chy.muscletome.domain.session.PersonalRecords
+import com.chy.muscletome.domain.session.PrCandidate
 import com.chy.muscletome.domain.session.SupersetFlow
 import com.chy.muscletome.domain.session.SupersetFollowUp
 import com.chy.muscletome.domain.session.SupersetMember
+import com.chy.muscletome.domain.session.WeightUnits
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -116,6 +119,9 @@ data class ActiveWorkoutUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     /** Which scale the effort chips speak (user preference). */
     val effortScale: EffortScale = EffortScale.RPE,
+    /** Ids of this exercise's logged sets (this session included) that were
+     *  all-time PRs when logged. */
+    val prSetIds: Set<String> = emptySet(),
 ) {
     val current: ActiveSlot? get() = slots.getOrNull(currentIndex)
 
@@ -154,6 +160,9 @@ data class ActiveWorkoutUiState(
     /** Long-press micro increment (half plate: 1.25 kg / 2.5 lb). */
     val weightLongStep: Double get() = weightStep / 2.0
     val weightUnitSuffix: String get() = if (weightUnit == WeightUnit.LB) " lb" else " kg"
+
+    /** The unit a unit-toggle would switch to (kg ↔ lb). */
+    val otherUnit: WeightUnit get() = WeightUnits.other(weightUnit)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -163,7 +172,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val routineDao: RoutineDao,
     private val catalogRepository: CatalogRepository,
-    userRepository: UserRepository,
+    private val userRepository: UserRepository,
     private val restTimerManager: RestTimerManager,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -343,8 +352,19 @@ class ActiveWorkoutViewModel @Inject constructor(
             sessionNote = sessionNoteText,
             weightUnit = user?.weightUnit ?: WeightUnit.KG,
             effortScale = user?.effortScale ?: EffortScale.RPE,
+            prSetIds = buildPrSetIds(exerciseSetPoints),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
+
+    /**
+     * PR ids for the on-screen exercise: its full set history (this session
+     * included) fed through the shared rule — a set tags as PR when its e1RM
+     * strictly beat everything logged before it.
+     */
+    private fun buildPrSetIds(points: List<ExerciseSetPoint>): Set<String> =
+        PersonalRecords.prSetIds(
+            points.map { PrCandidate(it.id, it.completedAtEpochMs, it.weight, it.reps) },
+        )
 
     private fun buildLastSessions(
         points: List<ExerciseSetPoint>,
@@ -358,7 +378,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                     sessionStartEpochMs = sessionPoints.first().sessionStartEpochMs,
                     setCount = sessionPoints.size,
                     topWeight = sessionPoints.maxOf { it.weight },
-                    bestE1rm = sessionPoints.maxOf { p -> epley1Rm(p.weight, p.reps) },
+                    bestE1rm = sessionPoints.maxOf { p -> PersonalRecords.epley1Rm(p.weight, p.reps) },
                     volume = sessionPoints.sumOf { it.weight * it.reps },
                 )
             }
@@ -379,16 +399,10 @@ class ActiveWorkoutViewModel @Inject constructor(
             .map { (_, sessionPoints) ->
                 ProgressPoint(
                     sessionStartEpochMs = sessionPoints.first().sessionStartEpochMs,
-                    bestE1rm = sessionPoints.maxOf { p -> epley1Rm(p.weight, p.reps) },
+                    bestE1rm = sessionPoints.maxOf { p -> PersonalRecords.epley1Rm(p.weight, p.reps) },
                 )
             }
             .sortedBy { it.sessionStartEpochMs }
-    }
-
-    private fun epley1Rm(weight: Double, reps: Int): Double {
-        if (reps <= 0) return 0.0
-        if (reps == 1) return weight
-        return weight * (1.0 + reps / 30.0)
     }
 
     fun onProgressSpanChange(span: ProgressSpan) {
@@ -429,6 +443,25 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun onRepsChange(value: String) { reps.value = value }
     fun onRpeChange(value: String) { rpe.value = value }
     fun onSwapQueryChange(value: String) { swapQuery.value = value }
+
+    /**
+     * Unit toggle (kg ↔ lb) from the workout sheet: the preference switch
+     * converts the whole log atomically (see UserRepository.setWeightUnit),
+     * so the in-flight draft must be converted to match or the next logSet
+     * would write the old unit under the new one. Kept as raw text and
+     * re-formatted so an unreadable field passes through untouched.
+     */
+    fun toggleUnit() {
+        val state = uiState.value
+        val next = state.otherUnit
+        val parsed = state.weight.toDoubleOrNull()
+        if (parsed != null) {
+            weight.value = WeightUnits.displayText(
+                WeightUnits.convert(parsed, state.weightUnit, next),
+            )
+        }
+        viewModelScope.launch { userRepository.setWeightUnit(next) }
+    }
 
     fun onSupersetQueryChange(value: String) { supersetQuery.value = value }
 

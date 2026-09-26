@@ -33,7 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,10 +86,16 @@ fun SettingsScreen(
                     FilterChip(
                         selected = user?.weightUnit == unit,
                         onClick = { viewModel.setUnit(unit) },
-                        label = { Text(unit.name) },
+                        label = { Text(unit.name.lowercase()) },
                     )
                 }
             }
+            Text(
+                "Switching converts every logged set to the new unit, so " +
+                    "history, PRs and volume stay true.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             SectionHeader("Effort scale")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

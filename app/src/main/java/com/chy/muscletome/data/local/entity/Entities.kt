@@ -298,3 +298,20 @@ data class ExerciseSelectionHistoryEntity(
     val rerollCount: Int = 0,
     val affinity: Float = 0f,
 )
+
+@Serializable
+@Entity(
+    tableName = "muscle_volume_targets",
+    primaryKeys = ["userId", "muscleGroupId"],
+    foreignKeys = [
+        ForeignKey(entity = UserEntity::class, parentColumns = ["id"], childColumns = ["userId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = MuscleGroupEntity::class, parentColumns = ["id"], childColumns = ["muscleGroupId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("userId"), Index("muscleGroupId")],
+)
+data class MuscleVolumeTargetEntity(
+    val userId: String,
+    val muscleGroupId: String,
+    /** Weekly set target for this muscle; no row (or null) = no target. */
+    val weeklySetTarget: Int? = null,
+)

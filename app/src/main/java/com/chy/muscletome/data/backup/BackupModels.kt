@@ -5,6 +5,7 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
+import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
@@ -35,6 +36,8 @@ data class BackupDocument(
     val secondaryMuscles: List<ExerciseSecondaryMuscleCrossRef>,
     val availableEquipment: List<UserAvailableEquipmentCrossRef>,
     val excludedExercises: List<UserExcludedExerciseCrossRef>,
+    /** v3-era field: optional with a default so v2 documents still import. */
+    val volumeTargets: List<MuscleVolumeTargetEntity> = emptyList(),
     val routines: List<RoutineEntity>,
     val routineDays: List<RoutineDayEntity>,
     val routineSlots: List<RoutineSlotEntity>,
@@ -51,8 +54,13 @@ data class BackupDocument(
          * import unchanged; v2 is REJECTED by v1-era builds (import checks
          * `formatVersion <= FORMAT_VERSION`), which is exactly what we want:
          * supersets must not silently drop on an old device.
+         *
+         * v3: adds `volumeTargets` (weekly set goals per muscle). Like the
+         * v2 fields it is optional-with-default, so v2 documents still
+         * import unchanged; v3 is rejected by v2-era builds, keeping the
+         * "targets must not silently drop on an old device" guarantee.
          */
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
     }
 }
 

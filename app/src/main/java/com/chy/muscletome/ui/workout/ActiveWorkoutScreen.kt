@@ -61,14 +61,18 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.session.EffortScales
+import com.chy.muscletome.domain.session.WeightUnits
+import com.chy.muscletome.ui.components.ExerciseDemoImage
 import com.chy.muscletome.ui.components.MetricStepper
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
@@ -93,6 +97,7 @@ fun ActiveWorkoutScreen(
     var showSwap by remember { mutableStateOf(false) }
     var showSuperset by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showPlates by remember { mutableStateOf(false) }
     val infoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptics = LocalHapticFeedback.current
     var showFinishConfirm by remember { mutableStateOf(false) }
@@ -315,6 +320,20 @@ fun ActiveWorkoutScreen(
                             deltaStep = 1.0,
                         )
 
+                        // Plate math + unit toggle: quick helpers under the
+                        // steppers, on the same sheet as the entry.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(onClick = { showPlates = true }) {
+                                Text("Plates")
+                            }
+                            OutlinedButton(onClick = viewModel::toggleUnit) {
+                                Text("Switch to ${state.otherUnit.name.lowercase()}")
+                            }
+                        }
+
                         // Effort entry speaks the user's scale; the other
                         // scale rides along in the label. RPE stays stored.
                         Row(
@@ -519,7 +538,12 @@ fun ActiveWorkoutScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            MonoText("${set.weight} × ${set.reps}")
+                            MonoText(
+                                text = "${WeightUnits.displayText(set.weight)}${state.weightUnitSuffix} × ${set.reps}",
+                            )
+                            if (set.id in state.prSetIds) {
+                                MicroTag("PR", color = MaterialTheme.colorScheme.primary)
+                            }
                             set.rpe?.let { rpe ->
                                 MicroTag("RPE ${rpe.toInt()}")
                                 EffortScales.rirFor(rpe)?.let { MicroTag("RIR $it") }
@@ -666,8 +690,7 @@ fun ActiveWorkoutScreen(
                     )
                     LazyColumn {
                         items(state.catalogExercises, key = { it.id }) { exercise ->
-                            Text(
-                                exercise.name,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -676,7 +699,21 @@ fun ActiveWorkoutScreen(
                                         viewModel.onSwapQueryChange("")
                                     }
                                     .padding(vertical = 8.dp),
-                            )
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (exercise.demoUri.isNullOrBlank()) {
+                                    Spacer(Modifier.width(36.dp))
+                                } else {
+                                    ExerciseDemoImage(
+                                        uri = exercise.demoUri,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(36.dp),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                }
+                                Text(exercise.name)
+                            }
                         }
                         if (state.catalogExercises.isEmpty()) {
                             item {
@@ -734,8 +771,7 @@ fun ActiveWorkoutScreen(
                         modifier = Modifier.weight(1f, fill = false),
                     ) {
                         items(state.supersetExercises, key = { it.id }) { exercise ->
-                            Text(
-                                exercise.name,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -744,7 +780,21 @@ fun ActiveWorkoutScreen(
                                         viewModel.onSupersetQueryChange("")
                                     }
                                     .padding(vertical = 8.dp),
-                            )
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (exercise.demoUri.isNullOrBlank()) {
+                                    Spacer(Modifier.width(36.dp))
+                                } else {
+                                    ExerciseDemoImage(
+                                        uri = exercise.demoUri,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(36.dp),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                }
+                                Text(exercise.name)
+                            }
                         }
                         if (state.supersetExercises.isEmpty()) {
                             item {
@@ -805,6 +855,19 @@ fun ActiveWorkoutScreen(
                 }
             }
         }
+    }
+
+    // Plate loader: how to build the entry-field weight from bar + plates.
+    if (showPlates) {
+        PlateCalculatorSheet(
+            targetWeight = state.weight.toDoubleOrNull() ?: 0.0,
+            unit = state.weightUnit,
+            onDismiss = { showPlates = false },
+            onUseLoadable = { loadable ->
+                viewModel.onWeightChange(WeightUnits.displayText(loadable))
+                showPlates = false
+            },
+        )
     }
 }
 

@@ -11,10 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
+import com.chy.muscletome.ui.components.ExerciseDemoHero
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.SectionHeader
 
@@ -35,13 +35,12 @@ internal fun ExerciseInfoContent(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (!exercise.demoUri.isNullOrBlank()) {
-            AsyncImage(
-                model = exercise.demoUri,
-                contentDescription = exercise.name,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // Fixed 4:3 frame: the hero holds its size while the bitmap
+        // streams in, and every exercise with art reads consistently.
+        ExerciseDemoHero(
+            uri = exercise.demoUri,
+            contentDescription = exercise.name,
+        )
 
         LedgerInfoBlock(label = "About") {
             Text(

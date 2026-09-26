@@ -41,7 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import com.chy.muscletome.ui.settings.SettingsScreen
 import com.chy.muscletome.ui.stats.SessionDetailScreen
 import com.chy.muscletome.ui.stats.StatsScreen
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 /** Iron nav bar colors: amber selected, steel unselected. */
 @Composable

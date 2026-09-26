@@ -8,7 +8,9 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
+import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,8 @@ data class ExerciseDetailUiState(
     val history: ExerciseHistory = ExerciseHistory(),
     val primaryMuscleName: String = "",
     val loaded: Boolean = false,
+    /** Sets display in the user's unit (they're stored in it). */
+    val weightUnit: WeightUnit = WeightUnit.KG,
 )
 
 @HiltViewModel
@@ -37,6 +41,7 @@ class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     catalogRepository: CatalogRepository,
     workoutRepository: WorkoutRepository,
+    userRepository: UserRepository,
 ) : ViewModel() {
 
     private val exerciseId: String = checkNotNull(savedStateHandle["exerciseId"])
@@ -54,22 +59,27 @@ class ExerciseDetailViewModel @Inject constructor(
     }
 
     val uiState = combine(
-        catalogRepository.observeExercise(exerciseId),
-        catalogRepository.observeEquipmentForExercise(exerciseId),
-        catalogRepository.observeSecondaryMusclesForExercise(exerciseId),
-        catalogRepository.observeMuscleGroups(),
-        history,
-    ) { exercise, equipment, secondaryMuscles, muscleGroups, currentHistory ->
-        ExerciseDetailUiState(
-            exercise = exercise,
-            equipment = equipment,
-            secondaryMuscles = secondaryMuscles,
-            history = currentHistory,
-            primaryMuscleName = exercise?.primaryMuscleGroupId
-                ?.let { id -> muscleGroups.find { it.id == id }?.name }
-                .orEmpty(),
-            loaded = true,
-        )
+        combine(
+            catalogRepository.observeExercise(exerciseId),
+            catalogRepository.observeEquipmentForExercise(exerciseId),
+            catalogRepository.observeSecondaryMusclesForExercise(exerciseId),
+            catalogRepository.observeMuscleGroups(),
+            history,
+        ) { exercise, equipment, secondaryMuscles, muscleGroups, currentHistory ->
+            ExerciseDetailUiState(
+                exercise = exercise,
+                equipment = equipment,
+                secondaryMuscles = secondaryMuscles,
+                history = currentHistory,
+                primaryMuscleName = exercise?.primaryMuscleGroupId
+                    ?.let { id -> muscleGroups.find { it.id == id }?.name }
+                    .orEmpty(),
+                loaded = true,
+            )
+        },
+        userRepository.observeUser(),
+    ) { detail, user ->
+        detail.copy(weightUnit = user?.weightUnit ?: WeightUnit.KG)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

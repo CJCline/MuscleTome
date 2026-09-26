@@ -20,6 +20,8 @@ import org.junit.runner.RunWith
  *  - v3 → v4: superset columns added; session sortOrder backfilled from
  *    the routine slot's orderIndex; grouping columns null for legacy rows.
  *  - v4 → v5: users.effortScale added, defaulting to RPE.
+ *  - v5 → v6: muscle_volume_targets created (empty — targets are set
+ *    explicitly by the user, never backfilled).
  *
  * Room itself validates the schema at the end of the chain; these assertions
  * cover the data, which Room does not check.
@@ -143,6 +145,31 @@ class MigrationTest {
         db.query(SimpleSQLiteQuery("SELECT `effortScale` FROM users WHERE `id` = 'local-user'")).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("RPE", cursor.getString(0))
+        }
+
+        // v5 → v6: the volume-target table exists, starts empty (targets
+        // are user-set, never backfilled), and accepts the composite-key
+        // upsert the DAO relies on (REPLACE on conflict).
+        db.query(SimpleSQLiteQuery("SELECT COUNT(*) FROM muscle_volume_targets")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.openHelper.writableDatabase.execSQL(
+            "INSERT INTO muscle_volume_targets (`userId`, `muscleGroupId`, `weeklySetTarget`) " +
+                "VALUES ('local-user', 'chest', 12)",
+        )
+        db.openHelper.writableDatabase.execSQL(
+            "INSERT INTO muscle_volume_targets (`userId`, `muscleGroupId`, `weeklySetTarget`) " +
+                "VALUES ('local-user', 'chest', 10)",
+        )
+        db.query(
+            SimpleSQLiteQuery(
+                "SELECT `weeklySetTarget` FROM muscle_volume_targets " +
+                    "WHERE `userId` = 'local-user' AND `muscleGroupId` = 'chest'",
+            ),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(10, cursor.getInt(0))
         }
 
         db.close()

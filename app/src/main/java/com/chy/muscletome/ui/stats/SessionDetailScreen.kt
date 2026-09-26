@@ -22,9 +22,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.session.EffortScales
+import com.chy.muscletome.domain.session.WeightUnits
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
 
@@ -90,7 +91,9 @@ fun SessionDetailScreen(
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 MonoText(
-                                    text = "${set.weight} × ${set.reps}",
+                                    text = WeightUnits.displayText(set.weight) +
+                                        WeightUnits.suffix(state.weightUnit) +
+                                        " × ${set.reps}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onBackground,
                                 )

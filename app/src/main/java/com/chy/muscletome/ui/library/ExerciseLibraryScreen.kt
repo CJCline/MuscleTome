@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -31,9 +31,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.domain.model.ExerciseSource
 import com.chy.muscletome.ui.components.LedgerDivider
@@ -166,15 +165,9 @@ private fun ExerciseRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!exercise.demoUri.isNullOrBlank()) {
-            AsyncImage(
-                model = exercise.demoUri,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-            )
-        } else {
-            LedgerIndex(index = index + 1)
-        }
+        // No image previews in the list — art lives on the exercise's own
+        // detail card. Rows keep their ledger index.
+        LedgerIndex(index = index + 1)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),

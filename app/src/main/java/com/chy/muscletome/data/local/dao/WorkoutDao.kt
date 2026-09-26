@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 
 /** One logged set for an exercise, with the session it belongs to. */
 data class ExerciseSetPoint(
+    val id: String,
     val sessionId: String,
     val sessionStartEpochMs: Long,
     val completedAtEpochMs: Long,
@@ -73,7 +74,8 @@ interface WorkoutDao {
 
     @Query(
         """
-        SELECT ssr.sessionId AS sessionId,
+        SELECT sl.id AS id,
+               ssr.sessionId AS sessionId,
                ws.startedAtEpochMs AS sessionStartEpochMs,
                sl.completedAtEpochMs AS completedAtEpochMs,
                sl.weight AS weight,
@@ -166,6 +168,14 @@ interface WorkoutDao {
 
     @Query("DELETE FROM set_logs WHERE id = :id")
     suspend fun deleteSetById(id: String)
+
+    /**
+     * Unit-switch support: rescales every logged weight by [factor] in one
+     * statement. Runs inside the user-pref transaction (see
+     * UserRepository.setWeightUnit) so labels and numbers can't drift apart.
+     */
+    @Query("UPDATE set_logs SET weight = weight * :factor")
+    suspend fun scaleAllWeights(factor: Double)
 
     @Query("UPDATE session_slot_results SET sessionNote = :note WHERE id = :id")
     suspend fun updateSessionNote(id: String, note: String)

@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.local.entity.UserExcludedExerciseCrossRef
@@ -62,4 +63,22 @@ interface UserDao {
 
     @Query("SELECT * FROM user_excluded_exercises WHERE userId = :userId")
     suspend fun getExcluded(userId: String): List<UserExcludedExerciseCrossRef>
+
+    // --- Weekly volume targets --------------------------------------------
+
+    @Query("SELECT * FROM muscle_volume_targets WHERE userId = :userId")
+    fun observeVolumeTargets(userId: String): Flow<List<MuscleVolumeTargetEntity>>
+
+    @Query("SELECT * FROM muscle_volume_targets WHERE userId = :userId")
+    suspend fun getVolumeTargets(userId: String): List<MuscleVolumeTargetEntity>
+
+    /** Backup import restores the full row — upsert, not ignore. */
+    @Upsert
+    suspend fun upsertVolumeTargets(rows: List<MuscleVolumeTargetEntity>)
+
+    @Upsert
+    suspend fun upsertVolumeTarget(row: MuscleVolumeTargetEntity)
+
+    @Query("DELETE FROM muscle_volume_targets WHERE userId = :userId AND muscleGroupId = :muscleGroupId")
+    suspend fun deleteVolumeTarget(userId: String, muscleGroupId: String)
 }

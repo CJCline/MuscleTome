@@ -25,13 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.session.WeightUnits
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.domain.model.MovementPattern
@@ -119,11 +120,13 @@ internal fun ExerciseDetailContent(
                     modifier = Modifier.padding(start = 13.dp),
                 ) {
                     MonoText(
-                        text = "Last set: ${history.lastSet.weight} × ${history.lastSet.reps}",
+                        text = "Last set: ${WeightUnits.displayText(history.lastSet.weight)}" +
+                            "${WeightUnits.suffix(state.weightUnit)} × ${history.lastSet.reps}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     MonoText(
-                        text = "Best weight: ${history.bestWeight ?: 0.0}",
+                        text = "Best weight: " +
+                            WeightUnits.display(history.bestWeight ?: 0.0, state.weightUnit),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     MonoText(

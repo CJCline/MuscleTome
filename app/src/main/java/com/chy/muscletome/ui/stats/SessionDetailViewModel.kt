@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
+import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +24,8 @@ data class SessionExerciseLog(
 
 data class SessionDetailUiState(
     val exercises: List<SessionExerciseLog> = emptyList(),
+    /** Sets display in the user's unit (they're stored in it). */
+    val weightUnit: WeightUnit = WeightUnit.KG,
 )
 
 @HiltViewModel
@@ -29,6 +33,7 @@ class SessionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     workoutRepository: WorkoutRepository,
     catalogRepository: CatalogRepository,
+    userRepository: UserRepository,
 ) : ViewModel() {
 
     private val sessionId: String = checkNotNull(savedStateHandle["sessionId"])
@@ -37,7 +42,8 @@ class SessionDetailViewModel @Inject constructor(
         workoutRepository.observeSlotResults(sessionId),
         workoutRepository.observeSets(sessionId),
         catalogRepository.observeExercises(),
-    ) { results, sets, exercises ->
+        userRepository.observeUser(),
+    ) { results, sets, exercises, user ->
         val names = exercises.associate { it.id to it.name }
         val setsByResult = sets.groupBy { it.sessionSlotResultId }
         SessionDetailUiState(
@@ -51,6 +57,7 @@ class SessionDetailViewModel @Inject constructor(
                     supersetGroupId = result.supersetGroupId,
                 )
             },
+            weightUnit = user?.weightUnit ?: WeightUnit.KG,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SessionDetailUiState())
 }
