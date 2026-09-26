@@ -10,6 +10,7 @@ import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WgerImportRepository
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -120,6 +121,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setUnit(unit: WeightUnit) = viewModelScope.launch { userRepository.setWeightUnit(unit) }
     fun setStrictness(value: MatchStrictness) = viewModelScope.launch { userRepository.setMatchStrictness(value) }
+    fun setEffortScale(value: EffortScale) = viewModelScope.launch { userRepository.setEffortScale(value) }
     fun setPreferCompoundEarly(value: Boolean) = viewModelScope.launch { userRepository.setPreferCompoundEarly(value) }
 
     fun onExcludeSearchQueryChange(value: String) {

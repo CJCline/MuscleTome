@@ -123,6 +123,32 @@ interface WorkoutDao {
     @Query("SELECT * FROM session_slot_results")
     suspend fun getAllSlotResults(): List<SessionSlotResultEntity>
 
+    /** Makes room for an ad-hoc superset partner spliced in after the anchor. */
+    @Query(
+        "UPDATE session_slot_results SET sortOrder = sortOrder + 1 " +
+            "WHERE sessionId = :sessionId AND sortOrder > :afterSortOrder",
+    )
+    suspend fun shiftSortOrdersAbove(sessionId: String, afterSortOrder: Int)
+
+    /** Re-sets superset membership on a session result (ad-hoc grouping). */
+    @Query("UPDATE session_slot_results SET supersetGroupId = :groupId WHERE id = :resultId")
+    suspend fun updateSlotResultGroup(resultId: String, groupId: String?)
+
+    /**
+     * Shifts everything after the anchor down one position and inserts the
+     * ad-hoc partner into the freed slot — atomically, so a crash can't leave
+     * a gap or a half-positioned row.
+     */
+    @Transaction
+    suspend fun insertAdHocResult(
+        sessionId: String,
+        afterSortOrder: Int,
+        row: SessionSlotResultEntity,
+    ) {
+        shiftSortOrdersAbove(sessionId, afterSortOrder)
+        insertSlotResult(row)
+    }
+
     @Query("SELECT * FROM set_logs")
     suspend fun getAllSetLogs(): List<SetLogEntity>
 

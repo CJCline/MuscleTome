@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.ExerciseSource
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.MovementPattern
@@ -26,6 +27,8 @@ data class UserEntity(
     val primaryMatchStrictness: MatchStrictness = MatchStrictness.LOOSE,
     val preferCompoundEarly: Boolean = true,
     val maxDifficulty: Difficulty = Difficulty.ADVANCED,
+    /** Which effort scale the workout UI speaks (RPE stays the stored canon). */
+    val effortScale: EffortScale = EffortScale.RPE,
     /**
      * The routine Home's "Up next" trains. Null (or a stale pointer to a
      * deleted routine) falls back to the newest routine; the user switches
@@ -156,6 +159,12 @@ data class RoutineSlotEntity(
     val repRangeMax: Int,
     val restSeconds: Int,
     val targetRpe: Float? = null,
+    /**
+     * Superset/circuit membership: slots sharing a group id are trained
+     * round-robin in the live session. Null = standalone slot. Membership is
+     * by id, not adjacency — reordering rows never breaks a group.
+     */
+    val supersetGroupId: String? = null,
 )
 
 @Serializable
@@ -222,6 +231,25 @@ data class SessionSlotResultEntity(
      * matches the ALTER TABLE migration that added the column.
      */
     @ColumnInfo(defaultValue = "") val sessionNote: String = "",
+    /**
+     * Snapshot of `RoutineSlotEntity.supersetGroupId` taken at session start;
+     * ad-hoc supersets created mid-workoot are grouped only here. Same
+     * snapshot semantics as the resolved exercise: routine edits never
+     * rewrite a running session.
+     */
+    val supersetGroupId: String? = null,
+    /**
+     * Explicit position of this result within the session — decoupled from
+     * the routine's (editable) slot order so ad-hoc inserts can splice in
+     * without renumbering the routine itself. Backfilled from slot order by
+     * the v3→v4 migration; written at session start thereafter.
+     */
+    @ColumnInfo(defaultValue = "0") val sortOrder: Int = 0,
+    /**
+     * Planned sets for ad-hoc rows (which have no routine slot to ask);
+     * null = slot-backed, use `RoutineSlotEntity.sets`.
+     */
+    val plannedSets: Int? = null,
 )
 
 @Serializable

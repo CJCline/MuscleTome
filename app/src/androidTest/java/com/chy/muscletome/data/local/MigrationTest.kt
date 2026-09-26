@@ -17,6 +17,9 @@ import org.junit.runner.RunWith
  *  - v1 → v2: wger rows retagged to WGER, billing columns dropped (replaced
  *    by activeRoutineId), everything else untouched.
  *  - v2 → v3: sessionNote added with '' default.
+ *  - v3 → v4: superset columns added; session sortOrder backfilled from
+ *    the routine slot's orderIndex; grouping columns null for legacy rows.
+ *  - v4 → v5: users.effortScale added, defaulting to RPE.
  *
  * Room itself validates the schema at the end of the chain; these assertions
  * cover the data, which Room does not check.
@@ -115,10 +118,31 @@ class MigrationTest {
             assertEquals("", cursor.getString(0))
         }
 
+        // v3 → v4: sortOrder was backfilled from the routine slot's order
+        // position — the session's original presentation order is preserved.
+        db.query(SimpleSQLiteQuery("SELECT `sortOrder`, `supersetGroupId`, `plannedSets` FROM session_slot_results WHERE `id` = 'ssr1'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            // slot1's orderIndex in the seeded database is 0.
+            assertEquals(0, cursor.getInt(0))
+            assertTrue(cursor.isNull(1))
+            assertTrue(cursor.isNull(2))
+        }
+        // v3 → v4: routine slot grouping column exists and defaults to NULL.
+        db.query(SimpleSQLiteQuery("SELECT `supersetGroupId` FROM routine_slots WHERE `id` = 'slot1'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+        }
+
         // The workout history survived the whole chain.
         db.query(SimpleSQLiteQuery("SELECT COUNT(*) FROM set_logs")).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(1, cursor.getInt(0))
+        }
+
+        // v4 → v5: effort scale preference exists and defaulted to RPE.
+        db.query(SimpleSQLiteQuery("SELECT `effortScale` FROM users WHERE `id` = 'local-user'")).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("RPE", cursor.getString(0))
         }
 
         db.close()

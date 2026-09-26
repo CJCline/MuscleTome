@@ -17,9 +17,11 @@ import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.selection.VarietyEngine
 import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.MatchStrictness
-import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.selection.EngineCandidate
+import com.chy.muscletome.domain.selection.ResolvedSlot
+import com.chy.muscletome.domain.selection.SessionResolver
+import com.chy.muscletome.domain.selection.SlotResolution
 import com.chy.muscletome.domain.selection.EngineRequest
 import java.util.UUID
 import javax.inject.Inject
@@ -40,6 +42,7 @@ class WorkoutRepository @Inject constructor(
     private val selectionHistoryDao: SelectionHistoryDao,
     private val varietyEngine: VarietyEngine,
     private val database: MuscleTomeDatabase,
+    private val sessionResolver: SessionResolver,
 ) {
     fun observeSession(id: String) = workoutDao.observeSession(id)
 
@@ -75,54 +78,36 @@ class WorkoutRepository @Inject constructor(
         val available = userDao.getAvailableEquipmentIds(SeedCatalog.LOCAL_USER_ID).toSet()
         val excluded = userDao.getExcludedExerciseIds(SeedCatalog.LOCAL_USER_ID).toSet()
         val muscleGroups = catalogDao.getMuscleGroups()
-        val muscleParents = muscleGroups.associate { it.id to it.parentGroupId }
-        val catalog = buildCatalog()
 
-        val resolved = mutableListOf<ResolvedSlot>()
-        val picked = mutableSetOf<String>()
-
-        for (index in slots.indices) {
-            val slot = slots[index]
-            val resolvedId: String
-            val reason: SelectionReason
-            if (slot.type == SlotType.FIXED) {
-                resolvedId = slot.exerciseId ?: return StartResult.NoMatch("Fixed slot missing exercise")
-                reason = SelectionReason.FIXED
-            } else {
-                val targets = routineDao.getSlotTargets(slot.id).map { it.muscleGroupId }.toSet()
-                val pick = varietyEngine.pickWithFallback(
-                    EngineRequest(
-                        targetMuscleIds = targets,
-                        targetMovementType = slot.targetMovementType,
-                        availableEquipmentIds = available,
-                        excludedExerciseIds = excluded,
-                        alreadyPickedIds = picked,
-                        maxDifficulty = user?.maxDifficulty ?: Difficulty.ADVANCED,
-                        matchStrictness = user?.primaryMatchStrictness ?: MatchStrictness.LOOSE,
-                        preferCompoundEarly = user?.preferCompoundEarly ?: true,
-                        slotIndex = index,
-                    ),
-                    catalog,
-                    muscleParents,
-                )
-
-                if (pick == null) {
-                    val muscleName = targets.firstOrNull()?.let { tid ->
-                        muscleGroups.find { it.id == tid }?.name
-                    } ?: "Target"
-                    return StartResult.NoMatch("$muscleName (${slot.targetMovementType})")
-                }
-                resolvedId = pick.exercise.id
-                reason = SelectionReason.AI_ROTATED
-            }
-            picked += resolvedId
-            resolved += ResolvedSlot(slot.id, resolvedId, reason)
+        val resolved = when (
+            val resolution = sessionResolver.resolve(
+                slots = slots,
+                targetsBySlotId = slots.associate { slot ->
+                    slot.id to routineDao.getSlotTargets(slot.id)
+                        .map { it.muscleGroupId }
+                        .toSet()
+                },
+                catalog = buildCatalog(),
+                muscleGroups = muscleGroups,
+                availableEquipmentIds = available,
+                excludedExerciseIds = excluded,
+                maxDifficulty = user?.maxDifficulty ?: Difficulty.ADVANCED,
+                matchStrictness = user?.primaryMatchStrictness ?: MatchStrictness.LOOSE,
+                preferCompoundEarly = user?.preferCompoundEarly ?: true,
+            )
+        ) {
+            is SlotResolution.Success -> resolution.slots
+            is SlotResolution.NoMatch -> return StartResult.NoMatch(resolution.slotLabel)
         }
 
         // Single atomic write: the session row and all of its resolved slot
         // results land together or not at all — a crash mid-insert can no
         // longer strand a session with missing results.
         val sessionId = UUID.randomUUID().toString()
+        // Snapshot semantics: superset membership and result ordering are
+        // frozen at start — routine edits made mid-session never rewrite a
+        // running workout. Same rule as the resolved exercise itself.
+        val slotById = slots.associateBy { it.id }
         workoutDao.startSessionTransaction(
             session = WorkoutSessionEntity(
                 id = sessionId,
@@ -131,23 +116,20 @@ class WorkoutRepository @Inject constructor(
                 startedAtEpochMs = System.currentTimeMillis(),
             ),
             slotResults = resolved.map { res ->
+                val slot = slotById[res.slotId]
                 SessionSlotResultEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
                     routineSlotId = res.slotId,
                     resolvedExerciseId = res.exerciseId,
                     selectionReason = res.reason,
+                    supersetGroupId = slot?.supersetGroupId,
+                    sortOrder = slot?.orderIndex ?: 0,
                 )
             },
         )
         return StartResult.Success(sessionId)
     }
-
-    private data class ResolvedSlot(
-        val slotId: String,
-        val exerciseId: String,
-        val reason: SelectionReason,
-    )
 
     suspend fun logSet(
         sessionSlotResultId: String,
@@ -290,6 +272,41 @@ class WorkoutRepository @Inject constructor(
                 selectionReason = SelectionReason.USER_OVERRIDE,
             ),
         )
+    }
+
+    /**
+     * Turns the anchor result into a superset with an exercise pulled from the
+     * library mid-workout. The partner row is spliced in right after the
+     * anchor (sortOrder = anchor + 1, shifting everything below) and both
+     * rows share one group id. [plannedSets] drives the two ad-hoc modes:
+     * remaining-anchor-sets for "alternate", 1 for "just this one set".
+     */
+    suspend fun addSupersetPartner(
+        sessionId: String,
+        anchor: SessionSlotResultEntity,
+        exerciseId: String,
+        plannedSets: Int,
+    ): String {
+        val groupId = anchor.supersetGroupId ?: UUID.randomUUID().toString()
+        val partner = SessionSlotResultEntity(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            routineSlotId = null,
+            resolvedExerciseId = exerciseId,
+            selectionReason = SelectionReason.USER_OVERRIDE,
+            supersetGroupId = groupId,
+            sortOrder = anchor.sortOrder + 1,
+            plannedSets = plannedSets,
+        )
+        // Anchor group id + partner insert must land together: a crash in
+        // between must not strand a grouped anchor with no partner.
+        database.withTransaction {
+            if (anchor.supersetGroupId == null) {
+                workoutDao.updateSlotResultGroup(anchor.id, groupId)
+            }
+            workoutDao.insertAdHocResult(sessionId, anchor.sortOrder, partner)
+        }
+        return partner.id
     }
 
     private suspend fun buildCatalog(): List<EngineCandidate> {

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.domain.session.EffortScales
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
 
@@ -54,8 +55,20 @@ fun SessionDetailScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            items(state.exercises, key = { it.exerciseName + it.reason }) { row ->
+            val indexed = state.exercises.mapIndexed { i, row -> i to row }
+            items(indexed, key = { "${it.second.exerciseName}-${it.first}" }) { (index, row) ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Tag the first row of each superset run; grouped rows
+                    // share the tag until a different (or null) group follows.
+                    val previous = state.exercises.getOrNull(index - 1)
+                    val startsGroup = (row.supersetGroupId != null) &&
+                        (previous?.supersetGroupId != row.supersetGroupId)
+                    if (startsGroup) {
+                        MicroTag(
+                            text = "Superset",
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Text(
                         row.exerciseName,
                         style = MaterialTheme.typography.titleMedium,
@@ -75,11 +88,17 @@ fun SessionDetailScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
-                            MonoText(
-                                text = "${set.weight} × ${set.reps}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                MonoText(
+                                    text = "${set.weight} × ${set.reps}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                set.rpe?.let { rpe ->
+                                    MicroTag("RPE ${rpe.toInt()}")
+                                    EffortScales.rirFor(rpe)?.let { MicroTag("RIR $it") }
+                                }
+                            }
                         }
                     }
                 }

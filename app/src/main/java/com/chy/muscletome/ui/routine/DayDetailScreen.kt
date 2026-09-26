@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -60,6 +62,7 @@ import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.dragReorderItem
 import com.chy.muscletome.ui.components.rememberDragReorderState
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
+import com.chy.muscletome.domain.model.EffortScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -247,11 +250,22 @@ fun DayDetailScreen(
                                     } else {
                                         row.exerciseName
                                     }
-                                    Text(
-                                        title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (row.slot.supersetGroupId != null &&
+                                            row.slot.supersetGroupId != slotRows.getOrNull(index - 1)?.slot?.supersetGroupId
+                                        ) {
+                                            MicroTag(
+                                                text = "Superset",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(end = 8.dp),
+                                            )
+                                        }
+                                        Text(
+                                            title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                        )
+                                    }
                                     MonoText(
                                         text = "${row.draftSets} × " +
                                             "${row.draftRepMin}-${row.draftRepMax} · " +
@@ -259,6 +273,32 @@ fun DayDetailScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                }
+                                // Superset membership follows the group id, never
+                                // adjacency — the icon shows the slot's state;
+                                // drag-reordering a group's rows apart keeps it.
+                                IconButton(
+                                    onClick = {
+                                        if (row.slot.supersetGroupId == null) {
+                                            viewModel.groupSlotWithNext(row.slot.id)
+                                        } else {
+                                            viewModel.ungroupSlot(row.slot.id)
+                                        }
+                                    },
+                                ) {
+                                    if (row.slot.supersetGroupId == null) {
+                                        Icon(
+                                            Icons.Default.Link,
+                                            contentDescription = "Group with next exercise",
+                                            tint = MaterialTheme.colorScheme.outline,
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.LinkOff,
+                                            contentDescription = "Remove from superset",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                                 IconButton(onClick = { deletingSlot = row.slot }) {
                                     Icon(
@@ -305,6 +345,22 @@ fun DayDetailScreen(
                                         viewModel.onSlotFieldChange(row.slot.id, SlotField.REST, it)
                                     },
                                     modifier = Modifier.weight(1f),
+                                )
+                                SlotMetricField(
+                                    label = when (state.effortScale) {
+                                        EffortScale.RPE -> "Target RPE"
+                                        EffortScale.RIR -> "Target RIR"
+                                    },
+                                    value = row.draftTargetEffort,
+                                    onValueChange = {
+                                        viewModel.onSlotFieldChange(
+                                            row.slot.id,
+                                            SlotField.TARGET_EFFORT,
+                                            it,
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    allowDecimal = state.effortScale == EffortScale.RPE,
                                 )
                             }
                             AnimatedVisibility(visible = row.hasUnsavedChanges) {
@@ -394,13 +450,18 @@ private fun SlotMetricField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** RPE allows half-points (7.5); whole numbers otherwise. */
+    allowDecimal: Boolean = false,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = { newValue ->
-            if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
-                onValueChange(newValue)
+            val ok = if (allowDecimal) {
+                newValue.isEmpty() || newValue.matches(Regex("^\\d{1,2}(\\.\\d?)?$"))
+            } else {
+                newValue.isEmpty() || newValue.all { it.isDigit() }
             }
+            if (ok) onValueChange(newValue)
         },
         modifier = modifier,
         label = { Text(label) },

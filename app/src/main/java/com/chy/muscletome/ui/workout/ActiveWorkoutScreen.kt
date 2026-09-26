@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +67,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.SetLogEntity
+import com.chy.muscletome.domain.model.EffortScale
+import com.chy.muscletome.domain.session.EffortScales
 import com.chy.muscletome.ui.components.MetricStepper
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
@@ -88,6 +91,7 @@ fun ActiveWorkoutScreen(
     val exerciseInfo by viewModel.exerciseInfo.collectAsStateWithLifecycle()
     val current = state.current
     var showSwap by remember { mutableStateOf(false) }
+    var showSuperset by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     val infoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptics = LocalHapticFeedback.current
@@ -192,7 +196,8 @@ fun ActiveWorkoutScreen(
                     if (current?.slot != null) {
                         MicroTag(
                             text = "Target ${current.slot.repRangeMin}–${current.slot.repRangeMax} " +
-                                "reps · rest ${current.slot.restSeconds}s",
+                                "reps · rest ${current.slot.restSeconds}s" +
+                                (state.targetEffortLabel?.let { " · $it" } ?: ""),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -206,6 +211,83 @@ fun ActiveWorkoutScreen(
                         if (current != null && current.sets.isEmpty()) {
                             OutlinedButton(onClick = { showSwap = true }) {
                                 Text("Swap")
+                            }
+                        }
+                        if (viewModel.canSuperset()) {
+                            OutlinedButton(onClick = { showSuperset = true }) {
+                                Text("Superset")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Superset banner: the whole group at a glance --------------
+            val group = state.currentGroup
+            if (group.size > 1) {
+                item {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                MicroTag(
+                                    text = "Superset",
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                MicroTag(
+                                    text = "No rest between exercises",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            group.forEach { member ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    SetTicks(
+                                        done = member.sets.size,
+                                        total = member.plannedSets.coerceAtLeast(1),
+                                        modifier = Modifier.width(64.dp),
+                                    )
+                                    Text(
+                                        member.exercise?.name ?: "Exercise",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (member.result.id == current?.result?.id) {
+                                            MaterialTheme.colorScheme.onBackground
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        fontWeight = if (member.result.id == current?.result?.id) {
+                                            FontWeight.ExtraBold
+                                        } else {
+                                            FontWeight.Normal
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (member.isComplete) {
+                                        MicroTag(
+                                            text = "Done",
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -233,18 +315,44 @@ fun ActiveWorkoutScreen(
                             deltaStep = 1.0,
                         )
 
-                        Text(
-                            "RPE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        // Effort entry speaks the user's scale; the other
+                        // scale rides along in the label. RPE stays stored.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                state.effortScale.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (state.effortEntryLabel.isNotBlank()) {
+                                MicroTag(
+                                    text = state.effortEntryLabel,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(6, 7, 8, 9, 10).forEach { value ->
+                            EffortScales.chipValues(state.effortScale).forEach { value ->
                                 FilterChip(
-                                    selected = state.rpe == value.toString(),
+                                    // Chips compare on the entry scale: in RIR
+                                    // mode the stored RPE is 10 − chip.
+                                    selected = when (state.effortScale) {
+                                        EffortScale.RPE -> state.rpe == value.toString()
+                                        EffortScale.RIR ->
+                                            EffortScales.rirFor(state.rpe.toFloatOrNull()) == value
+                                    },
                                     onClick = {
                                         viewModel.onRpeChange(
-                                            if (state.rpe == value.toString()) "" else value.toString(),
+                                            when (state.effortScale) {
+                                                EffortScale.RPE ->
+                                                    if (state.rpe == value.toString()) "" else value.toString()
+                                                EffortScale.RIR ->
+                                                    if (EffortScales.rirFor(state.rpe.toFloatOrNull()) == value) ""
+                                                    else EffortScales.rpeFor(value).toString()
+                                            },
                                         )
                                     },
                                     label = { MonoText(value.toString()) },
@@ -412,7 +520,10 @@ fun ActiveWorkoutScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             MonoText("${set.weight} × ${set.reps}")
-                            set.rpe?.let { MicroTag("RPE ${it.toInt()}") }
+                            set.rpe?.let { rpe ->
+                                MicroTag("RPE ${rpe.toInt()}")
+                                EffortScales.rirFor(rpe)?.let { MicroTag("RIR $it") }
+                            }
                         }
                     }
                 }
@@ -459,6 +570,18 @@ fun ActiveWorkoutScreen(
         var weightField by remember(set.id) { mutableStateOf(set.weight.toString()) }
         var repsField by remember(set.id) { mutableStateOf(set.reps.toString()) }
         var rpeField by remember(set.id) { mutableStateOf(set.rpe?.toString() ?: "") }
+        var rirField by remember(set.id) {
+            mutableStateOf(EffortScales.rirFor(set.rpe)?.toString() ?: "")
+        }
+        // Editing either field re-derives its twin from the entered one.
+        fun onRpeEdit(value: String) {
+            rpeField = value
+            rirField = EffortScales.rirFor(value.toFloatOrNull())?.toString() ?: ""
+        }
+        fun onRirEdit(value: String) {
+            rirField = value
+            rpeField = EffortScales.rpeFor(value.toIntOrNull())?.toString() ?: ""
+        }
         val weightValue = weightField.toDoubleOrNull()
         val repsValue = repsField.toIntOrNull()
         AlertDialog(
@@ -480,8 +603,14 @@ fun ActiveWorkoutScreen(
                     )
                     OutlinedTextField(
                         value = rpeField,
-                        onValueChange = { rpeField = it },
+                        onValueChange = ::onRpeEdit,
                         label = { Text("RPE (optional)") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = rirField,
+                        onValueChange = ::onRirEdit,
+                        label = { Text("RIR (optional)") },
                         singleLine = true,
                     )
                 }
@@ -495,6 +624,7 @@ fun ActiveWorkoutScreen(
                             set = set,
                             weight = weightValue ?: 0.0,
                             reps = repsValue ?: 0,
+                            // RPE is canon; RIR was already folded back into it.
                             rpe = rpeField.toFloatOrNull(),
                         )
                         editingSet = null
@@ -562,6 +692,77 @@ fun ActiveWorkoutScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSwap = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showSuperset) {
+        // Ad-hoc modes: alternate the remaining sets (classic superset) or
+        // insert a single one-off partner set. Both ride the same flow.
+        var oneShot by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = {
+                showSuperset = false
+                viewModel.onSupersetQueryChange("")
+            },
+            title = { Text("Superset with…") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = state.supersetQuery,
+                        onValueChange = viewModel::onSupersetQueryChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Search exercises") },
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    ) {
+                        FilterChip(
+                            selected = !oneShot,
+                            onClick = { oneShot = false },
+                            label = { Text("Alternate remaining sets") },
+                        )
+                        FilterChip(
+                            selected = oneShot,
+                            onClick = { oneShot = true },
+                            label = { Text("Just this one set") },
+                        )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                    ) {
+                        items(state.supersetExercises, key = { it.id }) { exercise ->
+                            Text(
+                                exercise.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.addSupersetPartner(exercise.id, oneShot)
+                                        showSuperset = false
+                                        viewModel.onSupersetQueryChange("")
+                                    }
+                                    .padding(vertical = 8.dp),
+                            )
+                        }
+                        if (state.supersetExercises.isEmpty()) {
+                            item {
+                                Text(
+                                    "No exercises match your search",
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSuperset = false
+                    viewModel.onSupersetQueryChange("")
+                }) { Text("Cancel") }
             },
         )
     }

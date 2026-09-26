@@ -166,20 +166,15 @@ class HomeViewModel @Inject constructor(
      * Next-up day of the [activeRoutineId] program only, advancing from the
      * last completed day with wrap-around. Sessions finished in *other*
      * routines never advance this pointer — programs don't interleave.
+     * Pure logic lives in [NextDayPlanner] (unit-tested there).
      */
     private fun nextDay(
         activeRoutineId: String?,
         lastCompleted: WorkoutSessionEntity?,
         days: List<RoutineDayEntity>,
-    ): RoutineDayEntity? {
-        if (activeRoutineId == null) return null
-        val routineDays = days
-            .filter { it.routineId == activeRoutineId }
-            .sortedBy { it.orderIndex }
-        if (routineDays.isEmpty()) return null
-        val lastDayId = lastCompleted?.routineDayId
-        val index = routineDays.indexOfFirst { it.id == lastDayId }
-        if (index < 0) return routineDays.first()
-        return routineDays[(index + 1) % routineDays.size]
-    }
+    ): RoutineDayEntity? = NextDayPlanner.nextDay(
+        activeRoutineId = activeRoutineId,
+        lastCompletedDayId = lastCompleted?.routineDayId,
+        days = days,
+    )
 }

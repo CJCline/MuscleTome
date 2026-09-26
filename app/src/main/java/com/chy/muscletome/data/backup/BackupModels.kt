@@ -44,7 +44,15 @@ data class BackupDocument(
     val setLogs: List<SetLogEntity>,
 ) {
     companion object {
-        const val FORMAT_VERSION = 1
+        /**
+         * v2: superset/circuit support — routineSlots.supersetGroupId and
+         * session_slot_results' supersetGroupId/sortOrder/plannedSets. The
+         * new fields are optional-with-defaults, so v1 documents still
+         * import unchanged; v2 is REJECTED by v1-era builds (import checks
+         * `formatVersion <= FORMAT_VERSION`), which is exactly what we want:
+         * supersets must not silently drop on an old device.
+         */
+        const val FORMAT_VERSION = 2
     }
 }
 

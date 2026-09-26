@@ -5,6 +5,7 @@ import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.local.entity.UserExcludedExerciseCrossRef
 import com.chy.muscletome.data.local.seed.SeedCatalog
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import javax.inject.Inject
@@ -29,6 +30,12 @@ class UserRepository @Inject constructor(
     suspend fun setMatchStrictness(value: MatchStrictness) {
         val user = userDao.getUser(userId) ?: return
         userDao.update(user.copy(primaryMatchStrictness = value))
+    }
+
+    /** Which effort scale (RPE/RIR) the workout UI speaks. */
+    suspend fun setEffortScale(value: EffortScale) {
+        val user = userDao.getUser(userId) ?: return
+        userDao.update(user.copy(effortScale = value))
     }
 
     suspend fun setPreferCompoundEarly(value: Boolean) {

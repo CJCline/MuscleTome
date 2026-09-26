@@ -148,37 +148,37 @@ fun MuscleTomeNav() {
         } else {
         NavHost(
             navController = navController,
-            startDestination = "home",
+            startDestination = Routes.HOME,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(route = "home") {
+            composable(route = Routes.HOME) {
                 HomeScreen(
-                    onOpenWorkout = { sessionId -> navController.navigate("workout/$sessionId") },
+                    onOpenWorkout = { sessionId -> navController.navigate(Routes.workout(sessionId)) },
                     onOpenRoutines = {
-                        navController.navigate("routines") { launchSingleTop = true }
+                        navController.navigate(Routes.ROUTINES) { launchSingleTop = true }
                     },
-                    onOpenRoutine = { routineId -> navController.navigate("routine/$routineId") },
+                    onOpenRoutine = { routineId -> navController.navigate(Routes.routine(routineId)) },
                 )
             }
-            composable("routines") {
+            composable(Routes.ROUTINES) {
                 RoutineListScreen(
-                    onOpenRoutine = { id -> navController.navigate("routine/$id") },
+                    onOpenRoutine = { id -> navController.navigate(Routes.routine(id)) },
                 )
             }
             composable(
-                route = "routine/{routineId}",
+                route = Routes.ROUTINE_PATTERN,
                 arguments = listOf(navArgument("routineId") { type = NavType.StringType }),
             ) {
                 RoutineDetailScreen(
                     onBack = { navController.popBackStack() },
                     onOpenDay = { dayId ->
                         val routineId = it.arguments?.getString("routineId")
-                        navController.navigate("routine/$routineId/day/$dayId")
+                        navController.navigate(Routes.day(requireNotNull(routineId), dayId))
                     },
                 )
             }
             composable(
-                route = "routine/{routineId}/day/{dayId}",
+                route = Routes.DAY_PATTERN,
                 arguments = listOf(
                     navArgument("routineId") { type = NavType.StringType },
                     navArgument("dayId") { type = NavType.StringType },
@@ -188,12 +188,19 @@ fun MuscleTomeNav() {
                 val dayId = it.arguments?.getString("dayId")
                 DayDetailScreen(
                     onBack = { navController.popBackStack() },
-                    onAddSlot = { navController.navigate("routine/$routineId/day/$dayId/add_slot") },
-                    onStartWorkout = { sessionId -> navController.navigate("workout/$sessionId") },
+                    onAddSlot = {
+                        navController.navigate(
+                            Routes.addSlot(
+                                requireNotNull(routineId),
+                                requireNotNull(dayId),
+                            ),
+                        )
+                    },
+                    onStartWorkout = { sessionId -> navController.navigate(Routes.workout(sessionId)) },
                 )
             }
             composable(
-                route = "routine/{routineId}/day/{dayId}/add_slot",
+                route = Routes.ADD_SLOT_PATTERN,
                 arguments = listOf(
                     navArgument("routineId") { type = NavType.StringType },
                     navArgument("dayId") { type = NavType.StringType },
@@ -201,43 +208,43 @@ fun MuscleTomeNav() {
             ) {
                 AddSlotScreen(onBack = { navController.popBackStack() })
             }
-            composable("library") {
+            composable(Routes.LIBRARY) {
                 ExerciseLibraryScreen(
-                    onAddExercise = { navController.navigate("add_exercise") },
-                    onOpenExercise = { exerciseId -> navController.navigate("exercise/$exerciseId") },
+                    onAddExercise = { navController.navigate(Routes.ADD_EXERCISE) },
+                    onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
                 )
             }
-            composable("add_exercise") {
+            composable(Routes.ADD_EXERCISE) {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
             }
             composable(
-                route = "exercise/{exerciseId}",
+                route = Routes.EXERCISE_PATTERN,
                 arguments = listOf(navArgument("exerciseId") { type = NavType.StringType }),
             ) {
                 ExerciseDetailScreen(onBack = { navController.popBackStack() })
             }
-            composable(route = "stats") {
+            composable(route = Routes.STATS) {
                 StatsScreen(
-                    onOpenSession = { sessionId -> navController.navigate("session/$sessionId") },
+                    onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
                     onOpenHome = {
-                        navController.navigate("home") {
-                            popUpTo("home") { inclusive = false }
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.HOME) { inclusive = false }
                             launchSingleTop = true
                         }
                     },
                 )
             }
             composable(
-                route = "session/{sessionId}",
+                route = Routes.SESSION_PATTERN,
                 arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
             ) {
                 SessionDetailScreen(onBack = { navController.popBackStack() })
             }
-            composable(route = "settings") {
+            composable(route = Routes.SETTINGS) {
                 SettingsScreen()
             }
             composable(
-                route = "workout/{sessionId}",
+                route = Routes.WORKOUT_PATTERN,
                 arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
             ) {
                 ActiveWorkoutScreen(

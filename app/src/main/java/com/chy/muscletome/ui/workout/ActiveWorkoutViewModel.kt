@@ -17,9 +17,14 @@ import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.data.timer.RestTimerManager
 import com.chy.muscletome.di.ApplicationScope
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.WeightUnit
+import com.chy.muscletome.domain.session.EffortScales
+import com.chy.muscletome.domain.session.SupersetFlow
+import com.chy.muscletome.domain.session.SupersetFollowUp
+import com.chy.muscletome.domain.session.SupersetMember
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -43,7 +48,11 @@ data class ActiveSlot(
     val slot: RoutineSlotEntity?,
     val exercise: ExerciseEntity?,
     val sets: List<SetLogEntity>,
-)
+) {
+    /** Ad-hoc rows carry their own plan; slot-backed rows use the slot's. */
+    val plannedSets: Int get() = result.plannedSets ?: slot?.sets ?: 0
+    val isComplete: Boolean get() = plannedSets <= 0 || sets.size >= plannedSets
+}
 
 /** Time span options for the exercise progress chart. */
 enum class ProgressSpan(val days: Int?) {
@@ -94,6 +103,9 @@ data class ActiveWorkoutUiState(
     val finished: Boolean = false,
     val catalogExercises: List<ExerciseEntity> = emptyList(),
     val swapQuery: String = "",
+    /** Search results for the ad-hoc superset partner picker. */
+    val supersetExercises: List<ExerciseEntity> = emptyList(),
+    val supersetQuery: String = "",
     val lastSessions: List<ExerciseSessionSummary> = emptyList(),
     val progressPoints: List<ProgressPoint> = emptyList(),
     val progressSpan: ProgressSpan = ProgressSpan.LAST_30,
@@ -102,12 +114,38 @@ data class ActiveWorkoutUiState(
     /** Remark about the on-screen exercise in THIS session only. */
     val sessionNote: String = "",
     val weightUnit: WeightUnit = WeightUnit.KG,
+    /** Which scale the effort chips speak (user preference). */
+    val effortScale: EffortScale = EffortScale.RPE,
 ) {
     val current: ActiveSlot? get() = slots.getOrNull(currentIndex)
+
+    /** Members of the current exercise's superset group, in session order. */
+    val currentGroup: List<ActiveSlot>
+        get() = current?.result?.supersetGroupId?.let { groupId ->
+            slots.filter { it.result.supersetGroupId == groupId }
+        }.orEmpty()
     val currentSetNumber: Int get() = (current?.sets?.size ?: 0) + 1
-    val plannedSets: Int get() = current?.slot?.sets ?: 0
-    val isCurrentComplete: Boolean get() =
-        current == null || plannedSets == 0 || current!!.sets.size >= plannedSets
+    val plannedSets: Int get() = current?.plannedSets ?: 0
+
+    /** Target RPE from the routine slot, expressed on the active scale. */
+    val targetEffortLabel: String?
+        get() = current?.slot?.targetRpe?.let { EffortScales.label(it, effortScale) }
+
+    /** The set being entered, expressed on the active scale ("" = none). */
+    val effortEntryLabel: String
+        get() = rpe.toFloatOrNull()?.let { EffortScales.label(it, effortScale) } ?: ""
+
+    /**
+     * For a superset member this means the *whole group* is done — the
+     * "Next exercise" button must not appear mid-circuit while the partner
+     * still owes sets.
+     */
+    val isCurrentComplete: Boolean
+        get() {
+            val c = current ?: return true
+            val members = if (c.result.supersetGroupId != null) currentGroup else listOf(c)
+            return members.all { it.isComplete }
+        }
     val isLastExercise: Boolean get() =
         slots.isEmpty() || currentIndex == slots.lastIndex
 
@@ -133,7 +171,11 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val sessionId: String = checkNotNull(savedStateHandle["sessionId"])
 
     private val slotsByDay = MutableStateFlow<List<RoutineSlotEntity>>(emptyList())
-    private val currentIndex = MutableStateFlow(0)
+
+    // Navigation source of truth: the result id, not the index. Ad-hoc
+    // superset partners splice a new row into the ordered list, which would
+    // silently shift what "the current index" points at — an id survives it.
+    private val currentResultId = MutableStateFlow<String?>(null)
     private val progressSpan = MutableStateFlow(ProgressSpan.LAST_30)
     private val weight = MutableStateFlow("0")
     private val reps = MutableStateFlow("8")
@@ -141,6 +183,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val restSecondsLeft = MutableStateFlow(0)
     private val finished = MutableStateFlow(false)
     private val swapQuery = MutableStateFlow("")
+    private val supersetQuery = MutableStateFlow("")
     private val note = MutableStateFlow("")
     private val sessionNote = MutableStateFlow("")
     private var restJob: Job? = null
@@ -174,12 +217,12 @@ class ActiveWorkoutViewModel @Inject constructor(
     // re-emits whenever that changes.
     private val currentExerciseId: Flow<String?> = combine(
         workoutRepository.observeSlotResults(sessionId),
-        slotsByDay,
-        currentIndex,
-    ) { results, slots, index ->
-        val order = slots.associateBy { it.id }
-        results.sortedBy { r -> order[r.routineSlotId]?.orderIndex ?: Int.MAX_VALUE }
-            .getOrNull(index)?.resolvedExerciseId
+        currentResultId,
+    ) { results, resultId ->
+        val ordered = results.sortedBy { it.sortOrder }
+        val result = if (resultId == null) ordered.firstOrNull()
+        else ordered.find { it.id == resultId } ?: ordered.firstOrNull()
+        result?.resolvedExerciseId
     }
 
     // All logged sets for the on-screen exercise, reactively.
@@ -220,7 +263,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         workoutRepository.observeSets(sessionId),
         slotsByDay,
         catalogRepository.observeExercises(),
-        currentIndex,
+        currentResultId,
         weight,
         reps,
         rpe,
@@ -232,6 +275,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         note,
         currentUser,
         sessionNote,
+        supersetQuery,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val results = values[0] as List<SessionSlotResultEntity>
@@ -241,7 +285,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val routineSlots = values[2] as List<RoutineSlotEntity>
         @Suppress("UNCHECKED_CAST")
         val exercises = values[3] as List<ExerciseEntity>
-        val index = values[4] as Int
+        val resultId = values[4] as String?
         val weightText = values[5] as String
         val repsText = values[6] as String
         val rpeText = values[7] as String
@@ -255,23 +299,30 @@ class ActiveWorkoutViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val user = values[14] as UserEntity?
         val sessionNoteText = values[15] as String
+        val supersetFilter = values[16] as String
 
         val exerciseMap = exercises.associateBy { it.id }
         val slotMap = routineSlots.associateBy { it.id }
         val setsByResult = sets.groupBy { it.sessionSlotResultId }
-        val orderedResults = results.sortedBy { result ->
-            slotMap[result.routineSlotId]?.orderIndex ?: Int.MAX_VALUE
+        // Sort by the session's own snapshot order: ad-hoc rows have no
+        // routine slot, and routine edits mid-session must not reshuffle a
+        // running workout.
+        val orderedResults = results.sortedBy { it.sortOrder }
+        val orderedSlots = orderedResults.map { result ->
+            ActiveSlot(
+                result = result,
+                slot = slotMap[result.routineSlotId],
+                exercise = exerciseMap[result.resolvedExerciseId],
+                sets = (setsByResult[result.id] ?: emptyList()).sortedBy { it.setNumber },
+            )
         }
+        // Result-id navigation: the index is derived, so an ad-hoc insert
+        // can't desync what "current" points at.
+        val resolvedIndex = if (resultId == null) 0 else
+            orderedSlots.indexOfFirst { it.result.id == resultId }.let { if (it < 0) 0 else it }
         ActiveWorkoutUiState(
-            slots = orderedResults.map { result ->
-                ActiveSlot(
-                    result = result,
-                    slot = slotMap[result.routineSlotId],
-                    exercise = exerciseMap[result.resolvedExerciseId],
-                    sets = (setsByResult[result.id] ?: emptyList()).sortedBy { it.setNumber },
-                )
-            },
-            currentIndex = index,
+            slots = orderedSlots,
+            currentIndex = resolvedIndex,
             weight = weightText,
             reps = repsText,
             rpe = rpeText,
@@ -281,12 +332,17 @@ class ActiveWorkoutViewModel @Inject constructor(
                 it.name.contains(swapFilter, ignoreCase = true)
             },
             swapQuery = swapFilter,
+            supersetExercises = exercises.filter {
+                it.name.contains(supersetFilter, ignoreCase = true)
+            },
+            supersetQuery = supersetFilter,
             lastSessions = buildLastSessions(exerciseSetPoints, limit = 3),
             progressPoints = buildProgressPoints(exerciseSetPoints, span),
             progressSpan = span,
             note = noteText,
             sessionNote = sessionNoteText,
             weightUnit = user?.weightUnit ?: WeightUnit.KG,
+            effortScale = user?.effortScale ?: EffortScale.RPE,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
 
@@ -374,6 +430,8 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun onRpeChange(value: String) { rpe.value = value }
     fun onSwapQueryChange(value: String) { swapQuery.value = value }
 
+    fun onSupersetQueryChange(value: String) { supersetQuery.value = value }
+
     fun onNoteChange(value: String) {
         note.value = value
         scheduleNoteSave()
@@ -444,6 +502,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val weightValue = state.weight.toDoubleOrNull() ?: return
         val repsValue = state.reps.toIntOrNull() ?: return
         val rpeValue = state.rpe.toFloatOrNull()
+        val restSeconds = current.slot?.restSeconds ?: 0
         viewModelScope.launch {
             workoutRepository.logSet(
                 sessionSlotResultId = current.result.id,
@@ -451,10 +510,44 @@ class ActiveWorkoutViewModel @Inject constructor(
                 weight = weightValue,
                 reps = repsValue,
                 rpe = rpeValue,
-                restSecondsActual = current.slot?.restSeconds,
+                restSecondsActual = restSeconds,
             )
-            startRest(current.slot?.restSeconds ?: 0)
+            // Superset groups navigate round-robin: mid-round hops move
+            // straight to the next member (no rest); a wrapped round rests
+            // first, using the just-completed member's rest seconds.
+            val members = state.currentGroup.ifEmpty { listOf(current) }
+                .map { slot ->
+                    SupersetMember(
+                        resultId = slot.result.id,
+                        plannedSets = slot.plannedSets,
+                        // The set just logged counts as completed for the current
+                        // member; partners keep their logged counts.
+                        completedSets = slot.sets.size + if (slot.result.id == current.result.id) 1 else 0,
+                        restSeconds = slot.slot?.restSeconds ?: 0,
+                    )
+                }
+            when (val followUp = SupersetFlow.followUpAfterSet(
+                members = members,
+                currentResultId = current.result.id,
+                currentRestSeconds = restSeconds,
+            )) {
+                is SupersetFollowUp.Advance -> {
+                    // Group complete handled above via Stay; here the group may
+                    // still owe sets, so land the move and (for wraps) the rest.
+                    if (followUp.restSeconds > 0) startRest(followUp.restSeconds)
+                    moveToResult(followUp.targetResultId)
+                }
+                is SupersetFollowUp.Stay -> startRest(followUp.restSeconds)
+            }
         }
+    }
+
+    /** Navigates to a result id, flushing drafts that belong to the old one. */
+    private fun moveToResult(resultId: String) {
+        if (currentResultId.value == resultId) return
+        flushNoteSave()
+        flushSessionNoteSave()
+        currentResultId.value = resultId
     }
 
     /** Undoes the most recent set of the on-screen exercise. */
@@ -478,12 +571,19 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun nextExercise() {
         val state = uiState.value
         if (state.isLastExercise) return
-        flushNoteSave()
-        flushSessionNoteSave()
+        // "Next" from a group's last incomplete member: for grouped slots,
+        // skip every remaining member of the group — the user is explicitly
+        // moving on from the whole circuit. Note that if the group is
+        // mid-round, only the completed members were skipped by the flow.
+        val from = state.current ?: return
+        val next = state.slots.drop(state.currentIndex + 1).firstOrNull { slot ->
+            slot.result.supersetGroupId == null ||
+                slot.result.supersetGroupId != from.result.supersetGroupId
+        } ?: return
         restJob?.cancel()
         restSecondsLeft.value = 0
         restTimerManager.cancel()
-        currentIndex.update { it + 1 }
+        moveToResult(next.result.id)
     }
 
     fun skipRest() {
@@ -532,6 +632,44 @@ class ActiveWorkoutViewModel @Inject constructor(
         flushNoteSave()
         viewModelScope.launch {
             workoutRepository.rerollSlot(current.result, state.currentIndex)
+        }
+    }
+
+    /** True when the current exercise can become an ad-hoc superset anchor. */
+    fun canSuperset(): Boolean {
+        val current = uiState.value.current ?: return false
+        // One pair per anchor (v1): already-grouped results can't re-pair.
+        if (current.result.supersetGroupId != null) return false
+        // An exercise with no sets left would never visit its partner.
+        return !current.isComplete
+    }
+
+    /**
+     * Creates the ad-hoc superset: inserts the library exercise right after
+     * the anchor and jumps straight to it (canceling any running rest — the
+     * whole point of a superset is going right to the partner).
+     */
+    fun addSupersetPartner(exerciseId: String, oneShot: Boolean) {
+        val current = uiState.value.current ?: return
+        if (!canSuperset()) return
+        flushNoteSave()
+        flushSessionNoteSave()
+        restJob?.cancel()
+        restSecondsLeft.value = 0
+        restTimerManager.cancel()
+        val plannedSets = if (oneShot) 1 else {
+            (current.plannedSets - current.sets.size).coerceAtLeast(1)
+        }
+        viewModelScope.launch {
+            val partnerId = workoutRepository.addSupersetPartner(
+                sessionId = sessionId,
+                anchor = current.result,
+                exerciseId = exerciseId,
+                plannedSets = plannedSets,
+            )
+            // The partner lands right after the anchor; the result flow
+            // re-emits with the new row, and id-navigation lands on it.
+            moveToResult(partnerId)
         }
     }
 

@@ -43,6 +43,10 @@ interface RoutineDao {
     @Query("SELECT * FROM routine_slots WHERE routineDayId = :dayId ORDER BY orderIndex")
     suspend fun getSlots(dayId: String): List<RoutineSlotEntity>
 
+    /** Sets/clears superset membership for one slot (null binds NULL). */
+    @Query("UPDATE routine_slots SET supersetGroupId = :groupId WHERE id = :slotId")
+    suspend fun updateSlotSupersetGroup(slotId: String, groupId: String?)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRoutine(row: RoutineEntity)
 
@@ -73,7 +77,8 @@ interface RoutineDao {
     @Query(
         """
         UPDATE routine_slots
-        SET sets = :sets, repRangeMin = :repMin, repRangeMax = :repMax, restSeconds = :restSeconds
+        SET sets = :sets, repRangeMin = :repMin, repRangeMax = :repMax, restSeconds = :restSeconds,
+            targetRpe = :targetRpe
         WHERE id = :id
         """,
     )
@@ -83,6 +88,7 @@ interface RoutineDao {
         repMin: Int,
         repMax: Int,
         restSeconds: Int,
+        targetRpe: Float?,
     )
 
     @Query("SELECT * FROM slot_target_muscles WHERE slotId = :slotId")

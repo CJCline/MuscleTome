@@ -37,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.ui.components.SectionHeader
@@ -89,6 +90,29 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            SectionHeader("Effort scale")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EffortScale.entries.forEach { scale ->
+                    FilterChip(
+                        selected = user?.effortScale == scale,
+                        onClick = { viewModel.setEffortScale(scale) },
+                        label = {
+                            Text(
+                                when (scale) {
+                                    EffortScale.RPE -> "RPE — 1–10, 10 = max"
+                                    EffortScale.RIR -> "RIR — 0–4, 0 = max"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+            Text(
+                "Sets store RPE either way; RIR is shown alongside (RIR = 10 − RPE).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             SectionHeader("Exercise catalog")
             val importState by viewModel.importProgress.collectAsStateWithLifecycle()

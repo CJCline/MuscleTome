@@ -2,6 +2,7 @@ package com.chy.muscletome.data.local
 
 import androidx.room.TypeConverter
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.ExerciseSource
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.MovementPattern
@@ -35,6 +36,9 @@ class Converters {
 
     @TypeConverter fun fromWeightUnit(v: WeightUnit) = v.name
     @TypeConverter fun toWeightUnit(v: String) = WeightUnit.valueOf(v)
+
+    @TypeConverter fun fromEffortScale(v: EffortScale) = v.name
+    @TypeConverter fun toEffortScale(v: String) = EffortScale.valueOf(v)
 
     @TypeConverter fun fromMatchStrictness(v: MatchStrictness) = v.name
     @TypeConverter fun toMatchStrictness(v: String) = MatchStrictness.valueOf(v)

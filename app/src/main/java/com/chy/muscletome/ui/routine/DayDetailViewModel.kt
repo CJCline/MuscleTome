@@ -7,9 +7,13 @@ import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
+import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.data.repository.StartResult
+import com.chy.muscletome.data.repository.UserRepository
+import com.chy.muscletome.domain.model.EffortScale
+import com.chy.muscletome.domain.session.EffortScales
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,14 +28,19 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /** Fields on a slot that can be edited inline on the day screen. */
-enum class SlotField { SETS, REP_MIN, REP_MAX, REST }
+enum class SlotField { SETS, REP_MIN, REP_MAX, REST, TARGET_EFFORT }
 
-/** In-progress edits for a slot's sets/reps/rest, not yet persisted. */
+/**
+ * In-progress edits for a slot's metrics, not yet persisted.
+ * [targetEffort] holds the user's scale value (RPE or RIR per the user
+ * preference); it converts to RPE at save time.
+ */
 data class SlotDraft(
     val sets: String,
     val repMin: String,
     val repMax: String,
     val restSeconds: String,
+    val targetEffort: String = "",
 )
 
 data class SlotRow(
@@ -41,6 +50,8 @@ data class SlotRow(
     val draftRepMin: String,
     val draftRepMax: String,
     val draftRestSeconds: String,
+    /** Draft text for target effort, expressed on the user's scale. */
+    val draftTargetEffort: String,
     val isDraftValid: Boolean,
     val hasUnsavedChanges: Boolean,
 )
@@ -51,6 +62,8 @@ data class DayDetailUiState(
     val hasUnsavedChanges: Boolean = false,
     val canSave: Boolean = false,
     val savedTick: Int = 0,
+    /** Which scale the target-effort field speaks (user preference). */
+    val effortScale: EffortScale = EffortScale.RPE,
 )
 
 @HiltViewModel
@@ -58,6 +71,7 @@ class DayDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val routineRepository: RoutineRepository,
     catalogRepository: CatalogRepository,
+    userRepository: UserRepository,
     private val workoutRepository: WorkoutRepository,
 ) : ViewModel() {
 
@@ -70,6 +84,7 @@ class DayDetailViewModel @Inject constructor(
         routineRepository.observeDay(dayId),
         routineRepository.observeSlots(dayId),
         catalogRepository.observeExercises(),
+        userRepository.observeUser(),
         drafts,
         _savedTick,
     ) { values ->
@@ -79,9 +94,11 @@ class DayDetailViewModel @Inject constructor(
         val slots = values[1] as List<RoutineSlotEntity>
         @Suppress("UNCHECKED_CAST")
         val exercises = values[2] as List<ExerciseEntity>
+        val user = values[3] as UserEntity?
         @Suppress("UNCHECKED_CAST")
-        val currentDrafts = values[3] as Map<String, SlotDraft>
-        val tick = values[4] as Int
+        val currentDrafts = values[4] as Map<String, SlotDraft>
+        val tick = values[5] as Int
+        val effortScalePref = user?.effortScale ?: EffortScale.RPE
         val names = exercises.associate { it.id to it.name }
         DayDetailUiState(
             day = day,
@@ -91,21 +108,26 @@ class DayDetailViewModel @Inject constructor(
                 val minText = draft?.repMin ?: slot.repRangeMin.toString()
                 val maxText = draft?.repMax ?: slot.repRangeMax.toString()
                 val restText = draft?.restSeconds ?: slot.restSeconds.toString()
+                val effortText = draft?.targetEffort
+                    ?: slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
                 val valid = setsText.toIntOrNull() != null &&
                     minText.toIntOrNull() != null &&
                     maxText.toIntOrNull() != null &&
                     restText.toIntOrNull() != null
-                val dirty = draft != null && setOf(
-                    setsText,
-                    minText,
-                    maxText,
-                    restText,
-                ) != setOf(
-                    slot.sets.toString(),
-                    slot.repRangeMin.toString(),
-                    slot.repRangeMax.toString(),
-                    slot.restSeconds.toString(),
-                )
+                val dirty = draft != null && (
+                    setOf(
+                        setsText,
+                        minText,
+                        maxText,
+                        restText,
+                    ) != setOf(
+                        slot.sets.toString(),
+                        slot.repRangeMin.toString(),
+                        slot.repRangeMax.toString(),
+                        slot.restSeconds.toString(),
+                    ) || effortText !=
+                        slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
+                    )
                 SlotRow(
                     slot = slot,
                     exerciseName = slot.exerciseId?.let { names[it] } ?: "Choose exercise",
@@ -113,6 +135,7 @@ class DayDetailViewModel @Inject constructor(
                     draftRepMin = minText,
                     draftRepMax = maxText,
                     draftRestSeconds = restText,
+                    draftTargetEffort = effortText,
                     isDraftValid = valid,
                     hasUnsavedChanges = dirty,
                 )
@@ -125,6 +148,7 @@ class DayDetailViewModel @Inject constructor(
                 } ?: true
             },
             savedTick = tick,
+            effortScale = effortScalePref,
         )
     }.stateIn(
         viewModelScope,
@@ -144,14 +168,26 @@ class DayDetailViewModel @Inject constructor(
         viewModelScope.launch { routineRepository.reorderSlots(dayId, orderedIds) }
     }
 
+    /** Groups the slot with the next one in day order (extends a chain when
+     * invoked on a group's last slot). */
+    fun groupSlotWithNext(slotId: String) {
+        viewModelScope.launch { routineRepository.groupSlotWithNext(dayId, slotId) }
+    }
+
+    /** Pulls a slot out of its superset group (dissolving a stranded one). */
+    fun ungroupSlot(slotId: String) {
+        viewModelScope.launch { routineRepository.ungroupSlot(dayId, slotId) }
+    }
+
     fun onSlotFieldChange(slotId: String, field: SlotField, value: String) {
         val existing = drafts.value[slotId] ?: run {
-            val slot = uiState.value.slots.firstOrNull { it.slot.id == slotId }?.slot ?: return
+            val row = uiState.value.slots.firstOrNull { it.slot.id == slotId } ?: return
             SlotDraft(
-                sets = slot.sets.toString(),
-                repMin = slot.repRangeMin.toString(),
-                repMax = slot.repRangeMax.toString(),
-                restSeconds = slot.restSeconds.toString(),
+                sets = row.slot.sets.toString(),
+                repMin = row.slot.repRangeMin.toString(),
+                repMax = row.slot.repRangeMax.toString(),
+                restSeconds = row.slot.restSeconds.toString(),
+                targetEffort = row.draftTargetEffort,
             )
         }
         val updated = when (field) {
@@ -159,6 +195,7 @@ class DayDetailViewModel @Inject constructor(
             SlotField.REP_MIN -> existing.copy(repMin = value)
             SlotField.REP_MAX -> existing.copy(repMax = value)
             SlotField.REST -> existing.copy(restSeconds = value)
+            SlotField.TARGET_EFFORT -> existing.copy(targetEffort = value)
         }
         drafts.value = drafts.value + (slotId to updated)
     }
@@ -182,6 +219,8 @@ class DayDetailViewModel @Inject constructor(
                         repMin = d.repMin.toIntOrNull() ?: return@forEach,
                         repMax = d.repMax.toIntOrNull() ?: return@forEach,
                         restSeconds = d.restSeconds.toIntOrNull() ?: return@forEach,
+                        // Draft speaks the user's scale; convert to RPE canon.
+                        targetRpe = EffortScales.fromScaleText(d.targetEffort, state.effortScale),
                     )
                 }
                 drafts.value = emptyMap()
@@ -189,6 +228,8 @@ class DayDetailViewModel @Inject constructor(
             }
         }
     }
+
+
 
     private val _startSessionId = MutableSharedFlow<String>()
     val startSessionId: SharedFlow<String> = _startSessionId.asSharedFlow()

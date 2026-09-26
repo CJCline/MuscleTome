@@ -16,4 +16,7 @@ enum class SelectionReason { FIXED, AI_ROTATED, USER_OVERRIDE, USER_REROLL }
 
 enum class WeightUnit { KG, LB }
 
+/** Which effort scale the UI speaks; RPE stays the stored canon. */
+enum class EffortScale { RPE, RIR }
+
 enum class MatchStrictness { STRICT, LOOSE }

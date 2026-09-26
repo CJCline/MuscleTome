@@ -10,6 +10,7 @@ import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.routine.SupersetGrouper
 import com.chy.muscletome.domain.template.RoutineTemplate
 import java.util.UUID
 import javax.inject.Inject
@@ -80,9 +81,64 @@ class RoutineRepository @Inject constructor(
         )
     }
 
-    /** Adds one slot per exercise, preserving the given order. */
-    suspend fun addFixedSlots(dayId: String, exerciseIds: List<String>) {
-        exerciseIds.forEach { addFixedSlot(dayId, it) }
+    /**
+     * Adds one slot per exercise, preserving the given order. When
+     * [asSuperset] is set, all inserted slots share one superset group id —
+     * they are trained round-robin when the day runs.
+     */
+    suspend fun addFixedSlots(dayId: String, exerciseIds: List<String>, asSuperset: Boolean = false) {
+        if (!asSuperset) {
+            exerciseIds.forEach { addFixedSlot(dayId, it) }
+            return
+        }
+        val groupId = UUID.randomUUID().toString()
+        exerciseIds.forEach { exerciseId ->
+            routineDao.insertSlot(
+                RoutineSlotEntity(
+                    id = UUID.randomUUID().toString(),
+                    routineDayId = dayId,
+                    orderIndex = routineDao.nextSlotIndex(dayId),
+                    type = SlotType.FIXED,
+                    exerciseId = exerciseId,
+                    targetMovementType = TargetMovementType.ANY,
+                    sets = DEFAULT_SETS,
+                    repRangeMin = DEFAULT_REP_MIN,
+                    repRangeMax = DEFAULT_REP_MAX,
+                    restSeconds = DEFAULT_REST_SECONDS,
+                    supersetGroupId = groupId,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Groups [slotId] with the slot that follows it in day order; invoking it
+     * on the last slot of an existing group extends that chain (circuits of
+     * 3+ are built this way). Runs the pure grouper inside one transaction.
+     */
+    suspend fun groupSlotWithNext(dayId: String, slotId: String) = database.withTransaction {
+        val slots = routineDao.getSlots(dayId)
+        SupersetGrouper.groupWithNext(
+            slots.map { it.id to it.supersetGroupId },
+            slotId,
+        ).forEach { assignment ->
+            routineDao.updateSlotSupersetGroup(assignment.slotId, assignment.groupId)
+        }
+    }
+
+    /**
+     * Pulls [slotId] out of its superset group. If only one member would
+     * remain, the group dissolves entirely — a one-slot superset is not a
+     * superset.
+     */
+    suspend fun ungroupSlot(dayId: String, slotId: String) = database.withTransaction {
+        val slots = routineDao.getSlots(dayId)
+        SupersetGrouper.ungroup(
+            slots.map { it.id to it.supersetGroupId },
+            slotId,
+        ).forEach { assignment ->
+            routineDao.updateSlotSupersetGroup(assignment.slotId, assignment.groupId)
+        }
     }
 
     suspend fun addTargetSlot(
@@ -158,7 +214,8 @@ class RoutineRepository @Inject constructor(
         repMin: Int,
         repMax: Int,
         restSeconds: Int,
-    ) = routineDao.updateSlotMetrics(id, sets, repMin, repMax, restSeconds)
+        targetRpe: Float? = null,
+    ) = routineDao.updateSlotMetrics(id, sets, repMin, repMax, restSeconds, targetRpe)
 
     companion object {
         const val DEFAULT_SETS = 3

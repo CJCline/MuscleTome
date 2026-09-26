@@ -29,6 +29,8 @@ data class AddSlotUiState(
     val selectedMuscleIds: Set<String> = emptySet(),
     val targetMovement: TargetMovementType = TargetMovementType.ANY,
     val isTargetMode: Boolean = false,
+    /** Insert all picked fixed exercises as one round-robin group. */
+    val asSuperset: Boolean = false,
     val canSave: Boolean = false,
     val saved: Boolean = false,
 )
@@ -50,6 +52,7 @@ class AddSlotViewModel @Inject constructor(
     private val isTarget = MutableStateFlow(false)
     private val selectedMuscleIds = MutableStateFlow<Set<String>>(emptySet())
     private val targetMovement = MutableStateFlow(TargetMovementType.ANY)
+    private val asSuperset = MutableStateFlow(false)
 
     private val exerciseResults = query
         .debounce(150.milliseconds)
@@ -63,6 +66,7 @@ class AddSlotViewModel @Inject constructor(
         selectedMuscleIds,
         targetMovement,
         isTarget,
+        asSuperset,
         saved,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
@@ -76,7 +80,8 @@ class AddSlotViewModel @Inject constructor(
         val selectedMuscles = values[4] as Set<String>
         val currentTargetMovement = values[5] as TargetMovementType
         val isTargetMode = values[6] as Boolean
-        val isSaved = values[7] as Boolean
+        val wantsSuperset = values[7] as Boolean
+        val isSaved = values[8] as Boolean
 
         val filteredMuscles = allMuscles.filter { it.name.contains(currentQuery, ignoreCase = true) }
 
@@ -90,6 +95,9 @@ class AddSlotViewModel @Inject constructor(
             selectedMuscleIds = selectedMuscles,
             targetMovement = currentTargetMovement,
             isTargetMode = isTargetMode,
+            // Only meaningful with 2+ fixed picks; auto-clears otherwise so a
+            // stale toggle can't silently group a single exercise.
+            asSuperset = wantsSuperset && (!isTargetMode) && (selectedIds.size > 1),
             canSave = canSave,
             saved = isSaved,
         )
@@ -103,6 +111,8 @@ class AddSlotViewModel @Inject constructor(
     }
 
     fun setTargetMode(value: Boolean) { isTarget.value = value }
+
+    fun setAsSuperset(value: Boolean) { asSuperset.value = value }
     fun toggleMuscle(id: String) {
         selectedMuscleIds.value = selectedMuscleIds.value.toMutableSet().also { set ->
             if (!set.add(id)) set.remove(id)
@@ -125,7 +135,11 @@ class AddSlotViewModel @Inject constructor(
                 }
             } else {
                 if (state.selectedExerciseIds.isEmpty()) return@launch
-                routineRepository.addFixedSlots(dayId, state.selectedExerciseIds.toList())
+                routineRepository.addFixedSlots(
+                    dayId = dayId,
+                    exerciseIds = state.selectedExerciseIds.toList(),
+                    asSuperset = state.asSuperset,
+                )
             }
             saved.value = true
         }

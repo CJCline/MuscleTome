@@ -16,6 +16,8 @@ data class SessionExerciseLog(
     val exerciseName: String,
     val reason: String,
     val sets: List<SetLogEntity>,
+    /** Non-null when this row is part of a superset/circuit group. */
+    val supersetGroupId: String? = null,
 )
 
 data class SessionDetailUiState(
@@ -39,11 +41,14 @@ class SessionDetailViewModel @Inject constructor(
         val names = exercises.associate { it.id to it.name }
         val setsByResult = sets.groupBy { it.sessionSlotResultId }
         SessionDetailUiState(
-            exercises = results.map { result ->
+            // sortOrder (the session's own snapshot) — not slot order: ad-hoc
+            // rows have no slot, and routine edits must not rewrite history.
+            exercises = results.sortedBy { it.sortOrder }.map { result ->
                 SessionExerciseLog(
                     exerciseName = names[result.resolvedExerciseId] ?: result.resolvedExerciseId,
                     reason = result.selectionReason.name,
                     sets = setsByResult[result.id].orEmpty().sortedBy { it.setNumber },
+                    supersetGroupId = result.supersetGroupId,
                 )
             },
         )

@@ -28,6 +28,7 @@ import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -103,6 +104,23 @@ fun AddSlotScreen(
                             label = { Text(type.name) },
                         )
                     }
+                }
+            } else if (state.selectedExerciseIds.size > 1) {
+                // Multi-pick: offer to insert everything as one round-robin
+                // group instead of separate slots.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Checkbox(
+                        checked = state.asSuperset,
+                        onCheckedChange = viewModel::setAsSuperset,
+                    )
+                    Text(
+                        "Add as superset (train them round-robin)",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
 
