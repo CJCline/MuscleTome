@@ -14,6 +14,8 @@ import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
 import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.model.SelectionReason
+import com.chy.muscletome.domain.routine.SupersetGrouper
+import com.chy.muscletome.domain.routine.TargetSlotLabel
 import com.chy.muscletome.domain.selection.VarietyEngine
 import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.MatchStrictness
@@ -32,6 +34,15 @@ sealed class StartResult {
     data class Success(val sessionId: String) : StartResult()
     data class NoMatch(val slotLabel: String) : StartResult()
 }
+
+/** One upcoming exercise in a day preview (Home's "Up next" card). */
+data class UpcomingExercise(
+    val name: String,
+    /** Target-muscle descriptor for TARGET slots; null for fixed exercises. */
+    val targetLabel: String? = null,
+    /** True when the exercise is auto-picked at session start (TARGET slot). */
+    val isAutoPick: Boolean = false,
+)
 
 @Singleton
 class WorkoutRepository @Inject constructor(
@@ -63,6 +74,40 @@ class WorkoutRepository @Inject constructor(
 
     suspend fun sessionCountForExercise(exerciseId: String): Int =
         workoutDao.sessionCountForExercise(exerciseId)
+
+    /** Finished sessions since [sinceEpochMs], oldest last (consistency math). */
+    suspend fun getSessionsSince(userId: String, sinceEpochMs: Long): List<WorkoutSessionEntity> =
+        workoutDao.getSessionsSince(userId, sinceEpochMs)
+
+    /**
+     * The first few entries of a day as preview text — fixed exercises by
+     * name, TARGET slots as their muscle/movement descriptor. Order follows
+     * slot order; [limit] entries are rendered, anything beyond collapses
+     * into a "+N more" tail.
+     */
+    suspend fun dayPreview(
+        dayId: String,
+        limit: Int = 3,
+    ): Pair<List<UpcomingExercise>, Int> {
+        val slots = routineDao.getSlotsWithTargets(dayId)
+        val names = catalogDao.getExercises().associate { it.id to it.name }
+        val muscleNames = catalogDao.getMuscleGroups().associate { it.id to it.name }
+        val entries = slots.map { row ->
+            if (row.slot.exerciseId != null) {
+                UpcomingExercise(name = names[row.slot.exerciseId] ?: "Unknown exercise")
+            } else {
+                UpcomingExercise(
+                    name = TargetSlotLabel.label(
+                        muscleNames = row.targetMuscleGroupIds.mapNotNull { muscleNames[it.muscleGroupId] },
+                        movement = row.slot.targetMovementType,
+                    ),
+                    targetLabel = TargetSlotLabel.AI_PICK,
+                    isAutoPick = true,
+                )
+            }
+        }
+        return entries.take(limit) to maxOf(0, entries.size - limit)
+    }
 
     fun observeExerciseSetPoints(exerciseId: String): Flow<List<ExerciseSetPoint>> =
         workoutDao.observeExerciseSetPoints(exerciseId)

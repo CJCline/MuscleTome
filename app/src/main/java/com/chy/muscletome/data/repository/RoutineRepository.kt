@@ -2,7 +2,9 @@ package com.chy.muscletome.data.repository
 
 import androidx.room.withTransaction
 import com.chy.muscletome.data.local.MuscleTomeDatabase
+import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.RoutineDao
+import com.chy.muscletome.data.local.dao.SlotWithTargetMuscles
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 @Singleton
 class RoutineRepository @Inject constructor(
     private val routineDao: RoutineDao,
+    private val catalogDao: CatalogDao,
     private val database: MuscleTomeDatabase,
 ) {
     fun observeRoutines(): Flow<List<RoutineEntity>> =
@@ -30,6 +33,18 @@ class RoutineRepository @Inject constructor(
     fun observeAllDays(): Flow<List<RoutineDayEntity>> = routineDao.observeAllDays()
     fun observeDay(id: String): Flow<RoutineDayEntity?> = routineDao.observeDay(id)
     fun observeSlots(dayId: String): Flow<List<RoutineSlotEntity>> = routineDao.observeSlots(dayId)
+
+    /** One day's slots with their targeted muscle ids (for day previews). */
+    suspend fun getSlotsWithTargets(dayId: String): List<SlotWithTargetMuscles> =
+        routineDao.getSlotsWithTargets(dayId)
+
+    /** All slot→muscle-group refs (day screen labels TARGET slots). */
+    fun observeAllSlotTargets(): Flow<List<SlotTargetMuscleCrossRef>> =
+        routineDao.observeAllSlotTargets()
+
+    /** Muscle-group id → display name, for target-slot labels. */
+    suspend fun getMuscleGroupNames(): Map<String, String> =
+        catalogDao.getMuscleGroups().associate { it.id to it.name }
 
     suspend fun createRoutine(name: String): String {
         val id = UUID.randomUUID().toString()

@@ -7,12 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
+import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.data.repository.StartResult
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.domain.model.EffortScale
+import com.chy.muscletome.domain.model.SlotType
+import com.chy.muscletome.domain.routine.TargetSlotLabel
 import com.chy.muscletome.domain.session.EffortScales
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -46,6 +49,11 @@ data class SlotDraft(
 data class SlotRow(
     val slot: RoutineSlotEntity,
     val exerciseName: String,
+    /**
+     * Human label for TARGET slots ("Chest isolation · AI pick"); the
+     * exerciseName for fixed slots is used as the title verbatim.
+     */
+    val targetLabel: String? = null,
     val draftSets: String,
     val draftRepMin: String,
     val draftRepMax: String,
@@ -84,6 +92,7 @@ class DayDetailViewModel @Inject constructor(
         routineRepository.observeDay(dayId),
         routineRepository.observeSlots(dayId),
         catalogRepository.observeExercises(),
+        routineRepository.observeAllSlotTargets(),
         userRepository.observeUser(),
         drafts,
         _savedTick,
@@ -94,12 +103,16 @@ class DayDetailViewModel @Inject constructor(
         val slots = values[1] as List<RoutineSlotEntity>
         @Suppress("UNCHECKED_CAST")
         val exercises = values[2] as List<ExerciseEntity>
-        val user = values[3] as UserEntity?
         @Suppress("UNCHECKED_CAST")
-        val currentDrafts = values[4] as Map<String, SlotDraft>
-        val tick = values[5] as Int
+        val slotTargets = values[3] as List<SlotTargetMuscleCrossRef>
+        val user = values[4] as UserEntity?
+        @Suppress("UNCHECKED_CAST")
+        val currentDrafts = values[5] as Map<String, SlotDraft>
+        val tick = values[6] as Int
         val effortScalePref = user?.effortScale ?: EffortScale.RPE
         val names = exercises.associate { it.id to it.name }
+        val muscleNames = routineRepository.getMuscleGroupNames()
+        val targetsBySlot = slotTargets.groupBy { it.slotId }
         DayDetailUiState(
             day = day,
             slots = slots.map { slot ->
@@ -128,9 +141,19 @@ class DayDetailViewModel @Inject constructor(
                     ) || effortText !=
                         slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
                     )
+                val targetLabel = if (slot.type == SlotType.TARGET) {
+                    TargetSlotLabel.label(
+                        muscleNames = (targetsBySlot[slot.id] ?: emptyList())
+                            .mapNotNull { muscleNames[it.muscleGroupId] },
+                        movement = slot.targetMovementType,
+                    )
+                } else {
+                    null
+                }
                 SlotRow(
                     slot = slot,
                     exerciseName = slot.exerciseId?.let { names[it] } ?: "Choose exercise",
+                    targetLabel = targetLabel,
                     draftSets = setsText,
                     draftRepMin = minText,
                     draftRepMax = maxText,

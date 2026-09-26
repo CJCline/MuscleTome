@@ -1,6 +1,5 @@
 package com.chy.muscletome.ui.home
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,14 +8,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,8 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,29 +43,33 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.ui.components.EmptyState
-import com.chy.muscletome.ui.components.LedgerIndex
 import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
-import com.chy.muscletome.ui.components.TemplateCard
-import com.chy.muscletome.domain.template.RoutineTemplate
-import com.chy.muscletome.domain.template.RoutineTemplates
+import com.chy.muscletome.ui.components.TemplatesBanner
+import java.time.Duration
 
+/**
+ * Home = "what do I do today?". Active session, next day with an exercise
+ * preview, last session one-liner, weekly consistency — plus the starter-
+ * programs banner while the user is still assembling a program. The full
+ * routine list (and program switching) lives in the Routines tab.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onOpenWorkout: (String) -> Unit,
     onOpenRoutines: () -> Unit,
-    onOpenRoutine: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDiscardConfirm by remember { mutableStateOf(false) }
 
-    // Templates banner: collapsed by default once the user has at least one
-    // routine; auto-expands on an empty Home so first-run still surfaces it.
+    // Templates banner: collapsed by default once the user has a program;
+    // auto-expands while there is none so first-run still surfaces it.
     var templatesExpanded by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(state.routines.isEmpty()) {
-        if (state.routines.isEmpty()) templatesExpanded = true
+    LaunchedEffect(state.routineCount) {
+        if (state.routineCount == 0) templatesExpanded = true
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,7 +80,7 @@ fun HomeScreen(
     }
     LaunchedEffect(viewModel) {
         viewModel.routineAdded.collect { name ->
-            snackbarHostState.showSnackbar("Added \"$name\" — set as your active program")
+            snackbarHostState.showSnackbar("Added \"$name\" — set as your program")
             templatesExpanded = false
         }
     }
@@ -92,9 +91,10 @@ fun HomeScreen(
         }
     }
 
-    // Clear the "starting workout" flag once Home has fully left composition
-    // (i.e. the navigation transition to the workout screen has finished).
+    // Returning to Home (bottom-nav reselect) refreshes the preview and the
+    // weekly count — their data is computed once per emission.
     DisposableEffect(viewModel) {
+        viewModel.refresh()
         onDispose { viewModel.clearStartingWorkout() }
     }
 
@@ -128,21 +128,23 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // --- Templates banner: collapsible ---------------------------
-            item {
-                TemplatesBanner(
-                    expanded = templatesExpanded,
-                    onToggle = { templatesExpanded = !templatesExpanded },
-                    onAddTemplate = { template ->
-                        viewModel.addRoutineFromTemplate(template)
-                    },
-                )
+            // --- Templates banner: only while there is no program ----------
+            if (state.routineCount == 0) {
+                item {
+                    TemplatesBanner(
+                        expanded = templatesExpanded,
+                        onToggle = { templatesExpanded = !templatesExpanded },
+                        onAddTemplate = { template ->
+                            viewModel.addRoutineFromTemplate(template)
+                        },
+                    )
+                }
             }
             // While a workout start is in flight, keep showing the "Up next" card.
             // The open session row already exists at that point and would otherwise
             // flash the "Workout in progress" (Resume/Discard) card before
             // navigation lands on the workout screen.
-            if (state.openSession != null && !state.startingWorkout) {
+            if ((state.openSession != null) && !state.startingWorkout) {
                 item {
                     SpineCard(accent = MaterialTheme.colorScheme.error) {
                         Column(
@@ -175,7 +177,7 @@ fun HomeScreen(
                     SpineCard(accent = MaterialTheme.colorScheme.primary) {
                         Column(
                             modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             MicroTag(text = "Up next")
                             Text(
@@ -185,6 +187,34 @@ fun HomeScreen(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                state.preview.forEach { entry ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(
+                                            entry.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        entry.targetLabel?.let { label ->
+                                            MicroTag(
+                                                text = label,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                                if (state.previewMore > 0) {
+                                    Text(
+                                        "+${state.previewMore} more",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                             Button(
                                 onClick = viewModel::startNextDay,
                                 enabled = !state.startingWorkout,
@@ -200,48 +230,98 @@ fun HomeScreen(
             } else {
                 item {
                     SpineCard(accent = MaterialTheme.colorScheme.outline) {
-                        EmptyState(
-                            title = "No routines yet",
-                            body = "Build your first training tome.",
-                        )
-                        Button(
-                            onClick = onOpenRoutines,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                        ) { Text("Create a routine".uppercase()) }
+                        Column {
+                            EmptyState(
+                                title = "No routines yet",
+                                body = "Build your first training tome.",
+                            )
+                            Button(
+                                onClick = onOpenRoutines,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                ),
+                            ) { Text("Create a routine".uppercase()) }
+                        }
                     }
                 }
             }
 
-            item { SectionHeader("Routines") }
-            itemsIndexed(state.routines, key = { _, routine -> routine.id }) { index, routine ->
+            // --- This week ------------------------------------------------
+            item { SectionHeader("This week") }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        MonoText(
+                            text = state.weekSessionCount.toString(),
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                        Text(
+                            if (state.weekSessionCount == 1) "session this week"
+                            else "sessions this week",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 3.dp),
+                        )
+                    }
+                    val lastLine = lastSessionLine(state)
+                    Text(
+                        lastLine,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (state.weekSessionCount == 0) {
+                        Text(
+                            "Every session is a page in the tome — log the first.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            // --- Program pointer ------------------------------------------
+            item { SectionHeader("Program") }
+            item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onOpenRoutine(routine.id) }
-                        .padding(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        .clickable(onClick = onOpenRoutines)
+                        .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LedgerIndex(index = index + 1)
-                    Text(
-                        routine.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    if (routine.id == state.activeRoutineId) {
-                        MicroTag(text = "Active")
-                    } else {
-                        TextButton(onClick = { viewModel.setActiveRoutine(routine.id) }) {
-                            Text("Set active")
-                        }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            state.nextRoutineName ?: "No program yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            "Next: ${state.nextDay?.name ?: "—"} · manage in Routines",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
+                    Text(
+                        "Routines".uppercase(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
@@ -274,6 +354,23 @@ fun HomeScreen(
     }
 }
 
+/** One-liner about the last finished session (or a first-run nudge). */
+private fun lastSessionLine(state: HomeUiState): String {
+    val last = state.lastCompleted ?: return "No sessions logged yet."
+    val days = Duration.ofMillis(
+        System.currentTimeMillis() - last.startedAtEpochMs,
+    ).toDays()
+    val whenText = when {
+        days <= 0L -> "today"
+        days == 1L -> "yesterday"
+        days < 7L -> "$days days ago"
+        else -> "over a week ago"
+    }
+    return "Last session $whenText" +
+        if (state.lastCompletedThisWeek) " — this week's tally already counts it."
+        else "."
+}
+
 /**
  * A monolithic ink card with a heavy vertical spine on its left edge —
  * the book-spine motif. [accent] colors the spine (amber = action,
@@ -303,61 +400,4 @@ private fun SpineCard(
     }
 }
 
-/**
- * Collapsible starter-program banner. Collapsed: one-line header row
- * (amber spine + "Starter programs" + chevron). Expanded: the three
- * template cards stacked below the header. Auto-expands on an empty Home.
- */
-@Composable
-private fun TemplatesBanner(
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onAddTemplate: (RoutineTemplate) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onToggle)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(16.dp)
-                    .background(MaterialTheme.colorScheme.primary),
-            )
-            Text(
-                "Starter programs",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (expanded) "Collapse starter programs" else "Expand starter programs",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column(
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                RoutineTemplates.ALL.forEach { template ->
-                    TemplateCard(template = template, onAdd = { onAddTemplate(template) })
-                }
-            }
-        }
-    }
-}
+

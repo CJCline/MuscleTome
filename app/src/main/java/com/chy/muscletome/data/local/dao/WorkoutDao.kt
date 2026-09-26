@@ -32,6 +32,15 @@ interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     fun observeSession(id: String): Flow<WorkoutSessionEntity?>
 
+    /** Finished sessions since [sinceEpochMs], oldest last (consistency math). */
+    @Query(
+        "SELECT * FROM workout_sessions " +
+            "WHERE userId = :userId AND endedAtEpochMs IS NOT NULL " +
+            "AND startedAtEpochMs >= :sinceEpochMs " +
+            "ORDER BY startedAtEpochMs",
+    )
+    suspend fun getSessionsSince(userId: String, sinceEpochMs: Long): List<WorkoutSessionEntity>
+
     @Query("SELECT DISTINCT resolvedExerciseId FROM session_slot_results")
     suspend fun getResolvedExerciseIds(): List<String>
 

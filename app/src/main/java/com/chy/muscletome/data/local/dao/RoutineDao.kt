@@ -1,15 +1,25 @@
 package com.chy.muscletome.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Relation
+import androidx.room.Transaction
 import androidx.room.Update
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import kotlinx.coroutines.flow.Flow
+
+/** One routine slot joined with the muscles it targets (empty for FIXED). */
+data class SlotWithTargetMuscles(
+    @Embedded val slot: RoutineSlotEntity,
+    @Relation(parentColumn = "id", entityColumn = "slotId")
+    val targetMuscleGroupIds: List<SlotTargetMuscleCrossRef>,
+)
 
 @Dao
 interface RoutineDao {
@@ -33,6 +43,11 @@ interface RoutineDao {
 
     @Query("SELECT * FROM routine_slots WHERE routineDayId = :dayId ORDER BY orderIndex")
     fun observeSlots(dayId: String): Flow<List<RoutineSlotEntity>>
+
+    /** Every slot of one day, each with its targeted muscle-group ids. */
+    @Transaction
+    @Query("SELECT * FROM routine_slots WHERE routineDayId = :dayId ORDER BY orderIndex")
+    suspend fun getSlotsWithTargets(dayId: String): List<SlotWithTargetMuscles>
 
     @Query("SELECT COALESCE(MAX(orderIndex), -1) + 1 FROM routine_days WHERE routineId = :routineId")
     suspend fun nextDayIndex(routineId: String): Int

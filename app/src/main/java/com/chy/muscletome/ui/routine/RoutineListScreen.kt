@@ -23,10 +23,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,18 +44,37 @@ import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
+import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.TemplatesBanner
 
+/**
+ * The full program list: create, duplicate, delete, switch the active
+ * program, and — via the collapsible starter-programs banner — add a
+ * starter program. Home stays focused on "what do I do today?" and links
+ * here for anything program-management related.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineListScreen(
     onOpenRoutine: (String) -> Unit,
     viewModel: RoutineListViewModel = hiltViewModel(),
 ) {
-    val routines by viewModel.routines.collectAsStateWithLifecycle()
+    val routinesState by viewModel.routines.collectAsStateWithLifecycle()
+    val routines = routinesState?.first.orEmpty()
+    val activeRoutineId = routinesState?.second
     var showCreate by rememberSaveable { mutableStateOf(value = false) }
     var deletingRoutine by remember { mutableStateOf<RoutineEntity?>(null) }
+    var templatesExpanded by rememberSaveable { mutableStateOf(true) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.routineAdded.collect { name ->
+            snackbarHostState.showSnackbar("Added \"$name\" — set as your program")
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { TopAppBar(title = { Text("Routines") }) },
         floatingActionButton = {
             FloatingActionButton(
@@ -65,59 +87,92 @@ fun RoutineListScreen(
             }
         },
     ) { innerPadding ->
-        if (routines.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp),
-            ) {
-                EmptyState(
-                    title = "No routines yet",
-                    body = "Create Push/Pull/Legs or a custom split.",
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            // Starter programs: the template banner lives here now that Home
+            // no longer lists routines. Collapsible; hidden while empty
+            // (the empty state below offers the same entry point as a CTA).
+            if (routines.isNotEmpty()) {
+                TemplatesBanner(
+                    expanded = templatesExpanded,
+                    onToggle = { templatesExpanded = !templatesExpanded },
+                    onAddTemplate = { template ->
+                        viewModel.addRoutineFromTemplate(template)
+                    },
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                itemsIndexed(routines, key = { _, routine -> routine.id }) { index, routine ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenRoutine(routine.id) }
-                            .padding(vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LedgerIndex(index = index + 1)
-                        Text(
-                            routine.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.weight(1f),
-                        )
-                        IconButton(onClick = { viewModel.duplicateRoutine(routine.id) }) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = "Duplicate routine",
-                                tint = MaterialTheme.colorScheme.outline,
-                            )
+            if (routines.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    EmptyState(
+                        title = "No routines yet",
+                        body = "Create Push/Pull/Legs or a custom split.",
+                    )
+                    TemplatesBanner(
+                        expanded = true,
+                        onToggle = { },
+                        onAddTemplate = { template ->
+                            viewModel.addRoutineFromTemplate(template)
+                        },
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    itemsIndexed(routines, key = { _, routine -> routine.id }) { index, routine ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenRoutine(routine.id) }
+                                .padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LedgerIndex(index = index + 1)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    routine.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                if (routine.id == activeRoutineId) {
+                                    MicroTag(text = "Active")
+                                } else {
+                                    TextButton(
+                                        onClick = { viewModel.setActiveRoutine(routine.id) },
+                                    ) {
+                                        Text("Set active")
+                                    }
+                                }
+                            }
+                            IconButton(onClick = { viewModel.duplicateRoutine(routine.id) }) {
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Duplicate routine",
+                                    tint = MaterialTheme.colorScheme.outline,
+                                )
+                            }
+                            IconButton(onClick = { deletingRoutine = routine }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete routine",
+                                    tint = MaterialTheme.colorScheme.outline,
+                                )
+                            }
                         }
-                        IconButton(onClick = { deletingRoutine = routine }) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete routine",
-                                tint = MaterialTheme.colorScheme.outline,
-                            )
+                        if (index < routines.lastIndex) {
+                            LedgerDivider()
                         }
-                    }
-                    if (index < routines.lastIndex) {
-                        LedgerDivider()
                     }
                 }
             }

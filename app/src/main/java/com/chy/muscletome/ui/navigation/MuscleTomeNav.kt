@@ -157,7 +157,6 @@ fun MuscleTomeNav() {
                     onOpenRoutines = {
                         navController.navigate(Routes.ROUTINES) { launchSingleTop = true }
                     },
-                    onOpenRoutine = { routineId -> navController.navigate(Routes.routine(routineId)) },
                 )
             }
             composable(Routes.ROUTINES) {

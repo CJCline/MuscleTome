@@ -3,8 +3,8 @@ package com.chy.muscletome.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
-import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
+import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.data.repository.StartResult
 import com.chy.muscletome.data.repository.UserRepository
@@ -12,6 +12,10 @@ import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.data.timer.RestTimerManager
 import com.chy.muscletome.domain.template.RoutineTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,13 +26,28 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** One entry in the "Up next" exercise preview list. */
+data class PreviewExercise(
+    val name: String,
+    /** "AI pick" badge text for TARGET slots; null for fixed exercises. */
+    val targetLabel: String? = null,
+)
+
 data class HomeUiState(
     val openSession: WorkoutSessionEntity? = null,
     val nextDay: RoutineDayEntity? = null,
     val nextRoutineName: String? = null,
+    /** First few entries of the next day, as preview text. */
+    val preview: List<PreviewExercise> = emptyList(),
+    /** How many preview entries were collapsed into "+N more". */
+    val previewMore: Int = 0,
     val lastCompleted: WorkoutSessionEntity? = null,
-    val routines: List<RoutineEntity> = emptyList(),
-    val activeRoutineId: String? = null,
+    /** Total routines the user owns (gates the starter-programs banner). */
+    val routineCount: Int = 0,
+    /** Finished sessions since the start of the ISO week (consistency). */
+    val weekSessionCount: Int = 0,
+    /** True when the last completed session happened this ISO week. */
+    val lastCompletedThisWeek: Boolean = false,
     val startingWorkout: Boolean = false,
 )
 
@@ -47,9 +66,9 @@ class HomeViewModel @Inject constructor(
     private val _startError = MutableSharedFlow<String>()
     val startError: SharedFlow<String> = _startError.asSharedFlow()
 
-    /** Emits the template name after a starter program is added from Home. */
+    /** Emits when a starter program is added (no longer shown on Home). */
+    val routineAdded: SharedFlow<String> get() = _routineAdded
     private val _routineAdded = MutableSharedFlow<String>()
-    val routineAdded: SharedFlow<String> = _routineAdded.asSharedFlow()
 
     /** Guard so a double-tap can't add the same template twice. */
     private val applyingTemplate = MutableStateFlow(false)
@@ -61,36 +80,67 @@ class HomeViewModel @Inject constructor(
     // fully left composition (i.e. after the navigation transition finishes).
     private val _startingWorkout = MutableStateFlow(false)
 
+    private val refreshTick = MutableStateFlow(0)
+
+    /** Local zone week window, recomputed only when the day flips. */
+    private var weekWindow: Pair<Long, Long> = computeWeekWindow()
+
     val uiState = combine(
-        workoutRepository.observeOpenSession(),
-        workoutRepository.observeLastCompletedSession(),
-        routineRepository.observeRoutines(),
-        // Days + the active-routine pointer flow together as one source so
-        // the outer combine stays within its typed overload.
+        // Open + last-completed session flow together (keeps the outer
+        // combine within its typed overload).
+        combine(
+            workoutRepository.observeOpenSession(),
+            workoutRepository.observeLastCompletedSession(),
+        ) { open, last -> open to last },
+        // Days + the active-routine pointer flow together as one source.
         combine(
             routineRepository.observeAllDays(),
             userRepository.observeUser(),
         ) { days, user -> days to user?.activeRoutineId },
         _startingWorkout,
-    ) { open, lastCompleted, routines, daysAndActive, starting ->
+        // Re-emits when the user returns to Home, so the preview and the
+        // weekly count pick up changes made elsewhere (routines, workouts).
+        refreshTick,
+        routineRepository.observeRoutines(),
+    ) { openLast, daysAndActive, starting, _, routines ->
+        val (open, lastCompleted) = openLast
         val (days, activeRoutineId) = daysAndActive
         // The explicit choice wins; a stale pointer (deleted routine) or no
         // choice yet falls back to the newest routine — "Up next" is always
         // scoped to one routine, never a global interleave of programs.
-        val effectiveActive = activeRoutineId
+        val effectiveActiveId = activeRoutineId
             ?.takeIf { id -> routines.any { it.id == id } }
             ?: routines.firstOrNull()?.id
-        val next = nextDay(effectiveActive, lastCompleted, days)
+        val next = nextDay(effectiveActiveId, lastCompleted, days)
+        val preview = next?.let { day ->
+            workoutRepository.dayPreview(day.id).let { (shown, more) ->
+                shown.map {
+                    PreviewExercise(name = it.name, targetLabel = it.targetLabel)
+                } to more
+            }
+        }
+        val window = currentWeekWindow()
+        val weekSessions = workoutRepository
+            .getSessionsSince(SeedCatalog.LOCAL_USER_ID, window.first)
         HomeUiState(
             openSession = open,
             nextDay = next,
             nextRoutineName = routines.find { it.id == next?.routineId }?.name,
+            preview = preview?.first.orEmpty(),
+            previewMore = preview?.second ?: 0,
             lastCompleted = lastCompleted,
-            routines = routines,
-            activeRoutineId = effectiveActive,
+            routineCount = routines.size,
+            weekSessionCount = weekSessions.size,
+            lastCompletedThisWeek = lastCompleted != null &&
+                ((lastCompleted.startedAtEpochMs >= window.first)),
             startingWorkout = starting,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    /** Called when Home becomes visible again; refreshes day-scoped data. */
+    fun refresh() {
+        refreshTick.value += 1
+    }
 
     fun resumeOpenSession() {
         val sessionId = uiState.value.openSession?.id ?: return
@@ -130,15 +180,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Explicit "switch program" control — pins Home's "Up next" to a routine. */
-    fun setActiveRoutine(routineId: String) {
-        if (uiState.value.activeRoutineId == routineId) return
-        viewModelScope.launch { userRepository.setActiveRoutine(routineId) }
-    }
-
     /**
-     * Adds a starter program from the templates banner and makes it the
-     * active program — you just picked it, so it should show as "Up next".
+     * Adds a starter program and makes it the active program — you just
+     * picked it, so it becomes "Up next" immediately.
      */
     fun addRoutineFromTemplate(template: RoutineTemplate) {
         if (applyingTemplate.value) return
@@ -148,6 +192,7 @@ class HomeViewModel @Inject constructor(
                 val routineId = routineRepository.applyTemplate(template)
                 userRepository.setActiveRoutine(routineId)
                 _routineAdded.emit(template.name)
+                refresh()
             } finally {
                 applyingTemplate.value = false
             }
@@ -158,16 +203,7 @@ class HomeViewModel @Inject constructor(
         _startingWorkout.value = false
     }
 
-    private fun noMatchMessage(slotLabel: String): String =
-        "No matching exercise for \"$slotLabel\" with your equipment. " +
-            "Add equipment in Settings or change the slot."
 
-    /**
-     * Next-up day of the [activeRoutineId] program only, advancing from the
-     * last completed day with wrap-around. Sessions finished in *other*
-     * routines never advance this pointer — programs don't interleave.
-     * Pure logic lives in [NextDayPlanner] (unit-tested there).
-     */
     private fun nextDay(
         activeRoutineId: String?,
         lastCompleted: WorkoutSessionEntity?,
@@ -177,4 +213,29 @@ class HomeViewModel @Inject constructor(
         lastCompletedDayId = lastCompleted?.routineDayId,
         days = days,
     )
+
+    private fun currentWeekWindow(): Pair<Long, Long> {
+        val (start, end) = weekWindow
+        val now = System.currentTimeMillis()
+        return if (now >= end) {
+            weekWindow = computeWeekWindow()
+            weekWindow
+        } else {
+            start to end
+        }
+    }
+
+    /** Start-of-ISO-week (Monday 00:00 local) → start of next week. */
+    private fun computeWeekWindow(): Pair<Long, Long> {
+        val zone = ZoneId.systemDefault()
+        val today = Instant.ofEpochMilli(System.currentTimeMillis()).atZone(zone).toLocalDate()
+        val monday = today.with(DayOfWeek.MONDAY)
+        val start = monday.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = monday.plus(1, ChronoUnit.WEEKS).atStartOfDay(zone).toInstant().toEpochMilli()
+        return start to end
+    }
+
+    private fun noMatchMessage(slotLabel: String): String =
+        "No matching exercise for \"$slotLabel\" with your equipment. " +
+            "Add equipment in Settings or change the slot."
 }

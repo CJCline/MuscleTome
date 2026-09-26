@@ -63,6 +63,7 @@ import com.chy.muscletome.ui.components.dragReorderItem
 import com.chy.muscletome.ui.components.rememberDragReorderState
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.domain.model.EffortScale
+import com.chy.muscletome.domain.routine.TargetSlotLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -245,11 +246,10 @@ fun DayDetailScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
-                                    val title = if (row.slot.type.name == "TARGET") {
-                                        "Target slot"
-                                    } else {
-                                        row.exerciseName
-                                    }
+                                    // TARGET slots speak for themselves:
+                                    // "Chest isolation · AI pick" instead of a
+                                    // generic "Target slot".
+                                    val title = row.targetLabel ?: row.exerciseName
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (row.slot.supersetGroupId != null &&
                                             row.slot.supersetGroupId != slotRows.getOrNull(index - 1)?.slot?.supersetGroupId
@@ -265,6 +265,13 @@ fun DayDetailScreen(
                                             style = MaterialTheme.typography.titleMedium,
                                             color = MaterialTheme.colorScheme.onBackground,
                                         )
+                                        if (row.targetLabel != null) {
+                                            MicroTag(
+                                                text = TargetSlotLabel.AI_PICK,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 8.dp),
+                                            )
+                                        }
                                     }
                                     MonoText(
                                         text = "${row.draftSets} × " +
