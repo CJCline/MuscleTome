@@ -41,4 +41,23 @@ class RoutineDetailViewModel @Inject constructor(
     fun deleteDay(id: String) {
         viewModelScope.launch { repository.deleteDay(id) }
     }
+
+    /** Copies the day (with all its slots) to the end of the routine. */
+    fun duplicateDay(id: String) {
+        viewModelScope.launch { repository.duplicateDay(id) }
+    }
+
+    /** Persists a drag-reorder; called when the drag gesture ends. */
+    fun reorderDays(orderedIds: List<String>) {
+        viewModelScope.launch { repository.reorderDays(routineId, orderedIds) }
+    }
+
+    /** Copies the whole routine under a "(copy)" name. */
+    fun duplicateRoutine() {
+        viewModelScope.launch { repository.duplicateRoutine(routineId) }
+    }
+
+    fun deleteRoutine() {
+        viewModelScope.launch { repository.deleteRoutine(routineId) }
+    }
 }

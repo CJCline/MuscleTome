@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
@@ -46,6 +50,7 @@ fun RoutineListScreen(
 ) {
     val routines by viewModel.routines.collectAsStateWithLifecycle()
     var showCreate by rememberSaveable { mutableStateOf(value = false) }
+    var deletingRoutine by remember { mutableStateOf<RoutineEntity?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Routines") }) },
@@ -96,7 +101,14 @@ fun RoutineListScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f),
                         )
-                        IconButton(onClick = { viewModel.deleteRoutine(routine.id) }) {
+                        IconButton(onClick = { viewModel.duplicateRoutine(routine.id) }) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = "Duplicate routine",
+                                tint = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                        IconButton(onClick = { deletingRoutine = routine }) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete routine",
@@ -121,6 +133,32 @@ fun RoutineListScreen(
             onConfirm = { name ->
                 viewModel.createRoutine(name)
                 showCreate = false
+            },
+        )
+    }
+    deletingRoutine?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { deletingRoutine = null },
+            title = { Text("Delete routine?") },
+            text = {
+                Text(
+                    "\"${routine.name}\" and all its days and slots will be " +
+                        "deleted. Your logged workouts are kept.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteRoutine(routine.id)
+                        deletingRoutine = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingRoutine = null }) { Text("Cancel") }
             },
         )
     }

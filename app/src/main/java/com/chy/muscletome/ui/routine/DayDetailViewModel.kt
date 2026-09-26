@@ -139,6 +139,11 @@ class DayDetailViewModel @Inject constructor(
         }
     }
 
+    /** Persists a drag-reorder; called when the drag gesture ends. */
+    fun reorderSlots(orderedIds: List<String>) {
+        viewModelScope.launch { routineRepository.reorderSlots(dayId, orderedIds) }
+    }
+
     fun onSlotFieldChange(slotId: String, field: SlotField, value: String) {
         val existing = drafts.value[slotId] ?: run {
             val slot = uiState.value.slots.firstOrNull { it.slot.id == slotId }?.slot ?: return

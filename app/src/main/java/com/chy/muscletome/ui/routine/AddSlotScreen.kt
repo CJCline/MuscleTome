@@ -19,6 +19,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -77,6 +78,20 @@ fun AddSlotScreen(
                 )
             }
 
+            // What each mode actually does at session time — the difference
+            // is invisible until the workout starts otherwise.
+            Text(
+                if (state.isTargetMode) {
+                    "We'll pick the exercise when you start: something that hits your " +
+                        "selected muscles, fits your equipment, and you haven't done " +
+                        "lately. A fresh pick every session — auto-rotate for accessories."
+                } else {
+                    "The exact exercise you pick, every time this day comes up — " +
+                        "best for the heavy stuff you always want in the same slot."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             if (state.isTargetMode) {
                 SectionHeader("Movement preference", modifier = Modifier.padding(top = 8.dp))

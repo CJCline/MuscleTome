@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
@@ -77,6 +78,21 @@ interface RoutineDao {
 
     @Query("SELECT * FROM slot_target_muscles WHERE slotId = :slotId")
     suspend fun getSlotTargets(slotId: String): List<SlotTargetMuscleCrossRef>
+
+    @Query("SELECT * FROM routine_days WHERE id = :id")
+    suspend fun getDay(id: String): RoutineDayEntity?
+
+    @Query("SELECT * FROM routines WHERE id = :id")
+    suspend fun getRoutine(id: String): RoutineEntity?
+
+    @Query("SELECT * FROM routine_days WHERE routineId = :routineId ORDER BY orderIndex")
+    suspend fun getDays(routineId: String): List<RoutineDayEntity>
+
+    @Update
+    suspend fun updateDays(rows: List<RoutineDayEntity>)
+
+    @Update
+    suspend fun updateSlots(rows: List<RoutineSlotEntity>)
 
     @Query("SELECT * FROM slot_target_muscles")
     fun observeAllSlotTargets(): kotlinx.coroutines.flow.Flow<List<SlotTargetMuscleCrossRef>>

@@ -28,4 +28,9 @@ class RoutineListViewModel @Inject constructor(
     fun deleteRoutine(id: String) {
         viewModelScope.launch { repository.deleteRoutine(id) }
     }
+
+    /** Copies the routine (days, slots, targets) under a "(copy)" name. */
+    fun duplicateRoutine(id: String) {
+        viewModelScope.launch { repository.duplicateRoutine(id) }
+    }
 }

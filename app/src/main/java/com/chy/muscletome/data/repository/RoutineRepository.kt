@@ -1,5 +1,7 @@
 package com.chy.muscletome.data.repository
 
+import androidx.room.withTransaction
+import com.chy.muscletome.data.local.MuscleTomeDatabase
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 @Singleton
 class RoutineRepository @Inject constructor(
     private val routineDao: RoutineDao,
+    private val database: MuscleTomeDatabase,
 ) {
     fun observeRoutines(): Flow<List<RoutineEntity>> =
         routineDao.observeRoutines(SeedCatalog.LOCAL_USER_ID)
@@ -165,4 +168,79 @@ class RoutineRepository @Inject constructor(
     }
     suspend fun deleteDay(id: String) = routineDao.deleteDay(id)
     suspend fun deleteSlot(id: String) = routineDao.deleteSlot(id)
+
+    /** Reindexes the routine's days to match [orderedIds]; skips no-op writes. */
+    suspend fun reorderDays(routineId: String, orderedIds: List<String>) {
+        database.withTransaction {
+            val byId = routineDao.getDays(routineId).associateBy { it.id }
+            val updates = orderedIds.mapIndexedNotNull { index, id ->
+                byId[id]?.takeIf { it.orderIndex != index }?.copy(orderIndex = index)
+            }
+            if (updates.isNotEmpty()) routineDao.updateDays(updates)
+        }
+    }
+
+    /** Reindexes the day's slots to match [orderedIds]; skips no-op writes. */
+    suspend fun reorderSlots(dayId: String, orderedIds: List<String>) {
+        database.withTransaction {
+            val byId = routineDao.getSlots(dayId).associateBy { it.id }
+            val updates = orderedIds.mapIndexedNotNull { index, id ->
+                byId[id]?.takeIf { it.orderIndex != index }?.copy(orderIndex = index)
+            }
+            if (updates.isNotEmpty()) routineDao.updateSlots(updates)
+        }
+    }
+
+    /**
+     * Copies a day with all its slots (and slot target refs), appended at
+     * the end of the routine. Returns the new day id.
+     */
+    suspend fun duplicateDay(dayId: String): String? = database.withTransaction {
+        val day = routineDao.getDay(dayId) ?: return@withTransaction null
+        val newDayId = UUID.randomUUID().toString()
+        routineDao.insertDay(
+            day.copy(
+                id = newDayId,
+                name = "${day.name} (copy)",
+                orderIndex = routineDao.nextDayIndex(day.routineId),
+            ),
+        )
+        copySlots(dayId, newDayId)
+        newDayId
+    }
+
+    /**
+     * Copies a whole routine — days, slots, target refs — under a new id and
+     * "(copy)" name. Returns the new routine id.
+     */
+    suspend fun duplicateRoutine(routineId: String): String? = database.withTransaction {
+        val routine = routineDao.getRoutine(routineId) ?: return@withTransaction null
+        val newRoutineId = UUID.randomUUID().toString()
+        routineDao.insertRoutine(
+            routine.copy(
+                id = newRoutineId,
+                name = "${routine.name} (copy)",
+                createdAtEpochMs = System.currentTimeMillis(),
+            ),
+        )
+        routineDao.getDays(routineId).forEach { day ->
+            val newDayId = UUID.randomUUID().toString()
+            // Preserve the original day order; ids are fresh so no collision.
+            routineDao.insertDay(day.copy(id = newDayId))
+            copySlots(day.id, newDayId)
+        }
+        newRoutineId
+    }
+
+    /** Copies a day's slots to [toDayId] with fresh slot ids. Runs inside the caller's transaction. */
+    private suspend fun copySlots(fromDayId: String, toDayId: String) {
+        routineDao.getSlots(fromDayId).forEach { slot ->
+            val newSlotId = UUID.randomUUID().toString()
+            routineDao.insertSlot(slot.copy(id = newSlotId, routineDayId = toDayId))
+            val targets = routineDao.getSlotTargets(slot.id)
+            if (targets.isNotEmpty()) {
+                routineDao.insertSlotTargets(targets.map { it.copy(slotId = newSlotId) })
+            }
+        }
+    }
 }

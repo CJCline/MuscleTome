@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +46,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -56,6 +57,9 @@ import kotlinx.coroutines.launch
 import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
+import com.chy.muscletome.ui.components.dragReorderItem
+import com.chy.muscletome.ui.components.rememberDragReorderState
+import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +74,25 @@ fun DayDetailScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     var showBackConfirm by rememberSaveable { mutableStateOf(value = false) }
+    var deletingSlot by remember { mutableStateOf<RoutineSlotEntity?>(null) }
+
+    // Drag-reorder: hold a local order while dragging, persist on drop.
+    // Rows expose slot ids for the reorder call; drafts ride along untouched.
+    var slotRows by remember { mutableStateOf(state.slots) }
+    var dragging by remember { mutableStateOf(false) }
+    LaunchedEffect(state.slots) { if (!dragging) slotRows = state.slots }
+    val slotListState = rememberLazyListState()
+    val dragState = rememberDragReorderState(
+        listState = slotListState,
+        onMove = { from, to ->
+            dragging = true
+            slotRows = slotRows.toMutableList().apply { add(to, removeAt(from)) }
+        },
+        onDrop = {
+            dragging = false
+            viewModel.reorderSlots(slotRows.map { it.slot.id })
+        },
+    )
 
     LaunchedEffect(viewModel) {
         viewModel.startSessionId.collect { sessionId ->
@@ -172,13 +195,14 @@ fun DayDetailScreen(
             }
         } else {
             LazyColumn(
+                state = slotListState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                itemsIndexed(state.slots, key = { _, row -> row.slot.id }) { index, row ->
+                itemsIndexed(slotRows, key = { _, row -> row.slot.id }) { index, row ->
                     // Amber spine while the row has unsaved edits — dirty pages glow.
                     val spineColor = if (row.hasUnsavedChanges) {
                         MaterialTheme.colorScheme.primary
@@ -188,6 +212,7 @@ fun DayDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .dragReorderItem(dragState, row.slot.id)
                             .background(MaterialTheme.colorScheme.surfaceContainer)
                             .border(
                                 width = 1.dp,
@@ -235,7 +260,7 @@ fun DayDetailScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                IconButton(onClick = { viewModel.deleteSlot(row.slot.id) }) {
+                                IconButton(onClick = { deletingSlot = row.slot }) {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Remove slot",
@@ -332,6 +357,32 @@ fun DayDetailScreen(
                 }) {
                     Text("Discard and leave")
                 }
+            },
+        )
+    }
+    deletingSlot?.let { slot ->
+        AlertDialog(
+            onDismissRequest = { deletingSlot = null },
+            title = { Text("Remove exercise?") },
+            text = {
+                Text(
+                    "Remove \"${slot.exerciseId ?: "this slot"}\" from this day? " +
+                        "Your logged workouts are kept.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteSlot(slot.id)
+                        deletingSlot = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingSlot = null }) { Text("Cancel") }
             },
         )
     }
