@@ -1,8 +1,6 @@
 package com.chy.muscletome.ui.onboarding
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,17 +33,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.WeightUnit
-import com.chy.muscletome.domain.template.RoutineTemplate
-import com.chy.muscletome.domain.template.RoutineTemplates
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.SectionHeader
 
 /**
- * Short first-run setup: units, available equipment, and a starter program.
- * Everything here is changeable later in Settings — this just guarantees the
- * first Start button does something sensible.
+ * Short first-run setup: units and available equipment. Starter programs
+ * live on Home's collapsible "Starter programs" banner — this just makes
+ * sure the first picks and steppers are right. Everything here is
+ * changeable later in Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -121,19 +117,10 @@ fun OnboardingScreen(
                 }
             }
 
-            SectionHeader("Pick a program")
-            (RoutineTemplates.ALL + RoutineTemplates.SCRATCH).forEach { template ->
-                TemplateCard(
-                    template = template,
-                    selected = state.selectedTemplate?.id == template.id,
-                    onClick = { viewModel.selectTemplate(template) },
-                )
-            }
-
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = { viewModel.complete(onDone) },
-                enabled = state.selectedTemplate != null && !state.busy,
+                enabled = !state.busy,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -143,7 +130,7 @@ fun OnboardingScreen(
                 ),
             ) { Text("Finish setup".uppercase()) }
             Text(
-                "You can change any of this later in Settings.",
+                "Pick a starter program next — it's waiting on the Today tab.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -153,67 +140,4 @@ fun OnboardingScreen(
     }
 }
 
-@Composable
-private fun TemplateCard(
-    template: RoutineTemplate,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val spine = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(
-                width = 1.dp,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outlineVariant
-                },
-            )
-            .clickable(onClick = onClick),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(IntrinsicSize.Max)
-                .background(spine),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    template.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                if (selected) MicroTag(text = "Selected")
-            }
-            Text(
-                template.blurb,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (template.days.isNotEmpty()) {
-                val slots = template.days.sumOf { it.slots.size }
-                val autoPicked = template.days.sumOf { day ->
-                    day.slots.count { it.type == SlotType.TARGET }
-                }
-                MicroTag(
-                    text = "${template.days.size} days · $slots slots · $autoPicked auto-picked",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
+

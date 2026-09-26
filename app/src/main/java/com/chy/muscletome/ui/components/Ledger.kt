@@ -1,9 +1,12 @@
 package com.chy.muscletome.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,12 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.chy.muscletome.domain.model.SlotType
+import com.chy.muscletome.domain.template.RoutineTemplate
 import com.chy.muscletome.ui.theme.MonoFont
 
 /**
@@ -156,4 +164,70 @@ fun MicroTag(
         color = color,
         modifier = modifier,
     )
+}
+
+/**
+ * Starter-program card for the Home templates banner: a spine card with the
+ * template name, blurb, and its day/slot/auto-pick stats. Tapping adds the
+ * program to the user's routines.
+ */
+@Composable
+fun TemplateCard(
+    template: RoutineTemplate,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            .clickable(enabled = enabled, onClick = onAdd),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(IntrinsicSize.Max)
+                .background(MaterialTheme.colorScheme.primary),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = template.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
+            Text(
+                text = template.blurb,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (template.days.isNotEmpty()) {
+                val slots = template.days.sumOf { it.slots.size }
+                val autoPicked = template.days.sumOf { day ->
+                    day.slots.count { it.type == SlotType.TARGET }
+                }
+                MicroTag(
+                    text = "${template.days.size} days · $slots slots · $autoPicked auto-picked",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }

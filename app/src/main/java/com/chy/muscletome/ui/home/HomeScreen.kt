@@ -1,5 +1,6 @@
 package com.chy.muscletome.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -27,12 +29,16 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +51,9 @@ import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerIndex
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.components.TemplateCard
+import com.chy.muscletome.domain.template.RoutineTemplate
+import com.chy.muscletome.domain.template.RoutineTemplates
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,18 +66,29 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDiscardConfirm by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.startSessionId.collect { sessionId ->
-            onOpenWorkout(sessionId)
-        }
+    // Templates banner: collapsed by default once the user has at least one
+    // routine; auto-expands on an empty Home so first-run still surfaces it.
+    var templatesExpanded by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(state.routines.isEmpty()) {
+        if (state.routines.isEmpty()) templatesExpanded = true
     }
 
-    // Start failed (e.g. no exercise matches a slot with the user's
-    // equipment) — surface it instead of silently doing nothing.
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.startError.collect { message ->
             snackbarHostState.showSnackbar(message)
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.routineAdded.collect { name ->
+            snackbarHostState.showSnackbar("Added \"$name\" — set as your active program")
+            templatesExpanded = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.startSessionId.collect { sessionId ->
+            onOpenWorkout(sessionId)
         }
     }
 
@@ -108,6 +128,16 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // --- Templates banner: collapsible ---------------------------
+            item {
+                TemplatesBanner(
+                    expanded = templatesExpanded,
+                    onToggle = { templatesExpanded = !templatesExpanded },
+                    onAddTemplate = { template ->
+                        viewModel.addRoutineFromTemplate(template)
+                    },
+                )
+            }
             // While a workout start is in flight, keep showing the "Up next" card.
             // The open session row already exists at that point and would otherwise
             // flash the "Workout in progress" (Resume/Discard) card before
@@ -270,5 +300,64 @@ private fun SpineCard(
                 .background(accent),
         )
         Column(modifier = Modifier.weight(1f)) { content() }
+    }
+}
+
+/**
+ * Collapsible starter-program banner. Collapsed: one-line header row
+ * (amber spine + "Starter programs" + chevron). Expanded: the three
+ * template cards stacked below the header. Auto-expands on an empty Home.
+ */
+@Composable
+private fun TemplatesBanner(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onAddTemplate: (RoutineTemplate) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+            ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(16.dp)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Text(
+                "Starter programs",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "Collapse starter programs" else "Expand starter programs",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                RoutineTemplates.ALL.forEach { template ->
+                    TemplateCard(template = template, onAdd = { onAddTemplate(template) })
+                }
+            }
+        }
     }
 }

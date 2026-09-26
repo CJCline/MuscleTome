@@ -10,6 +10,7 @@ import com.chy.muscletome.data.repository.StartResult
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.data.timer.RestTimerManager
+import com.chy.muscletome.domain.template.RoutineTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,7 +36,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val userRepository: UserRepository,
-    routineRepository: RoutineRepository,
+    private val routineRepository: RoutineRepository,
     private val restTimerManager: RestTimerManager,
 ) : ViewModel() {
 
@@ -45,6 +46,13 @@ class HomeViewModel @Inject constructor(
     /** Emits when starting a workout failed (e.g. no exercise matches a slot). */
     private val _startError = MutableSharedFlow<String>()
     val startError: SharedFlow<String> = _startError.asSharedFlow()
+
+    /** Emits the template name after a starter program is added from Home. */
+    private val _routineAdded = MutableSharedFlow<String>()
+    val routineAdded: SharedFlow<String> = _routineAdded.asSharedFlow()
+
+    /** Guard so a double-tap can't add the same template twice. */
+    private val applyingTemplate = MutableStateFlow(false)
 
     // True while a fresh workout start is in flight. The open session is inserted
     // into the DB before navigation completes, which would otherwise make the
@@ -126,6 +134,24 @@ class HomeViewModel @Inject constructor(
     fun setActiveRoutine(routineId: String) {
         if (uiState.value.activeRoutineId == routineId) return
         viewModelScope.launch { userRepository.setActiveRoutine(routineId) }
+    }
+
+    /**
+     * Adds a starter program from the templates banner and makes it the
+     * active program — you just picked it, so it should show as "Up next".
+     */
+    fun addRoutineFromTemplate(template: RoutineTemplate) {
+        if (applyingTemplate.value) return
+        viewModelScope.launch {
+            applyingTemplate.value = true
+            try {
+                val routineId = routineRepository.applyTemplate(template)
+                userRepository.setActiveRoutine(routineId)
+                _routineAdded.emit(template.name)
+            } finally {
+                applyingTemplate.value = false
+            }
+        }
     }
 
     fun clearStartingWorkout() {
