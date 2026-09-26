@@ -60,7 +60,7 @@ fun StatsScreen(
     var targetRow by remember { mutableStateOf<MuscleVolume?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("History") }) },
+        topBar = { TopAppBar(title = { Text("Stats") }) },
     ) { innerPadding ->
         if (!hasAnything) {
             // First-run ledger: nothing to show yet — one primary CTA.

@@ -124,7 +124,7 @@ fun MuscleTomeNav() {
                             }
                         },
                         icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-                        label = { Text("History") },
+                        label = { Text("Stats") },
                         colors = navItemColors(),
                     )
                     NavigationBarItem(
