@@ -10,6 +10,11 @@ import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
+import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
+import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
 import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.session.WeightUnits
@@ -98,6 +103,8 @@ class BackupRepository @Inject constructor(
             it.userId == SeedCatalog.LOCAL_USER_ID &&
                 (it.routineDayId == null || it.routineDayId in dayIds)
         }
+        val supportedEquipmentIds = doc.equipment.map { it.id }.toSet()
+        val supportedMuscleIds = doc.muscleGroups.map { it.id }.toSet()
 
         database.withTransaction {
             // Sets are stored in the user's unit. The device's existing logs
@@ -118,8 +125,33 @@ class BackupRepository @Inject constructor(
             catalogDao.upsertMuscleGroups(doc.muscleGroups)
             catalogDao.upsertEquipment(doc.equipment)
             catalogDao.upsertExercises(doc.exercises)
-            catalogDao.upsertExerciseEquipment(doc.exerciseEquipment)
-            catalogDao.upsertSecondaryMuscles(doc.secondaryMuscles)
+            catalogDao.upsertExerciseEquipment(
+                doc.exerciseEquipment.filter {
+                    it.exerciseId in exerciseIds && it.equipmentId in supportedEquipmentIds
+                },
+            )
+            catalogDao.upsertSecondaryMuscles(
+                doc.secondaryMuscles.filter {
+                    it.exerciseId in exerciseIds && it.muscleGroupId in supportedMuscleIds
+                },
+            )
+            if (doc.canonicalExerciseMetadata.isNotEmpty()) {
+                catalogDao.upsertCanonicalMetadata(doc.canonicalExerciseMetadata.filter { it.exerciseId in exerciseIds })
+            }
+            val instructionRows = doc.canonicalInstructions.filter { it.exerciseId in exerciseIds }
+            if (instructionRows.isNotEmpty()) catalogDao.upsertInstructions(instructionRows)
+            val targetRows = doc.canonicalSecondaryTargets.filter {
+                it.exerciseId in exerciseIds && it.muscleGroupId in supportedMuscleIds
+            }
+            if (targetRows.isNotEmpty()) catalogDao.upsertSecondaryTargets(targetRows)
+            val equipmentRows = doc.canonicalEquipment.filter {
+                it.exerciseId in exerciseIds && it.equipmentId in supportedEquipmentIds
+            }
+            if (equipmentRows.isNotEmpty()) catalogDao.upsertCanonicalEquipment(equipmentRows)
+            val mediaRows = doc.exerciseMedia.filter { it.exerciseId in exerciseIds }
+            if (mediaRows.isNotEmpty()) catalogDao.upsertExerciseMedia(mediaRows)
+            val sourceRows = doc.exerciseSourceIdentities.filter { it.exerciseId in exerciseIds }
+            if (sourceRows.isNotEmpty()) catalogDao.upsertSourceIdentities(sourceRows)
 
             userDao.upsert(doc.user)
             userDao.clearAvailableEquipment(doc.user.id)
@@ -189,6 +221,12 @@ class BackupRepository @Inject constructor(
             },
             slotResults = workoutDao.getAllSlotResults(),
             setLogs = workoutDao.getAllSetLogs(),
+            canonicalExerciseMetadata = catalogDao.getAllCanonicalMetadata(),
+            canonicalInstructions = catalogDao.getAllInstructions(),
+            canonicalEquipment = catalogDao.getAllCanonicalEquipment(),
+            canonicalSecondaryTargets = catalogDao.getAllSecondaryTargets(),
+            exerciseMedia = catalogDao.getAllExerciseMedia(),
+            exerciseSourceIdentities = catalogDao.getAllSourceIdentities(),
             selectionHistory = selectionHistoryDao.getAll(SeedCatalog.LOCAL_USER_ID),
         )
     }

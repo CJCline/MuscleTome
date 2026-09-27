@@ -1,6 +1,12 @@
 package com.chy.muscletome.data.backup
 
+import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
+import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
+import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.UserEntity
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -35,10 +41,37 @@ class BackupDocumentTest {
     }
 
     @Test
+    fun canonicalExerciseDataRoundTripsInBackupDocument() {
+        val source = emptyDocument().copy(
+            canonicalExerciseMetadata = listOf(
+                CanonicalExerciseEntity("row", "chest", "Step one", null, "IMPORTED", true),
+            ),
+            canonicalInstructions = listOf(ExerciseInstructionEntity("row", 0, "Brace")),
+            canonicalEquipment = listOf(ExerciseEquipmentCrossRef("row", "barbell")),
+            canonicalSecondaryTargets = listOf(ExerciseSecondaryTargetEntity("row", "triceps")),
+            exerciseMedia = listOf(
+                ExerciseMediaEntity("row-media", "row", "IMAGE", "content://image", "source", "credit", "author", "CC0", null, 0),
+            ),
+            exerciseSourceIdentities = listOf(
+                ExerciseSourceIdentityEntity("wger", "77", "row", "https://source.test/77", 10L, 20L),
+            ),
+        )
+
+        val restored = json.decodeFromString<BackupDocument>(json.encodeToString(source))
+
+        assertEquals(source.canonicalExerciseMetadata, restored.canonicalExerciseMetadata)
+        assertEquals(source.canonicalInstructions, restored.canonicalInstructions)
+        assertEquals(source.canonicalEquipment, restored.canonicalEquipment)
+        assertEquals(source.canonicalSecondaryTargets, restored.canonicalSecondaryTargets)
+        assertEquals(source.exerciseMedia, restored.exerciseMedia)
+        assertEquals(source.exerciseSourceIdentities, restored.exerciseSourceIdentities)
+    }
+
+    @Test
     fun v3BackupWithoutSelectionHistoryImportsWithEmptyHistory() {
         val legacy = emptyDocument().copy(formatVersion = 3)
         val legacyJson = JsonObject(
-            json.encodeToJsonElement(BackupDocument.serializer(), legacy).jsonObject - "selectionHistory" +
+            (json.encodeToJsonElement(BackupDocument.serializer(), legacy).jsonObject - "selectionHistory") +
                 ("formatVersion" to JsonPrimitive(3)),
         )
 
@@ -76,5 +109,11 @@ class BackupDocumentTest {
         sessions = emptyList(),
         slotResults = emptyList(),
         setLogs = emptyList(),
+        canonicalExerciseMetadata = emptyList(),
+        canonicalInstructions = emptyList(),
+        canonicalEquipment = emptyList(),
+        canonicalSecondaryTargets = emptyList(),
+        exerciseMedia = emptyList(),
+        exerciseSourceIdentities = emptyList(),
     )
 }

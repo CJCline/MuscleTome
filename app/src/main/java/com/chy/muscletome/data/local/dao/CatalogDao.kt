@@ -4,11 +4,18 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
+import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
+import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
+import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
+import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -42,6 +49,51 @@ interface CatalogDao {
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun getExercise(id: String): ExerciseEntity?
 
+    @Transaction
+    @Query("SELECT * FROM exercises")
+    suspend fun getAllCanonicalExercises(): List<ExerciseWithCanonicalRelations>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMuscleGroupsForImport(rows: List<MuscleGroupEntity>)
+
+    @Transaction
+    suspend fun saveCanonicalExerciseBundle(
+        exercise: ExerciseEntity,
+        metadata: CanonicalExerciseEntity,
+        instructions: List<ExerciseInstructionEntity>,
+        equipment: List<EquipmentEntity>,
+        equipmentLinks: List<ExerciseEquipmentCrossRef>,
+        secondaryTargets: List<ExerciseSecondaryTargetEntity>,
+        media: List<ExerciseMediaEntity>,
+        sourceIdentities: List<ExerciseSourceIdentityEntity>,
+        update: Boolean,
+    ) {
+        upsertEquipment(equipment)
+        if (update) upsertExercises(listOf(exercise)) else insertExercises(listOf(exercise))
+        upsertCanonicalMetadata(listOf(metadata))
+        deleteInstructions(exercise.id)
+        deleteCanonicalEquipment(exercise.id)
+        deleteSecondaryTargets(exercise.id)
+        deleteExerciseMedia(exercise.id)
+        deleteSourceIdentities(exercise.id)
+        upsertInstructions(instructions)
+        upsertCanonicalEquipment(equipmentLinks)
+        upsertSecondaryTargets(secondaryTargets)
+        upsertExerciseMedia(media)
+        upsertSourceIdentities(sourceIdentities)
+    }
+
+    @Transaction
+    @Query("SELECT * FROM exercises WHERE id = :id")
+    suspend fun getCanonicalExercise(id: String): ExerciseWithCanonicalRelations?
+
+    @Transaction
+    @Query("SELECT * FROM exercises WHERE id = :id")
+    fun observeCanonicalExercise(id: String): Flow<ExerciseWithCanonicalRelations?>
+
+    @Query("SELECT * FROM exercise_source_identities WHERE sourceKey = :sourceKey AND externalExerciseId = :externalId")
+    suspend fun findBySourceIdentity(sourceKey: String, externalId: String): ExerciseSourceIdentityEntity?
+
     @Query("SELECT * FROM exercises WHERE id = :id")
     fun observeExercise(id: String): Flow<ExerciseEntity?>
 
@@ -68,6 +120,42 @@ interface CatalogDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertExercises(rows: List<ExerciseEntity>)
+
+    @Upsert
+    suspend fun upsertCanonicalMetadata(rows: List<CanonicalExerciseEntity>)
+
+    @Upsert
+    suspend fun upsertInstructions(rows: List<ExerciseInstructionEntity>)
+
+    @Upsert
+    suspend fun upsertExerciseMedia(rows: List<ExerciseMediaEntity>)
+
+    @Upsert
+    suspend fun upsertSourceIdentities(rows: List<ExerciseSourceIdentityEntity>)
+
+    @Upsert
+    suspend fun upsertSecondaryTargets(rows: List<ExerciseSecondaryTargetEntity>)
+
+    @Upsert
+    suspend fun upsertCanonicalEquipment(rows: List<ExerciseEquipmentCrossRef>)
+
+    @Query("DELETE FROM exercise_instructions WHERE exerciseId = :exerciseId")
+    suspend fun deleteInstructions(exerciseId: String)
+
+    @Query("DELETE FROM exercise_media WHERE exerciseId = :exerciseId")
+    suspend fun deleteExerciseMedia(exerciseId: String)
+
+    @Query("DELETE FROM exercise_source_identities WHERE exerciseId = :exerciseId")
+    suspend fun deleteSourceIdentities(exerciseId: String)
+
+    @Query("DELETE FROM exercise_secondary_targets WHERE exerciseId = :exerciseId")
+    suspend fun deleteSecondaryTargets(exerciseId: String)
+
+    @Query("DELETE FROM exercise_equipment WHERE exerciseId = :exerciseId")
+    suspend fun deleteCanonicalEquipment(exerciseId: String)
+
+    @Query("DELETE FROM exercise_equipment WHERE exerciseId = :exerciseId")
+    suspend fun deleteLegacyEquipment(exerciseId: String)
 
     /** Backup import restores the full row (notes, edits) — upsert, not ignore. */
     @Upsert
@@ -99,6 +187,24 @@ interface CatalogDao {
 
     @Query("SELECT * FROM exercises")
     suspend fun getExercises(): List<ExerciseEntity>
+
+    @Query("SELECT * FROM canonical_exercises")
+    suspend fun getAllCanonicalMetadata(): List<CanonicalExerciseEntity>
+
+    @Query("SELECT * FROM exercise_instructions ORDER BY exerciseId, sortOrder")
+    suspend fun getAllInstructions(): List<ExerciseInstructionEntity>
+
+    @Query("SELECT * FROM exercise_media ORDER BY exerciseId, sortOrder")
+    suspend fun getAllExerciseMedia(): List<ExerciseMediaEntity>
+
+    @Query("SELECT * FROM exercise_source_identities")
+    suspend fun getAllSourceIdentities(): List<ExerciseSourceIdentityEntity>
+
+    @Query("SELECT * FROM exercise_secondary_targets")
+    suspend fun getAllSecondaryTargets(): List<ExerciseSecondaryTargetEntity>
+
+    @Query("SELECT * FROM exercise_equipment")
+    suspend fun getAllCanonicalEquipment(): List<ExerciseEquipmentCrossRef>
 
     @Query("SELECT name FROM exercises")
     suspend fun getExerciseNames(): List<String>

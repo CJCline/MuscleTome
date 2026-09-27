@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.chy.muscletome.data.local.MuscleTomeDatabase
 import com.chy.muscletome.data.local.MuscleTomeMigrations
 import com.chy.muscletome.data.local.dao.CatalogDao
+import com.chy.muscletome.data.local.dao.ExerciseCanonicalDao
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
@@ -37,6 +38,7 @@ object DatabaseModule {
 
     @Provides fun provideUserDao(db: MuscleTomeDatabase): UserDao = db.userDao()
     @Provides fun provideCatalogDao(db: MuscleTomeDatabase): CatalogDao = db.catalogDao()
+    @Provides fun provideExerciseCanonicalDao(db: MuscleTomeDatabase): ExerciseCanonicalDao = db.exerciseCanonicalDao()
     @Provides fun provideRoutineDao(db: MuscleTomeDatabase): RoutineDao = db.routineDao()
     @Provides fun provideWorkoutDao(db: MuscleTomeDatabase): WorkoutDao = db.workoutDao()
     @Provides fun provideSelectionHistoryDao(db: MuscleTomeDatabase): SelectionHistoryDao = db.selectionHistoryDao()

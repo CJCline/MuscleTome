@@ -278,6 +278,41 @@ data class SetLogEntity(
 
 @Serializable
 @Entity(
+    tableName = "canonical_exercises",
+    primaryKeys = ["exerciseId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ExerciseEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["exerciseId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = MuscleGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["primaryMuscleGroupId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        ForeignKey(
+            entity = CanonicalExerciseEntity::class,
+            parentColumns = ["exerciseId"],
+            childColumns = ["movementFamilyId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [Index("primaryMuscleGroupId"), Index("movementFamilyId")],
+)
+data class CanonicalExerciseEntity(
+    val exerciseId: String,
+    val primaryMuscleGroupId: String? = null,
+    val instructions: String = "",
+    val movementFamilyId: String? = null,
+    val origin: String = "BUILT_IN",
+    val isUserEdited: Boolean = false,
+)
+
+@Serializable
+@Entity(
     tableName = "exercise_selection_history",
     primaryKeys = ["userId", "exerciseId", "muscleGroupId"],
     foreignKeys = [

@@ -54,7 +54,7 @@ class MigrationTest {
                     "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
                     "`source`, `notes`, `demoUri`) " +
                     "VALUES ('barbell_bench_press', 'Barbell Bench Press', '', 'PUSH', 'COMPOUND', 'chest', " +
-                    "'INTERMEDIATE', 0, NULL, 0, 'SEED', 'cues here', NULL)",
+                    "'INTERMEDIATE', 0, NULL, 0, 'SEED', 'cues here', 'https://legacy.example/demo.png')",
             )
             // A wger import from before source tagging existed: stored as SEED.
             execSQL(
@@ -87,8 +87,8 @@ class MigrationTest {
             close()
         }
 
-        // Opening the database runs v1 → v2 → v3; Room validates the final
-        // schema against the exported 3.json.
+        // Opening the database runs the full migration chain; Room validates
+        // the final schema against the exported current-version snapshot.
         val db = Room.databaseBuilder(
             InstrumentationRegistry.getInstrumentation().targetContext,
             MuscleTomeDatabase::class.java,
@@ -170,6 +170,41 @@ class MigrationTest {
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(10, cursor.getInt(0))
+        }
+
+        // v6 → v7: canonical rows preserve existing IDs and legacy demo URI.
+        db.openHelper.writableDatabase.execSQL(
+            "INSERT INTO exercises (`id`, `name`, `description`, `movementPattern`, `movementType`, " +
+                "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
+                "`source`, `notes`, `demoUri`) VALUES ('user_custom', 'Custom', '', 'OTHER', " +
+                "'COMPOUND', 'chest', 'BEGINNER', 1, 'local-user', 0, 'USER_CREATED', '', NULL)",
+        )
+        db.query(SimpleSQLiteQuery(
+            "SELECT `id`, `resolvedExerciseId` FROM session_slot_results WHERE id = 'ssr1'",
+        )).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("ssr1", cursor.getString(0))
+            assertEquals("barbell_bench_press", cursor.getString(1))
+        }
+        db.query(SimpleSQLiteQuery(
+            "SELECT `exerciseId`, `origin`, `isUserEdited` FROM canonical_exercises " +
+                "WHERE exerciseId IN ('barbell_bench_press', 'user_custom') ORDER BY exerciseId",
+        )).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("barbell_bench_press", cursor.getString(0))
+            assertEquals("BUILT_IN", cursor.getString(1))
+            assertEquals(0, cursor.getInt(2))
+            assertTrue(cursor.moveToNext())
+            assertEquals("user_custom", cursor.getString(0))
+            assertEquals("USER_CREATED", cursor.getString(1))
+            assertEquals(1, cursor.getInt(2))
+        }
+        db.query(SimpleSQLiteQuery(
+            "SELECT `uri`, `type` FROM exercise_media WHERE exerciseId = 'barbell_bench_press'",
+        )).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("https://legacy.example/demo.png", cursor.getString(0))
+            assertEquals("IMAGE", cursor.getString(1))
         }
 
         db.close()

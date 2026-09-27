@@ -4,12 +4,19 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.chy.muscletome.data.local.dao.CatalogDao
+import com.chy.muscletome.data.local.dao.ExerciseCanonicalDao
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
+import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
+import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
+import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
@@ -33,6 +40,12 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         MuscleGroupEntity::class,
         EquipmentEntity::class,
         ExerciseEntity::class,
+        CanonicalExerciseEntity::class,
+        ExerciseMediaEntity::class,
+        ExerciseSourceIdentityEntity::class,
+        ExerciseInstructionEntity::class,
+        ExerciseSecondaryTargetEntity::class,
+        ExerciseEquipmentLinkEntity::class,
         RoutineEntity::class,
         RoutineDayEntity::class,
         RoutineSlotEntity::class,
@@ -48,12 +61,13 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class MuscleTomeDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
+    abstract fun exerciseCanonicalDao(): ExerciseCanonicalDao
     abstract fun catalogDao(): CatalogDao
     abstract fun routineDao(): RoutineDao
     abstract fun workoutDao(): WorkoutDao
