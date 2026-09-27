@@ -6,6 +6,7 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,6 +64,12 @@ class MigrationTest {
                     "`source`, `notes`, `demoUri`) " +
                     "VALUES ('wger_123', 'Imported Thing', '', 'PUSH', 'COMPOUND', 'chest', " +
                     "'INTERMEDIATE', 0, NULL, 0, 'SEED', 'Source: wger.de', NULL)",
+            )
+            execSQL(
+                "INSERT INTO exercises (`id`, `name`, `description`, `movementPattern`, `movementType`, " +
+                    "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
+                    "`source`, `notes`, `demoUri`) VALUES ('user_custom', 'Custom', '', 'OTHER', " +
+                    "'COMPOUND', 'chest', 'BEGINNER', 1, 'local-user', 0, 'USER_CREATED', '', NULL)",
             )
             execSQL("INSERT INTO routines (`id`, `name`, `ownerId`, `createdAtEpochMs`) VALUES ('r1', 'PPL', 'local-user', 1000)")
             execSQL("INSERT INTO routine_days (`id`, `routineId`, `name`, `orderIndex`) VALUES ('d1', 'r1', 'Push', 0)")
@@ -159,8 +166,8 @@ class MigrationTest {
                 "VALUES ('local-user', 'chest', 12)",
         )
         db.openHelper.writableDatabase.execSQL(
-            "INSERT INTO muscle_volume_targets (`userId`, `muscleGroupId`, `weeklySetTarget`) " +
-                "VALUES ('local-user', 'chest', 10)",
+            "UPDATE muscle_volume_targets SET weeklySetTarget = 10 " +
+                "WHERE userId = 'local-user' AND muscleGroupId = 'chest'",
         )
         db.query(
             SimpleSQLiteQuery(
@@ -173,12 +180,6 @@ class MigrationTest {
         }
 
         // v6 → v7: canonical rows preserve existing IDs and legacy demo URI.
-        db.openHelper.writableDatabase.execSQL(
-            "INSERT INTO exercises (`id`, `name`, `description`, `movementPattern`, `movementType`, " +
-                "`primaryMuscleGroupId`, `difficulty`, `isCustom`, `createdByUserId`, `unilateral`, " +
-                "`source`, `notes`, `demoUri`) VALUES ('user_custom', 'Custom', '', 'OTHER', " +
-                "'COMPOUND', 'chest', 'BEGINNER', 1, 'local-user', 0, 'USER_CREATED', '', NULL)",
-        )
         db.query(SimpleSQLiteQuery(
             "SELECT `id`, `resolvedExerciseId` FROM session_slot_results WHERE id = 'ssr1'",
         )).use { cursor ->
@@ -190,6 +191,7 @@ class MigrationTest {
             "SELECT `exerciseId`, `origin`, `isUserEdited` FROM canonical_exercises " +
                 "WHERE exerciseId IN ('barbell_bench_press', 'user_custom') ORDER BY exerciseId",
         )).use { cursor ->
+            assertEquals(2, cursor.count)
             assertTrue(cursor.moveToFirst())
             assertEquals("barbell_bench_press", cursor.getString(0))
             assertEquals("BUILT_IN", cursor.getString(1))
@@ -198,6 +200,7 @@ class MigrationTest {
             assertEquals("user_custom", cursor.getString(0))
             assertEquals("USER_CREATED", cursor.getString(1))
             assertEquals(1, cursor.getInt(2))
+            assertFalse(cursor.moveToNext())
         }
         db.query(SimpleSQLiteQuery(
             "SELECT `uri`, `type` FROM exercise_media WHERE exerciseId = 'barbell_bench_press'",

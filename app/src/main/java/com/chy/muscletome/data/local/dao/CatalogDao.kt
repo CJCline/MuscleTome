@@ -9,6 +9,7 @@ import androidx.room.Upsert
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
 import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
@@ -61,13 +62,15 @@ interface CatalogDao {
         exercise: ExerciseEntity,
         metadata: CanonicalExerciseEntity,
         instructions: List<ExerciseInstructionEntity>,
+        muscleGroups: List<MuscleGroupEntity>,
         equipment: List<EquipmentEntity>,
-        equipmentLinks: List<ExerciseEquipmentCrossRef>,
+        equipmentLinks: List<ExerciseEquipmentLinkEntity>,
         secondaryTargets: List<ExerciseSecondaryTargetEntity>,
         media: List<ExerciseMediaEntity>,
         sourceIdentities: List<ExerciseSourceIdentityEntity>,
         update: Boolean,
     ) {
+        insertMuscleGroups(muscleGroups)
         upsertEquipment(equipment)
         if (update) upsertExercises(listOf(exercise)) else insertExercises(listOf(exercise))
         upsertCanonicalMetadata(listOf(metadata))
@@ -137,7 +140,7 @@ interface CatalogDao {
     suspend fun upsertSecondaryTargets(rows: List<ExerciseSecondaryTargetEntity>)
 
     @Upsert
-    suspend fun upsertCanonicalEquipment(rows: List<ExerciseEquipmentCrossRef>)
+    suspend fun upsertCanonicalEquipment(rows: List<ExerciseEquipmentLinkEntity>)
 
     @Query("DELETE FROM exercise_instructions WHERE exerciseId = :exerciseId")
     suspend fun deleteInstructions(exerciseId: String)
@@ -151,7 +154,7 @@ interface CatalogDao {
     @Query("DELETE FROM exercise_secondary_targets WHERE exerciseId = :exerciseId")
     suspend fun deleteSecondaryTargets(exerciseId: String)
 
-    @Query("DELETE FROM exercise_equipment WHERE exerciseId = :exerciseId")
+    @Query("DELETE FROM exercise_equipment_links WHERE exerciseId = :exerciseId")
     suspend fun deleteCanonicalEquipment(exerciseId: String)
 
     @Query("DELETE FROM exercise_equipment WHERE exerciseId = :exerciseId")
@@ -203,8 +206,8 @@ interface CatalogDao {
     @Query("SELECT * FROM exercise_secondary_targets")
     suspend fun getAllSecondaryTargets(): List<ExerciseSecondaryTargetEntity>
 
-    @Query("SELECT * FROM exercise_equipment")
-    suspend fun getAllCanonicalEquipment(): List<ExerciseEquipmentCrossRef>
+    @Query("SELECT * FROM exercise_equipment_links")
+    suspend fun getAllCanonicalEquipment(): List<ExerciseEquipmentLinkEntity>
 
     @Query("SELECT name FROM exercises")
     suspend fun getExerciseNames(): List<String>

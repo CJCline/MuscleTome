@@ -6,9 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
+import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
@@ -50,6 +53,15 @@ abstract class ExerciseCanonicalDao {
     @Update
     protected abstract suspend fun updateExercise(row: ExerciseEntity)
 
+    @Query("DELETE FROM exercise_instructions WHERE exerciseId = :exerciseId")
+    protected abstract suspend fun deleteInstructions(exerciseId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertInstructions(rows: List<ExerciseInstructionEntity>)
+
+    @Upsert
+    protected abstract suspend fun upsertMetadata(row: CanonicalExerciseEntity)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     protected abstract suspend fun insertMedia(rows: List<ExerciseMediaEntity>)
 
@@ -73,6 +85,8 @@ abstract class ExerciseCanonicalDao {
         exercise: ExerciseEntity,
         equipment: List<EquipmentEntity>,
         equipmentLinks: List<ExerciseEquipmentLinkEntity>,
+        instructions: List<ExerciseInstructionEntity>,
+        metadata: CanonicalExerciseEntity,
         secondaryTargets: List<ExerciseSecondaryTargetEntity>,
         media: List<ExerciseMediaEntity>,
         sourceIdentities: List<ExerciseSourceIdentityEntity>,
@@ -80,7 +94,7 @@ abstract class ExerciseCanonicalDao {
         insertMuscles(emptyList())
         insertEquipment(equipment)
         insertExercise(exercise)
-        replaceOwnedRelations(exercise.id, equipmentLinks, secondaryTargets, media, sourceIdentities)
+        replaceOwnedRelations(exercise.id, equipmentLinks, instructions, metadata, secondaryTargets, media, sourceIdentities)
     }
 
     @Transaction
@@ -88,18 +102,22 @@ abstract class ExerciseCanonicalDao {
         exercise: ExerciseEntity,
         equipment: List<EquipmentEntity>,
         equipmentLinks: List<ExerciseEquipmentLinkEntity>,
+        instructions: List<ExerciseInstructionEntity>,
+        metadata: CanonicalExerciseEntity,
         secondaryTargets: List<ExerciseSecondaryTargetEntity>,
         media: List<ExerciseMediaEntity>,
         sourceIdentities: List<ExerciseSourceIdentityEntity>,
     ) {
         updateExercise(exercise)
         insertEquipment(equipment)
-        replaceOwnedRelations(exercise.id, equipmentLinks, secondaryTargets, media, sourceIdentities)
+        replaceOwnedRelations(exercise.id, equipmentLinks, instructions, metadata, secondaryTargets, media, sourceIdentities)
     }
 
     private suspend fun replaceOwnedRelations(
         exerciseId: String,
         equipmentLinks: List<ExerciseEquipmentLinkEntity>,
+        instructions: List<ExerciseInstructionEntity>,
+        metadata: CanonicalExerciseEntity,
         secondaryTargets: List<ExerciseSecondaryTargetEntity>,
         media: List<ExerciseMediaEntity>,
         sourceIdentities: List<ExerciseSourceIdentityEntity>,
@@ -108,9 +126,12 @@ abstract class ExerciseCanonicalDao {
         deleteSecondaryTargets(exerciseId)
         deleteMedia(exerciseId)
         deleteSourceIdentities(exerciseId)
+        deleteInstructions(exerciseId)
         insertEquipmentLinks(equipmentLinks.filter { it.exerciseId == exerciseId })
         insertSecondaryTargets(secondaryTargets.filter { it.exerciseId == exerciseId })
         insertMedia(media.filter { it.exerciseId == exerciseId })
         insertSourceIdentities(sourceIdentities.filter { it.exerciseId == exerciseId })
+        insertInstructions(instructions.filter { it.exerciseId == exerciseId })
+        upsertMetadata(metadata)
     }
 }

@@ -5,7 +5,7 @@ import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
-import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
 import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
@@ -94,8 +94,11 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
     private suspend fun persist(item: NormalizedExerciseImport, id: String, update: Boolean) {
         val canonical = item.exercise
         val primaryMuscle = canonical.primaryMuscleGroupId ?: "core"
-        if (catalogDao.getMuscleGroups().none { it.id == primaryMuscle }) {
-            catalogDao.insertMuscleGroups(listOf(MuscleGroupEntity(primaryMuscle, primaryMuscle.replace('_', ' '))))
+        val importMuscles = buildSet {
+            add(primaryMuscle)
+            addAll(canonical.secondaryMuscleGroupIds)
+        }.map { id ->
+            MuscleGroupEntity(id, id.replace('_', ' ').replaceFirstChar(Char::uppercase))
         }
         val base = ExerciseEntity(
             id = id,
@@ -128,7 +131,7 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
             ExerciseSecondaryTargetEntity(id, it)
         }
         val equipment = canonical.equipmentIds.map { EquipmentEntity(it, it) }
-        val equipmentLinks = canonical.equipmentIds.map { ExerciseEquipmentCrossRef(id, it) }
+        val equipmentLinks = canonical.equipmentIds.map { ExerciseEquipmentLinkEntity(id, it) }
         val instructions = canonical.instructions.mapIndexed { index, text ->
             ExerciseInstructionEntity(id, index, text)
         }
@@ -138,6 +141,7 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
             exercise = base,
             metadata = metadata,
             instructions = instructions,
+            muscleGroups = importMuscles,
             equipment = equipment,
             equipmentLinks = equipmentLinks,
             secondaryTargets = secondary,
@@ -180,7 +184,10 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
     )
 
     private fun ExerciseMedia.toEntity(exerciseId: String, index: Int) = ExerciseMediaEntity(
-        id = "${exerciseId}_media_$index",
+        id = uri?.let { value ->
+            val tail = value.substringAfterLast('/').substringAfterLast(':').ifBlank { index.toString() }
+            "${exerciseId}_media_$tail"
+        } ?: "${exerciseId}_media_$index",
         exerciseId = exerciseId,
         type = type.name,
         uri = uri.orEmpty(),

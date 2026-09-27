@@ -11,6 +11,7 @@ import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
 import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
@@ -147,7 +148,9 @@ class BackupRepository @Inject constructor(
             val equipmentRows = doc.canonicalEquipment.filter {
                 it.exerciseId in exerciseIds && it.equipmentId in supportedEquipmentIds
             }
-            if (equipmentRows.isNotEmpty()) catalogDao.upsertCanonicalEquipment(equipmentRows)
+            if (equipmentRows.isNotEmpty()) catalogDao.upsertCanonicalEquipment(equipmentRows.map {
+                    ExerciseEquipmentLinkEntity(it.exerciseId, it.equipmentId)
+                })
             val mediaRows = doc.exerciseMedia.filter { it.exerciseId in exerciseIds }
             if (mediaRows.isNotEmpty()) catalogDao.upsertExerciseMedia(mediaRows)
             val sourceRows = doc.exerciseSourceIdentities.filter { it.exerciseId in exerciseIds }
@@ -223,7 +226,9 @@ class BackupRepository @Inject constructor(
             setLogs = workoutDao.getAllSetLogs(),
             canonicalExerciseMetadata = catalogDao.getAllCanonicalMetadata(),
             canonicalInstructions = catalogDao.getAllInstructions(),
-            canonicalEquipment = catalogDao.getAllCanonicalEquipment(),
+            canonicalEquipment = catalogDao.getAllCanonicalEquipment().map {
+                ExerciseEquipmentCrossRef(it.exerciseId, it.equipmentId)
+            },
             canonicalSecondaryTargets = catalogDao.getAllSecondaryTargets(),
             exerciseMedia = catalogDao.getAllExerciseMedia(),
             exerciseSourceIdentities = catalogDao.getAllSourceIdentities(),
