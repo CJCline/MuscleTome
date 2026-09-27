@@ -32,7 +32,8 @@ object WgerMapper {
         }
     }
 
-    fun equipmentId(name: String): String {
+    /** Known normalized equipment ID, or null when the source label is unmapped. */
+    fun knownEquipmentId(name: String): String? {
         val n = name.trim().lowercase()
         return when {
             n.contains("barbell") -> "barbell"
@@ -43,8 +44,15 @@ object WgerMapper {
             n.contains("band") -> "band"
             n.contains("kettle") -> "kettlebell"
             n.contains("ez") -> "barbell"
-            else -> n.replace(Regex("[^a-z0-9]+"), "_").trim('_').ifBlank { "other" }
+            else -> null
         }
+    }
+
+    /** Preserve existing importer behavior for unknown equipment labels. */
+    fun equipmentId(name: String): String {
+        val n = name.trim().lowercase()
+        return knownEquipmentId(name)
+            ?: n.replace(Regex("[^a-z0-9]+"), "_").trim('_').ifBlank { "other" }
     }
 
     fun equipmentDisplayName(name: String): String = name.trim().ifBlank { "Other" }

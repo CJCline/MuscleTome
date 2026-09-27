@@ -60,6 +60,8 @@ data class ImportDiagnostic(
     val code: String,
     val message: String,
     val field: String? = null,
+    /** Unmodified source value, when a diagnostic is about mapping it. */
+    val sourceValue: String? = null,
 )
 
 /** Existing canonical facts plus local-edit protection status for resolution. */

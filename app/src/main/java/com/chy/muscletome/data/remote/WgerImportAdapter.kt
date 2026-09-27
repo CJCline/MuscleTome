@@ -17,21 +17,54 @@ object WgerImportAdapter {
         val name = item.englishName?.trim().orEmpty()
         if (name.isBlank()) return null
 
-        val primary = item.muscles.firstNotNullOfOrNull { WgerMapper.muscleId(it.nameEn) }
-            ?: item.musclesSecondary.firstNotNullOfOrNull { WgerMapper.muscleId(it.nameEn) }
-        val diagnostics = buildList {
-            if (primary == null) {
-                add(ImportDiagnostic("unmapped_primary_muscle", "No muscle target could be mapped", "muscles"))
+        val mappedPrimary = item.muscles.firstNotNullOfOrNull { WgerMapper.muscleId(it.nameEn) }
+        val secondaryFallback = if (mappedPrimary == null) {
+            item.musclesSecondary.firstNotNullOfOrNull { sourceMuscle ->
+                WgerMapper.muscleId(sourceMuscle.nameEn)?.let { sourceMuscle.nameEn to it }
             }
-            if (!item.hasEnglish) {
-                add(ImportDiagnostic("missing_english_translation", "Record has no English translation", "name"))
-            }
+        } else {
+            null
+        }
+        val primary = mappedPrimary ?: secondaryFallback?.second
+        val diagnostics = mutableListOf<ImportDiagnostic>()
+        if (mappedPrimary == null && secondaryFallback != null) {
+            diagnostics += ImportDiagnostic(
+                code = "primary_muscle_from_secondary_fallback",
+                message = "Primary muscle was taken from a mapped secondary muscle",
+                field = "muscles_secondary",
+                sourceValue = secondaryFallback.first,
+            )
+        }
+        if (primary == null) {
+            diagnostics += ImportDiagnostic(
+                "unmapped_primary_muscle",
+                "No muscle target could be mapped",
+                "muscles",
+            )
+        }
+        if (!item.hasEnglish) {
+            diagnostics += ImportDiagnostic(
+                "missing_english_translation",
+                "Record has no English translation",
+                "name",
+            )
         }
         val secondary = item.musclesSecondary
             .mapNotNull { WgerMapper.muscleId(it.nameEn) }
             .filter { it != primary }
             .toSet()
-        val equipmentIds = item.equipment.map { WgerMapper.equipmentId(it.name) }.toSet()
+        val equipmentIds = item.equipment.mapNotNull { equipment ->
+            WgerMapper.knownEquipmentId(equipment.name).also { mapped ->
+                if (mapped == null) {
+                    diagnostics += ImportDiagnostic(
+                        code = "unmapped_equipment",
+                        message = "Equipment label could not be mapped",
+                        field = "equipment",
+                        sourceValue = equipment.name,
+                    )
+                }
+            }
+        }.toSet()
         val media = item.mainImageUrl?.trim()?.takeIf(String::isNotEmpty)?.let { uri ->
             listOf(
                 ExerciseMedia(
@@ -70,7 +103,7 @@ object WgerImportAdapter {
                 item.licenseAuthor?.let { append(" · $it") }
             },
             media = media,
-            diagnostics = diagnostics,
+            diagnostics = diagnostics.toList(),
         )
     }
 

@@ -52,7 +52,119 @@ class CanonicalExerciseImportTest {
         assertEquals(123L, normalized.sourceIdentity?.importedAtEpochMs)
         assertEquals(1, normalized.media.size)
         assertEquals("CC-BY-SA", normalized.media.single().licenseName)
-        assertTrue(normalized.diagnostics.isEmpty())
+        assertEquals(
+            "Pectoralis major",
+            normalized.diagnostics.single { it.code == "primary_muscle_from_secondary_fallback" }.sourceValue,
+        )
+    }
+
+    @Test
+    fun repeatedWgerImportKeepsStableNamespacedCanonicalId() {
+        val record = wgerRecord(id = 600, muscles = listOf(WgerMuscle(1, "Pectoralis major")))
+
+        val first = WgerImportAdapter.normalize(record)
+        val second = WgerImportAdapter.normalize(record.copy(englishDescription = "Updated description"))
+
+        assertEquals("wger_600", first?.exercise?.id)
+        assertEquals(first?.exercise?.id, second?.exercise?.id)
+        assertEquals("600", first?.sourceIdentity?.externalExerciseId)
+        assertEquals(first?.sourceIdentity, second?.sourceIdentity)
+    }
+
+    @Test
+    fun knownEquipmentMapsToExistingIdWithoutDiagnostic() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(id = 601, equipment = listOf(WgerEquipment(1, "Cable machine"))),
+        ) ?: error("Valid record should be importable")
+
+        assertEquals(setOf("cable"), normalized.exercise.equipmentIds)
+        assertTrue(normalized.diagnostics.none { it.code == "unmapped_equipment" })
+    }
+
+    @Test
+    fun unknownEquipmentIsRetainedAsDiagnosticAndNotAConfirmedEquipmentId() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(id = 602, equipment = listOf(WgerEquipment(9, "Suspension trainer XYZ"))),
+        ) ?: error("Valid record should be importable")
+        val diagnostic = normalized.diagnostics.single { it.code == "unmapped_equipment" }
+
+        assertEquals("Suspension trainer XYZ", diagnostic.sourceValue)
+        assertTrue(normalized.exercise.equipmentIds.isEmpty())
+    }
+
+    @Test
+    fun mappedPrimaryMuscleDoesNotEmitFallbackDiagnostic() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(
+                id = 603,
+                muscles = listOf(WgerMuscle(1, "Pectoralis major")),
+                musclesSecondary = listOf(WgerMuscle(2, "Triceps")),
+            ),
+        ) ?: error("Valid record should be importable")
+
+        assertEquals("chest", normalized.exercise.primaryMuscleGroupId)
+        assertTrue(normalized.diagnostics.none { it.code == "primary_muscle_from_secondary_fallback" })
+    }
+
+    @Test
+    fun secondaryMuscleFallbackIsAssignedAndReported() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(
+                id = 604,
+                muscles = listOf(WgerMuscle(1, "Unmapped primary")),
+                musclesSecondary = listOf(WgerMuscle(2, "Triceps")),
+            ),
+        ) ?: error("Valid record should be importable")
+        val diagnostic = normalized.diagnostics.single { it.code == "primary_muscle_from_secondary_fallback" }
+
+        assertEquals("triceps", normalized.exercise.primaryMuscleGroupId)
+        assertEquals("Triceps", diagnostic.sourceValue)
+    }
+
+    @Test
+    fun noMappableMusclesStillReportsUnmappedPrimary() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(
+                id = 605,
+                muscles = listOf(WgerMuscle(1, "Unknown primary")),
+                musclesSecondary = listOf(WgerMuscle(2, "Unknown secondary")),
+            ),
+        ) ?: error("Valid record should be importable")
+
+        assertNull(normalized.exercise.primaryMuscleGroupId)
+        assertTrue(normalized.diagnostics.any { it.code == "unmapped_primary_muscle" })
+        assertTrue(normalized.diagnostics.none { it.code == "primary_muscle_from_secondary_fallback" })
+    }
+
+    @Test
+    fun userCreatedExactSourceMatchPreservesLocalEdits() {
+        val existing = ExistingCanonicalExercise(
+            exercise = CanonicalExercise(
+                id = "user_local_exercise",
+                displayName = "Custom Fly",
+                origin = ExerciseOrigin.USER_CREATED,
+            ),
+            sourceIdentities = listOf(ExerciseSourceIdentity("wger", "606")),
+        )
+        val incoming = NormalizedExerciseImport(
+            exercise = CanonicalExercise(id = "wger_606", displayName = "Custom Fly"),
+            sourceIdentity = ExerciseSourceIdentity("wger", "606"),
+        )
+
+        assertEquals(
+            ExerciseImportIdentityDecision.ReimportExisting("user_local_exercise", preserveLocalEdits = true),
+            ExerciseImportIdentityPolicy.resolve(incoming, listOf(existing)),
+        )
+    }
+
+    @Test
+    fun missingEnglishTranslationIsReportedWithoutRejectingNamedRecord() {
+        val normalized = WgerImportAdapter.normalize(
+            wgerRecord(id = 607, hasEnglish = false),
+        ) ?: error("Named record should still be representable")
+
+        assertEquals("wger_607", normalized.exercise.id)
+        assertTrue(normalized.diagnostics.any { it.code == "missing_english_translation" })
     }
 
     @Test
@@ -77,6 +189,26 @@ class CanonicalExerciseImportTest {
         assertNull(normalized.exercise.primaryMuscleGroupId)
         assertTrue(normalized.diagnostics.any { it.code == "unmapped_primary_muscle" })
     }
+
+    private fun wgerRecord(
+        id: Int,
+        muscles: List<WgerMuscle> = listOf(WgerMuscle(1, "Pectoralis major")),
+        musclesSecondary: List<WgerMuscle> = emptyList(),
+        equipment: List<WgerEquipment> = emptyList(),
+        hasEnglish: Boolean = true,
+    ) = WgerExerciseInfo(
+        id = id,
+        categoryName = "Chest",
+        muscles = muscles,
+        musclesSecondary = musclesSecondary,
+        equipment = equipment,
+        licenseAuthor = null,
+        licenseName = null,
+        englishName = "Exercise $id",
+        englishDescription = null,
+        hasEnglish = hasEnglish,
+        mainImageUrl = null,
+    )
 
     @Test
     fun exactSourceIdentityResolvesSameCanonicalExerciseAndProtectsUserEdits() {

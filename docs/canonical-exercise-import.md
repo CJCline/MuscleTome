@@ -2,12 +2,20 @@
 
 ## Identity and references
 
-- `CanonicalExercise.id` is a stable MuscleTome ID. Workout logs, routine slots,
-  selection history, and other existing references continue to use the current
-  `ExerciseEntity.id`; this phase does not rename or rewrite any of them.
+- `CanonicalExercise.id` is the stable exercise ID used by MuscleTome. Existing
+  workout logs, routine slots, selection history, and other references continue
+  to use the current `ExerciseEntity.id`; this phase does not rename or rewrite
+  any persisted IDs.
+- For compatibility, the current wger adapter uses a stable, source-namespaced
+  ID (`wger_<external-id>`) already used by persisted wger `ExerciseEntity` rows.
+  Future adapters may use a source-namespaced external ID only when it is stable
+  and collision-safe; otherwise they must allocate a MuscleTome-generated ID.
+  Never use an unqualified provider ID, and do not change existing IDs without
+  a separately planned migration that preserves references.
 - A source identity is the pair `(sourceKey, externalExerciseId)`. Re-importing
-  that exact pair resolves to its existing canonical exercise ID. A provider ID
-  is never substituted for the canonical ID.
+  that exact pair resolves to its existing canonical exercise ID even if source
+  content changes. The source identity remains separate provenance; it does not
+  replace or rewrite the canonical ID.
 - One canonical exercise may have multiple source identities. Each meaningful
   variation remains its own canonical exercise with its own ID and may link to
   a shared `movementFamilyId` without being merged with its family members.
