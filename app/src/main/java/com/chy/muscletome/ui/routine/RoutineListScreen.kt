@@ -116,8 +116,8 @@ fun RoutineListScreen(
                         body = "Create Push/Pull/Legs or a custom split.",
                     )
                     TemplatesBanner(
-                        expanded = true,
-                        onToggle = { },
+                        expanded = templatesExpanded,
+                        onToggle = { templatesExpanded = !templatesExpanded },
                         onAddTemplate = { template ->
                             viewModel.addRoutineFromTemplate(template)
                         },
