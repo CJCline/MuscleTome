@@ -6,6 +6,7 @@ import androidx.room.withTransaction
 import com.chy.muscletome.data.local.MuscleTomeDatabase
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.RoutineDao
+import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
@@ -37,6 +38,7 @@ class BackupRepository @Inject constructor(
     private val catalogDao: CatalogDao,
     private val routineDao: RoutineDao,
     private val workoutDao: WorkoutDao,
+    private val selectionHistoryDao: SelectionHistoryDao,
 ) {
     private val _state = MutableStateFlow(BackupState())
     val state: StateFlow<BackupState> = _state.asStateFlow()
@@ -73,10 +75,7 @@ class BackupRepository @Inject constructor(
             } ?: error("Could not read $uri")
         }
         val doc = json.decodeFromString<BackupDocument>(text)
-        check(doc.formatVersion <= BackupDocument.FORMAT_VERSION) {
-            "Backup format ${doc.formatVersion} is newer than this app supports " +
-                "(${BackupDocument.FORMAT_VERSION}). Update the app first."
-        }
+        requireSupportedBackupVersion(doc.formatVersion)
         check(doc.user.id == SeedCatalog.LOCAL_USER_ID) {
             "Backup belongs to user '${doc.user.id}' — this device expects '${SeedCatalog.LOCAL_USER_ID}'."
         }
@@ -150,6 +149,13 @@ class BackupRepository @Inject constructor(
             )
             workoutDao.insertSlotResults(slotResults)
             workoutDao.insertSetLogs(setLogs)
+            selectionHistoryDao.upsertAll(
+                doc.selectionHistory.filter { history ->
+                    history.userId == SeedCatalog.LOCAL_USER_ID &&
+                        history.exerciseId in exerciseIds &&
+                        history.muscleGroupId in doc.muscleGroups.map { it.id }.toSet()
+                },
+            )
         }
     }
 
@@ -183,6 +189,7 @@ class BackupRepository @Inject constructor(
             },
             slotResults = workoutDao.getAllSlotResults(),
             setLogs = workoutDao.getAllSetLogs(),
+            selectionHistory = selectionHistoryDao.getAll(SeedCatalog.LOCAL_USER_ID),
         )
     }
 

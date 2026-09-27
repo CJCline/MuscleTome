@@ -7,12 +7,29 @@ import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.remote.WgerApiClient
 import com.chy.muscletome.data.remote.WgerMapper
+import com.chy.muscletome.data.remote.WgerPage
 import com.chy.muscletome.domain.model.ExerciseSource
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+internal const val WGER_PAGE_SIZE = 50
+
+/** Fetches pages in order and stops immediately when wger signals completion. */
+internal suspend fun forEachWgerPage(
+    maxPages: Int,
+    fetchPage: suspend (offset: Int, limit: Int) -> WgerPage,
+    onPage: suspend (page: Int, data: WgerPage) -> Unit,
+) {
+    for (page in 0 until maxPages) {
+        val data = fetchPage(page * WGER_PAGE_SIZE, WGER_PAGE_SIZE)
+        if (data.results.isEmpty()) break
+        onPage(page, data)
+        if (data.next.isNullOrBlank()) break
+    }
+}
 
 data class WgerImportProgress(
     val running: Boolean = false,
@@ -38,7 +55,6 @@ class WgerImportRepository @Inject constructor(
     suspend fun importAll(maxPages: Int = 40) {
         if (_progress.value.running) return
         _progress.value = WgerImportProgress(running = true, message = "Starting wger import…")
-        var offset = 0
         var imported = 0
         var skipped = 0
         var duplicates = 0
@@ -47,10 +63,13 @@ class WgerImportRepository @Inject constructor(
         val existingNames = catalogDao.getExerciseNames()
             .mapTo(mutableSetOf()) { it.trim().lowercase() }
         try {
-            repeat(maxPages) { page ->
-                val pageData = api.fetchPage(offset = offset, limit = 50)
+            forEachWgerPage(
+                maxPages = maxPages,
+                fetchPage = { pageOffset, pageSize ->
+                    api.fetchPage(offset = pageOffset, limit = pageSize)
+                },
+            ) { page, pageData ->
                 if (page == 0) total = pageData.count
-                if (pageData.results.isEmpty()) return@repeat
                 fetched += pageData.results.size
 
                 for (item in pageData.results) {
@@ -142,8 +161,6 @@ class WgerImportRepository @Inject constructor(
                     message = "Imported $imported of ~$total (skipped $skipped, duplicates $duplicates)",
                 )
 
-                if (pageData.next.isNullOrBlank()) return@repeat
-                offset += 50
             }
 
             _progress.value = WgerImportProgress(

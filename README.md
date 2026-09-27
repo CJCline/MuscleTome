@@ -45,7 +45,7 @@ MuscleTome is a modern, clean, and intuitive workout tracking application for An
 
 ## 🗄️ Database schema & migrations
 
-*   The Room database (currently `version = 3`) exports its schema JSON to `app/schemas/`, which is **committed to git**. CI fails if that JSON drifts from the entities in code.
+*   The Room database (currently `version = 6`) exports its schema JSON to `app/schemas/`, which is **committed to git**. CI fails if that JSON drifts from the entities in code.
 *   `DatabaseModule` registers migrations via `addMigrations(...)` and has **no destructive fallback** — an unhandled schema change crashes loudly instead of silently wiping a user's workout history.
 *   To change an entity:
     1.  Bump the `@Database` `version` (e.g. `1` → `2`).
@@ -62,8 +62,8 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./
 MuscleTome is local-first: **your data lives in this app's Room database and nowhere else**.
 
 *   **`allowBackup` is `false`** — workout history (and any future entitlement state) must not silently ride Android's default Auto Backup to Google's cloud. There is no reviewed backup spec yet, so nothing leaves the device without you explicitly doing it.
-*   **Settings → Backup & restore** exports a complete JSON document (catalog edits, routines, slots, full log history, user prefs) via the system file picker — save it anywhere: Documents, Drive, another phone.
-*   **Import merges** — every row is an upsert, so restoring on a new device preserves anything already there. A backup with a newer format version is rejected with a clear message rather than half-imported.
+*   **Settings → Backup & restore** exports a complete JSON document (catalog edits, routines, slots, full log history, selection history, user prefs) via the system file picker — save it anywhere: Documents, Drive, another phone.
+*   **Import merges** — rows are upserted, so restoring on a new device preserves anything already there. Older supported format versions remain importable; a backup with a newer format version is rejected with a clear message rather than half-imported. The current backup format is v4.
 
 ## 📄 License
 

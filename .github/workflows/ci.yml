@@ -30,6 +30,9 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
 
+      - name: Assemble release APK
+        run: ./gradlew assembleRelease
+
       - name: Room schema JSON must be committed and up to date
         run: |
           STATUS="$(git status --porcelain -- app/schemas)"

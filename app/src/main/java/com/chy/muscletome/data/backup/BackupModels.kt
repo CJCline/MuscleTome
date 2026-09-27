@@ -4,6 +4,7 @@ import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
+import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
@@ -45,6 +46,8 @@ data class BackupDocument(
     val sessions: List<WorkoutSessionEntityDto>,
     val slotResults: List<SessionSlotResultEntity>,
     val setLogs: List<SetLogEntity>,
+    /** Optional for v1-v3 backups, which predate selection history backups. */
+    val selectionHistory: List<ExerciseSelectionHistoryEntity> = emptyList(),
 ) {
     companion object {
         /**
@@ -59,8 +62,18 @@ data class BackupDocument(
          * v2 fields it is optional-with-default, so v2 documents still
          * import unchanged; v3 is rejected by v2-era builds, keeping the
          * "targets must not silently drop on an old device" guarantee.
+         *
+         * v4: adds optional-with-default exercise selection history. Older
+         * backups decode with empty history; future versions are rejected.
          */
-        const val FORMAT_VERSION = 3
+        const val FORMAT_VERSION = 4
+    }
+}
+
+internal fun requireSupportedBackupVersion(formatVersion: Int) {
+    check(formatVersion <= BackupDocument.FORMAT_VERSION) {
+        "Backup format $formatVersion is newer than this app supports " +
+            "(${BackupDocument.FORMAT_VERSION}). Update the app first."
     }
 }
 
