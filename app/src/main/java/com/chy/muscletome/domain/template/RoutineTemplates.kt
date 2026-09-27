@@ -161,7 +161,109 @@ object RoutineTemplates {
         ),
     )
 
-    val ALL = listOf(FULL_BODY_3X, UPPER_LOWER, PPL)
+    /**
+     * Selection-forward beginner plan: only the first lift is prescribed;
+     * the remaining slots are resolved around the user's equipment, ability,
+     * exclusions, and recent exercise history at session start.
+     */
+    val AUTO_PICKED_FULL_BODY_3X = RoutineTemplate(
+        id = "auto_picked_full_body_3x",
+        name = "Adaptive Full Body 3×",
+        blurb = "One familiar anchor lift, then equipment-aware picks that rotate as you train.",
+        days = listOf(
+            TemplateDay(
+                "Full Body A",
+                listOf(
+                    fixed("squat", sets = 3, min = 5, max = 8, rest = 150),
+                    target(listOf("chest"), TargetMovementType.COMPOUND, sets = 3, min = 6, max = 10, rest = 120),
+                    target(listOf("back", "lats"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 90),
+                    target(listOf("hamstrings"), TargetMovementType.ISOLATION, sets = 2, min = 10, max = 15, rest = 60),
+                    target(listOf("abs"), TargetMovementType.ISOLATION, sets = 2, min = 10, max = 20, rest = 45),
+                ),
+            ),
+            TemplateDay(
+                "Full Body B",
+                listOf(
+                    fixed("barbell_bench_press", sets = 3, min = 5, max = 8, rest = 150),
+                    target(listOf("quads"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 120),
+                    target(listOf("lats", "back"), TargetMovementType.COMPOUND, sets = 3, min = 6, max = 10, rest = 120),
+                    target(listOf("glutes", "hamstrings"), TargetMovementType.ANY, sets = 2, min = 8, max = 12, rest = 90),
+                    target(listOf("side_delts"), TargetMovementType.ISOLATION, sets = 2, min = 12, max = 20, rest = 45),
+                ),
+            ),
+            TemplateDay(
+                "Full Body C",
+                listOf(
+                    fixed("romanian_deadlift", sets = 3, min = 6, max = 10, rest = 150),
+                    target(listOf("chest"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 120),
+                    target(listOf("quads"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 120),
+                    target(listOf("biceps"), TargetMovementType.ISOLATION, sets = 2, min = 10, max = 15, rest = 60),
+                    target(listOf("triceps"), TargetMovementType.ISOLATION, sets = 2, min = 10, max = 15, rest = 60),
+                ),
+            ),
+        ),
+    )
+
+    /**
+     * Four-day upper/lower plan with just one fixed lift per day. Target slots
+     * let the engine adapt accessory movement choices to available equipment
+     * and avoid recently repeated exercises.
+     */
+    val ROTATING_UPPER_LOWER_4X = RoutineTemplate(
+        id = "rotating_upper_lower_4x",
+        name = "Rotating Upper / Lower 4×",
+        blurb = "A simple split with auto-selected accessories tailored to your gym and training history.",
+        days = listOf(
+            TemplateDay(
+                "Upper A",
+                listOf(
+                    fixed("barbell_bench_press", sets = 4, min = 5, max = 8, rest = 150),
+                    target(listOf("back", "lats"), TargetMovementType.COMPOUND, sets = 4, min = 6, max = 10, rest = 120),
+                    target(listOf("shoulders"), TargetMovementType.COMPOUND, sets = 3, min = 6, max = 10, rest = 120),
+                    target(listOf("biceps"), TargetMovementType.ISOLATION, sets = 3, min = 8, max = 15, rest = 60),
+                    target(listOf("triceps"), TargetMovementType.ISOLATION, sets = 3, min = 8, max = 15, rest = 60),
+                ),
+            ),
+            TemplateDay(
+                "Lower A",
+                listOf(
+                    fixed("squat", sets = 4, min = 5, max = 8, rest = 150),
+                    target(listOf("hamstrings"), TargetMovementType.COMPOUND, sets = 3, min = 6, max = 10, rest = 120),
+                    target(listOf("quads"), TargetMovementType.ISOLATION, sets = 3, min = 10, max = 15, rest = 60),
+                    target(listOf("calves"), TargetMovementType.ISOLATION, sets = 3, min = 12, max = 20, rest = 45),
+                    target(listOf("abs"), TargetMovementType.ISOLATION, sets = 2, min = 10, max = 20, rest = 45),
+                ),
+            ),
+            TemplateDay(
+                "Upper B",
+                listOf(
+                    fixed("barbell_row", sets = 4, min = 6, max = 10, rest = 150),
+                    target(listOf("chest"), TargetMovementType.COMPOUND, sets = 4, min = 8, max = 12, rest = 120),
+                    target(listOf("lats"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 90),
+                    target(listOf("rear_delts", "side_delts"), TargetMovementType.ISOLATION, sets = 3, min = 12, max = 20, rest = 60),
+                    target(listOf("arms"), TargetMovementType.ISOLATION, sets = 3, min = 10, max = 15, rest = 60),
+                ),
+            ),
+            TemplateDay(
+                "Lower B",
+                listOf(
+                    fixed("romanian_deadlift", sets = 4, min = 6, max = 10, rest = 150),
+                    target(listOf("quads"), TargetMovementType.COMPOUND, sets = 3, min = 8, max = 12, rest = 120),
+                    target(listOf("glutes"), TargetMovementType.ANY, sets = 3, min = 8, max = 12, rest = 90),
+                    target(listOf("hamstrings"), TargetMovementType.ISOLATION, sets = 3, min = 10, max = 15, rest = 60),
+                    target(listOf("calves"), TargetMovementType.ISOLATION, sets = 3, min = 12, max = 20, rest = 45),
+                ),
+            ),
+        ),
+    )
+
+    val ALL = listOf(
+        FULL_BODY_3X,
+        UPPER_LOWER,
+        PPL,
+        AUTO_PICKED_FULL_BODY_3X,
+        ROTATING_UPPER_LOWER_4X,
+    )
 
     /** Onboarding "none of the above" option — creates nothing. */
     val SCRATCH = RoutineTemplate(

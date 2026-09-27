@@ -16,9 +16,9 @@ class RoutineTemplatesTest {
     private val seedMuscleIds = SeedCatalog.muscleGroups.map { it.id }.toSet()
 
     @Test
-    fun shipsThreeTemplates() {
-        assertEquals(3, RoutineTemplates.ALL.size)
-        assertEquals(3, RoutineTemplates.ALL.map { it.id }.distinct().size)
+    fun shipsFiveTemplates() {
+        assertEquals(5, RoutineTemplates.ALL.size)
+        assertEquals(5, RoutineTemplates.ALL.map { it.id }.distinct().size)
     }
 
     @Test
@@ -67,6 +67,20 @@ class RoutineTemplatesTest {
                 "${template.id} has no TARGET slots — the variety engine would be invisible",
                 template.days.flatMap { it.slots }.any { it.type == SlotType.TARGET },
             )
+        }
+    }
+
+    @Test
+    fun selectionFocusedProgramsHaveMostlyAutoPickedSlots() {
+        listOf(
+            RoutineTemplates.AUTO_PICKED_FULL_BODY_3X,
+            RoutineTemplates.ROTATING_UPPER_LOWER_4X,
+        ).forEach { template ->
+            template.days.forEach { day ->
+                val targetCount = day.slots.count { it.type == SlotType.TARGET }
+                assertTrue("${template.id}/${day.name} should demonstrate selection", targetCount >= 3)
+                assertEquals(SlotType.FIXED, day.slots.first().type)
+            }
         }
     }
 

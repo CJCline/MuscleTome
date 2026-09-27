@@ -57,6 +57,7 @@ fun MetricStepper(
     longDeltaStep: Double? = null,
     suffix: String = "",
     enabled: Boolean = true,
+    large: Boolean = false,
 ) {
     var editing by rememberSaveable { mutableStateOf(value = false) }
     val focusRequester = remember { FocusRequester() }
@@ -103,7 +104,7 @@ fun MetricStepper(
                 ),
                 modifier = Modifier
                     .weight(2.4f)
-                    .height(64.dp),
+                    .height(if (large) 96.dp else 64.dp),
             ) {
                 AnimatedContent(
                     targetState = editing,
@@ -115,9 +116,9 @@ fun MetricStepper(
                             onValueChange = onValueChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(64.dp)
+                                .height(if (large) 96.dp else 64.dp)
                                 .focusRequester(focusRequester),
-                            textStyle = MaterialTheme.typography.headlineSmall.copy(
+                            textStyle = (if (large) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineSmall).copy(
                                 fontFamily = MonoFont,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
@@ -139,7 +140,7 @@ fun MetricStepper(
                         ) {
                             Text(
                                 text = value.ifBlank { "0" } + suffix,
-                                style = MaterialTheme.typography.headlineSmall.copy(
+                                style = (if (large) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineSmall).copy(
                                     fontFamily = MonoFont,
                                     fontWeight = FontWeight.Bold,
                                 ),

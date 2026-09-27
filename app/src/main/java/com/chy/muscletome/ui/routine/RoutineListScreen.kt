@@ -64,7 +64,7 @@ fun RoutineListScreen(
     val activeRoutineId = routinesState?.second
     var showCreate by rememberSaveable { mutableStateOf(value = false) }
     var deletingRoutine by remember { mutableStateOf<RoutineEntity?>(null) }
-    var templatesExpanded by rememberSaveable { mutableStateOf(true) }
+    var templatesExpanded by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {

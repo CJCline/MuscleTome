@@ -65,12 +65,8 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDiscardConfirm by remember { mutableStateOf(false) }
 
-    // Templates banner: collapsed by default once the user has a program;
-    // auto-expands while there is none so first-run still surfaces it.
-    var templatesExpanded by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(state.routineCount) {
-        if (state.routineCount == 0) templatesExpanded = true
-    }
+    // Starter programs stay collapsed until the user explicitly opens them.
+    var templatesExpanded by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {

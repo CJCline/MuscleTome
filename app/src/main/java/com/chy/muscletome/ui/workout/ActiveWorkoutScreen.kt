@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBar
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -98,6 +99,7 @@ fun ActiveWorkoutScreen(
     var showSuperset by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showPlates by remember { mutableStateOf(false) }
+    var showSetDetails by remember { mutableStateOf(false) }
     val infoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptics = LocalHapticFeedback.current
     var showFinishConfirm by remember { mutableStateOf(false) }
@@ -123,32 +125,65 @@ fun ActiveWorkoutScreen(
         if (state.finished) onFinished()
     }
 
+    // A workout stays on its route when system back is pressed. The explicit
+    // toolbar back remains available for intentionally leaving the session open.
+    BackHandler(enabled = !state.finished) { }
+
+    val lastPerformance = state.lastSessions.firstOrNull()
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        current?.exercise?.name ?: "Workout",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                },
-                navigationIcon = {
-                    // Back leaves the session OPEN — Home offers Resume/Discard.
-                    // Finishing is only the explicit, confirmed action below.
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { showInfo = true },
-                        enabled = current != null,
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            current?.exercise?.name ?: "Workout",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    },
+                    navigationIcon = {
+                        // Explicit toolbar back leaves this session open.
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { showInfo = true },
+                            enabled = current != null,
+                        ) {
+                            Icon(Icons.Filled.Info, contentDescription = "Exercise info")
+                        }
+                    },
+                )
+                if (current != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Filled.Info, contentDescription = "Exercise info")
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "LAST PERFORMANCE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                lastPerformance?.let {
+                                    "${WeightUnits.displayText(it.topWeight)}${state.weightUnitSuffix} · " +
+                                        "${it.setCount} sets · e1RM ${it.bestE1rm.toInt()}"
+                                } ?: "No previous workout",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
-                },
-            )
+                }
+            }
         },
     ) { innerPadding ->
         LazyColumn(
@@ -178,19 +213,19 @@ fun ActiveWorkoutScreen(
 
                     val planned = state.plannedSets
                     val done = current?.sets?.size ?: 0
-                    val setLabel = if (planned > 0) {
-                        "Set ${state.currentSetNumber.coerceAtMost(planned)} of $planned"
-                    } else {
-                        "Set ${state.currentSetNumber}"
-                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        MicroTag(
-                            text = setLabel.uppercase(),
-                            color = MaterialTheme.colorScheme.onBackground,
+                        Text(
+                            text = if (planned > 0) {
+                                "${state.currentSetNumber.coerceAtMost(planned)} / $planned"
+                            } else {
+                                state.currentSetNumber.toString()
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                         SetTicks(
                             done = done,
@@ -299,10 +334,9 @@ fun ActiveWorkoutScreen(
                 }
             }
 
-            // --- Entry zone: weight / reps steppers, RPE quick chips ------
             if (current != null) {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         MetricStepper(
                             label = "Weight",
                             value = state.weight,
@@ -311,6 +345,7 @@ fun ActiveWorkoutScreen(
                             deltaStep = state.weightStep,
                             longDeltaStep = state.weightLongStep,
                             suffix = state.weightUnitSuffix,
+                            large = true,
                         )
                         MetricStepper(
                             label = "Reps",
@@ -318,69 +353,18 @@ fun ActiveWorkoutScreen(
                             onValueChange = viewModel::onRepsChange,
                             onDelta = { viewModel.bumpReps(it.toInt()) },
                             deltaStep = 1.0,
+                            large = true,
                         )
-
-                        // Plate math + unit toggle: quick helpers under the
-                        // steppers, on the same sheet as the entry.
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            OutlinedButton(onClick = { showPlates = true }) {
-                                Text("Plates")
-                            }
-                            OutlinedButton(onClick = viewModel::toggleUnit) {
-                                Text("Switch to ${state.otherUnit.name.lowercase()}")
-                            }
-                        }
-
-                        // Effort entry speaks the user's scale; the other
-                        // scale rides along in the label. RPE stays stored.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                state.effortScale.name,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (state.effortEntryLabel.isNotBlank()) {
-                                MicroTag(
-                                    text = state.effortEntryLabel,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            OutlinedButton(onClick = { showPlates = true }) { Text("Plates") }
+                            OutlinedButton(onClick = viewModel::toggleUnit) {
+                                Text("Switch to ${state.otherUnit.name.lowercase()}")
                             }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            EffortScales.chipValues(state.effortScale).forEach { value ->
-                                FilterChip(
-                                    // Chips compare on the entry scale: in RIR
-                                    // mode the stored RPE is 10 − chip.
-                                    selected = when (state.effortScale) {
-                                        EffortScale.RPE -> state.rpe == value.toString()
-                                        EffortScale.RIR ->
-                                            EffortScales.rirFor(state.rpe.toFloatOrNull()) == value
-                                    },
-                                    onClick = {
-                                        viewModel.onRpeChange(
-                                            when (state.effortScale) {
-                                                EffortScale.RPE ->
-                                                    if (state.rpe == value.toString()) "" else value.toString()
-                                                EffortScale.RIR ->
-                                                    if (EffortScales.rirFor(state.rpe.toFloatOrNull()) == value) ""
-                                                    else EffortScales.rpeFor(value).toString()
-                                            },
-                                        )
-                                    },
-                                    label = { MonoText(value.toString()) },
-                                )
-                            }
-                            if (state.rpe.isNotBlank()) {
-                                TextButton(onClick = { viewModel.onRpeChange("") }) {
-                                    Text("Clear")
-                                }
+                            TextButton(onClick = { showSetDetails = true }) {
+                                Text("RPE & notes")
                             }
                         }
                     }
@@ -452,7 +436,7 @@ fun ActiveWorkoutScreen(
                         enabled = current != null && !state.finished,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(68.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -481,30 +465,6 @@ fun ActiveWorkoutScreen(
                                 .height(56.dp),
                         ) { Text("Finish workout".uppercase()) }
                     }
-                }
-            }
-
-            // --- Notes: session remark vs shared exercise cues -------------
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = state.sessionNote,
-                        onValueChange = viewModel::onSessionNoteChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Session note") },
-                        placeholder = { Text("How'd it feel? Remarks for this workout…") },
-                        supportingText = { Text("Saved automatically · this workout only") },
-                        minLines = 2,
-                    )
-                    OutlinedTextField(
-                        value = state.note,
-                        onValueChange = viewModel::onNoteChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Exercise cues") },
-                        placeholder = { Text("Cues, setup, form reminders…") },
-                        supportingText = { Text("Saved automatically · shared across workouts") },
-                        minLines = 2,
-                    )
                 }
             }
 
@@ -563,6 +523,79 @@ fun ActiveWorkoutScreen(
                     progressSpan = state.progressSpan,
                     onSpanChange = viewModel::onProgressSpanChange,
                 )
+            }
+        }
+    }
+
+    if (showSetDetails) {
+        ModalBottomSheet(
+            onDismissRequest = { showSetDetails = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Set details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(state.effortScale.name, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.effortEntryLabel.isNotBlank()) {
+                        MicroTag(state.effortEntryLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EffortScales.chipValues(state.effortScale).forEach { value ->
+                        FilterChip(
+                            selected = when (state.effortScale) {
+                                EffortScale.RPE -> state.rpe == value.toString()
+                                EffortScale.RIR ->
+                                    EffortScales.rirFor(state.rpe.toFloatOrNull()) == value
+                            },
+                            onClick = {
+                                viewModel.onRpeChange(
+                                    when (state.effortScale) {
+                                        EffortScale.RPE ->
+                                            if (state.rpe == value.toString()) "" else value.toString()
+                                        EffortScale.RIR ->
+                                            if (EffortScales.rirFor(state.rpe.toFloatOrNull()) == value) ""
+                                            else EffortScales.rpeFor(value).toString()
+                                    },
+                                )
+                            },
+                            label = { MonoText(value.toString()) },
+                        )
+                    }
+                }
+                if (state.rpe.isNotBlank()) {
+                    TextButton(onClick = { viewModel.onRpeChange("") }) { Text("Clear effort") }
+                }
+                OutlinedTextField(
+                    value = state.sessionNote,
+                    onValueChange = viewModel::onSessionNoteChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Session note") },
+                    placeholder = { Text("How'd it feel? Remarks for this workout…") },
+                    supportingText = { Text("Saved automatically · this workout only") },
+                    minLines = 2,
+                )
+                OutlinedTextField(
+                    value = state.note,
+                    onValueChange = viewModel::onNoteChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Exercise cues") },
+                    placeholder = { Text("Cues, setup, form reminders…") },
+                    supportingText = { Text("Saved automatically · shared across workouts") },
+                    minLines = 2,
+                )
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
