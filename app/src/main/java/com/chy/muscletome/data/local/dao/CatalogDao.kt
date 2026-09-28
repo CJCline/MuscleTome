@@ -37,6 +37,25 @@ interface CatalogDao {
     @Query("SELECT * FROM exercises ORDER BY name")
     fun observeExercises(): Flow<List<ExerciseEntity>>
 
+    @Transaction
+    @Query(
+        """
+        SELECT DISTINCT e.* FROM exercises e
+        LEFT JOIN exercise_secondary_targets st ON st.exerciseId = e.id
+        LEFT JOIN exercise_secondary_muscles old_st ON old_st.exerciseId = e.id
+        WHERE (:query = '' OR e.name LIKE '%' || :query || '%')
+          AND (:muscleGroupId IS NULL OR e.primaryMuscleGroupId = :muscleGroupId OR st.muscleGroupId = :muscleGroupId OR old_st.muscleGroupId = :muscleGroupId)
+        ORDER BY CASE WHEN e.movementType = 'COMPOUND' THEN 0 ELSE 1 END, e.name
+        """,
+    )
+    fun searchLibraryRows(query: String, muscleGroupId: String?): Flow<List<ExerciseLibraryRow>>
+
+    @Query("SELECT * FROM canonical_exercises")
+    suspend fun getCanonicalFamilyMetadata(): List<CanonicalExerciseEntity>
+
+    @Query("UPDATE canonical_exercises SET movementFamilyId = :familyId WHERE exerciseId = :exerciseId")
+    suspend fun setMovementFamily(exerciseId: String, familyId: String?)
+
     @Query(
         """
         SELECT * FROM exercises
@@ -72,8 +91,16 @@ interface CatalogDao {
     ) {
         insertMuscleGroups(muscleGroups)
         upsertEquipment(equipment)
-        if (update) upsertExercises(listOf(exercise)) else insertExercises(listOf(exercise))
-        upsertCanonicalMetadata(listOf(metadata))
+        if (update) {
+            upsertExercises(listOf(exercise))
+        } else {
+            insertExercises(listOf(exercise))
+            if (getExercise(exercise.id) == null) error("Exercise ${exercise.id} already exists")
+        }
+        val safeMetadata = metadata.copy(movementFamilyId = null)
+        upsertCanonicalMetadata(listOf(safeMetadata))
+        deleteLegacyEquipment(exercise.id)
+        deleteLegacySecondaryTargets(exercise.id)
         deleteInstructions(exercise.id)
         deleteCanonicalEquipment(exercise.id)
         deleteSecondaryTargets(exercise.id)
@@ -159,6 +186,9 @@ interface CatalogDao {
 
     @Query("DELETE FROM exercise_equipment WHERE exerciseId = :exerciseId")
     suspend fun deleteLegacyEquipment(exerciseId: String)
+
+    @Query("DELETE FROM exercise_secondary_muscles WHERE exerciseId = :exerciseId")
+    suspend fun deleteLegacySecondaryTargets(exerciseId: String)
 
     /** Backup import restores the full row (notes, edits) — upsert, not ignore. */
     @Upsert

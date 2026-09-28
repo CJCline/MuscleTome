@@ -116,4 +116,13 @@ object SeedCatalog {
         difficulty = difficulty,
         source = ExerciseSource.SEED,
     )
+
+    val familyIdsByExerciseId = mapOf(
+        "barbell_bench_press" to "bench_press", "dumbbell_bench_press" to "bench_press",
+        "push_up" to "bench_press", "cable_fly" to "bench_press",
+        "squat" to "squat", "leg_press" to "squat", "leg_extension" to "squat",
+        "barbell_row" to "row", "pull_up" to "row", "lat_pulldown" to "row",
+        "deadlift" to "deadlift", "romanian_deadlift" to "deadlift",
+        "overhead_press" to "overhead_press", "barbell_curl" to "curl", "plank" to "plank",
+    )
 }

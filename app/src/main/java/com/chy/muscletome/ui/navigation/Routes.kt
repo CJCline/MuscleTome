@@ -18,6 +18,7 @@ object Routes {
 
     // Parameterless flows
     const val ADD_EXERCISE = "add_exercise"
+    const val EXERCISE_IMPORT_REVIEW = "exercise_import_review"
 
     // Parameterized destinations: pattern for the graph, builder for navigate()
     const val ROUTINE_PATTERN = "routine/{routineId}"

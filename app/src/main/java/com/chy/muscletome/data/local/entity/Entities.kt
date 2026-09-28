@@ -293,12 +293,6 @@ data class SetLogEntity(
             childColumns = ["primaryMuscleGroupId"],
             onDelete = ForeignKey.SET_NULL,
         ),
-        ForeignKey(
-            entity = CanonicalExerciseEntity::class,
-            parentColumns = ["exerciseId"],
-            childColumns = ["movementFamilyId"],
-            onDelete = ForeignKey.SET_NULL,
-        ),
     ],
     indices = [Index("primaryMuscleGroupId"), Index("movementFamilyId")],
 )

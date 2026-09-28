@@ -7,6 +7,9 @@ import com.chy.muscletome.data.local.MuscleTomeDatabase
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.dao.SelectionHistoryDao
+import com.chy.muscletome.data.local.dao.ExerciseImportReviewDao
+import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
+import com.chy.muscletome.data.local.entity.ExerciseImportResolutionEntity
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
@@ -45,6 +48,7 @@ class BackupRepository @Inject constructor(
     private val routineDao: RoutineDao,
     private val workoutDao: WorkoutDao,
     private val selectionHistoryDao: SelectionHistoryDao,
+    private val exerciseImportReviewDao: ExerciseImportReviewDao,
 ) {
     private val _state = MutableStateFlow(BackupState())
     val state: StateFlow<BackupState> = _state.asStateFlow()
@@ -184,6 +188,13 @@ class BackupRepository @Inject constructor(
             )
             workoutDao.insertSlotResults(slotResults)
             workoutDao.insertSetLogs(setLogs)
+            exerciseImportReviewDao.upsertPendingImports(doc.pendingExerciseImports)
+            exerciseImportReviewDao.upsertResolutions(doc.exerciseImportResolutions)
+            if (doc.familyBackfillVersion > 0) {
+                catalogDao.upsertCanonicalMetadata(
+                    doc.canonicalExerciseMetadata.filter { it.exerciseId in exerciseIds },
+                )
+            }
             selectionHistoryDao.upsertAll(
                 doc.selectionHistory.filter { history ->
                     history.userId == SeedCatalog.LOCAL_USER_ID &&
@@ -232,6 +243,9 @@ class BackupRepository @Inject constructor(
             canonicalSecondaryTargets = catalogDao.getAllSecondaryTargets(),
             exerciseMedia = catalogDao.getAllExerciseMedia(),
             exerciseSourceIdentities = catalogDao.getAllSourceIdentities(),
+            pendingExerciseImports = exerciseImportReviewDao.getPendingSnapshot(),
+            exerciseImportResolutions = exerciseImportReviewDao.getResolutions(),
+            familyBackfillVersion = 1,
             selectionHistory = selectionHistoryDao.getAll(SeedCatalog.LOCAL_USER_ID),
         )
     }

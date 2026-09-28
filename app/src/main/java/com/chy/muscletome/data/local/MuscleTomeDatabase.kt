@@ -5,12 +5,15 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.ExerciseCanonicalDao
+import com.chy.muscletome.data.local.dao.ExerciseImportReviewDao
 import com.chy.muscletome.data.local.dao.RoutineDao
 import com.chy.muscletome.data.local.dao.SelectionHistoryDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
+import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
+import com.chy.muscletome.data.local.entity.ExerciseImportResolutionEntity
 import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
@@ -40,6 +43,8 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         MuscleGroupEntity::class,
         EquipmentEntity::class,
         ExerciseEntity::class,
+        PendingExerciseImportEntity::class,
+        ExerciseImportResolutionEntity::class,
         CanonicalExerciseEntity::class,
         ExerciseMediaEntity::class,
         ExerciseSourceIdentityEntity::class,
@@ -61,13 +66,14 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class MuscleTomeDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun exerciseCanonicalDao(): ExerciseCanonicalDao
+    abstract fun exerciseImportReviewDao(): ExerciseImportReviewDao
     abstract fun catalogDao(): CatalogDao
     abstract fun routineDao(): RoutineDao
     abstract fun workoutDao(): WorkoutDao

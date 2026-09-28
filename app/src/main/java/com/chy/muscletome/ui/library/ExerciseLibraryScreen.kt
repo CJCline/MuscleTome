@@ -8,6 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,8 +31,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -35,6 +42,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.domain.model.ExerciseSource
+import com.chy.muscletome.domain.model.MovementFamilies
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
 import com.chy.muscletome.ui.components.EmptyState
@@ -45,9 +53,16 @@ import com.chy.muscletome.ui.components.MicroTag
 fun ExerciseLibraryScreen(
     onAddExercise: () -> Unit,
     onOpenExercise: (String) -> Unit,
+    onOpenImportReview: () -> Unit,
     viewModel: ExerciseLibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val expandedFamilies = rememberSaveable(saver = mapSaver(
+        save = { map -> map.mapValues { it.value } },
+        restore = { restored -> mutableStateMapOf<String, Boolean>().apply {
+            restored.forEach { (key, value) -> this[key] = value as Boolean }
+        } },
+    )) { mutableStateMapOf<String, Boolean>() }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Exercise library") }) },
@@ -67,6 +82,11 @@ fun ExerciseLibraryScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            TextButton(
+                onClick = onOpenImportReview,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("Import review") }
+
             OutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
@@ -136,14 +156,48 @@ fun ExerciseLibraryScreen(
                         }
                     }
                 }
-                itemsIndexed(state.exercises, key = { _, exercise -> exercise.id }) { index, exercise ->
-                    ExerciseRow(
-                        exercise = exercise,
-                        index = index,
-                        onClick = { onOpenExercise(exercise.id) },
-                    )
-                    if (index < state.exercises.lastIndex) {
-                        LedgerDivider()
+                val familyGroups = groupExerciseFamilies(state.libraryRows)
+                var rowIndex = 0
+                familyGroups.forEach { group ->
+                    val familyId = group.familyId
+                    val members = group.rows.map { it.exercise }
+                    val exercise = members.first()
+                    if (familyId == null) {
+                        item(key = "exercise:${exercise.id}") {
+                            ExerciseRow(exercise, rowIndex++, onClick = { onOpenExercise(exercise.id) })
+                            LedgerDivider()
+                        }
+                    } else {
+                        val familyLabel = MovementFamilies.label(familyId) ?: familyId
+                        val matchesSearch = state.query.isNotBlank() && members.any {
+                            it.name.contains(state.query, ignoreCase = true)
+                        }
+                        val expanded = matchesSearch || expandedFamilies[familyId] == true
+                        item(key = "family:$familyId") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { expandedFamilies[familyId] = !expanded }
+                                    .semantics {
+                                        contentDescription = "$familyLabel exercise family"
+                                        stateDescription = if (expanded) "Expanded" else "Collapsed"
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column {
+                                    Text(familyLabel, style = MaterialTheme.typography.titleMedium)
+                                    Text("${members.size} variations", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge)
+                            }
+                            if (expanded) {
+                                members.forEach { variant ->
+                                    ExerciseRow(variant, rowIndex++, onClick = { onOpenExercise(variant.id) })
+                                }
+                            }
+                            LedgerDivider()
+                        }
                     }
                 }
             }

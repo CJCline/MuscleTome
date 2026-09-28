@@ -1,6 +1,16 @@
 package com.chy.muscletome.ui.library
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,11 +37,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.rememberAsyncImagePainter
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.model.ExerciseMediaType
 import com.chy.muscletome.domain.session.WeightUnits
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
@@ -91,6 +103,8 @@ internal fun ExerciseDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val exercise = checkNotNull(state.exercise)
+    val canonical = state.canonical
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
@@ -103,6 +117,51 @@ internal fun ExerciseDetailContent(
             secondaryMuscles = state.secondaryMuscles,
             primaryMuscleName = state.primaryMuscleName,
         )
+
+        val instructions = canonical?.instructions.orEmpty().sortedBy { it.sortOrder }
+        if (instructions.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("How to perform")
+                instructions.forEachIndexed { index, step ->
+                    Text("${index + 1}. ${step.instruction}", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+
+        val media = canonical?.media.orEmpty().filter { it.uri.isNotBlank() }
+        val fallbackUri = exercise.demoUri?.takeIf { legacy -> media.none { it.uri == legacy } }
+        if (media.isNotEmpty() || fallbackUri != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionHeader("Media")
+                (media.map { it.type to it.uri } + listOfNotNull(fallbackUri?.let { "IMAGE" to it })).forEach { (type, uri) ->
+                    if (type == "VIDEO") {
+                        Text(
+                            "Open video: $uri",
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { runCatching { uriHandler.openUri(uri) } },
+                        )
+                    } else {
+                        Image(
+                            painter = rememberAsyncImagePainter(uri),
+                            contentDescription = "Exercise media",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().height(220.dp)
+                                .semantics { contentDescription = "Exercise image" },
+                        )
+                    }
+                    val record = media.firstOrNull { it.uri == uri }
+                    val attribution = listOfNotNull(record?.creator, record?.attribution, record?.licenseName)
+                        .distinct().joinToString(" · ")
+                    if (attribution.isNotBlank()) {
+                        Text(attribution, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        } else {
+            Text("No exercise media available", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
 
         // History ledger block — numbers are monospace, the ledger way.
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

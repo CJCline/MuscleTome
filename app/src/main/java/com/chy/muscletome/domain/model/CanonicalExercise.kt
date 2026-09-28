@@ -2,8 +2,10 @@ package com.chy.muscletome.domain.model
 
 import java.text.Normalizer
 import java.util.Locale
+import kotlinx.serialization.Serializable
 
 /** Source-independent identity and exercise facts used at import boundaries. */
+@Serializable
 data class CanonicalExercise(
     /** Stable MuscleTome identity; never an external provider's ID. */
     val id: String,
@@ -22,11 +24,14 @@ data class CanonicalExercise(
     val origin: ExerciseOrigin = ExerciseOrigin.IMPORTED,
 )
 
+@Serializable
 enum class ExerciseOrigin { BUILT_IN, IMPORTED, USER_CREATED }
 
+@Serializable
 enum class ExerciseMediaType { IMAGE, VIDEO, OTHER }
 
 /** One media reference; Phase 1 records metadata only and never fetches it. */
+@Serializable
 data class ExerciseMedia(
     val type: ExerciseMediaType,
     /** URI or stable source-owned reference; may be absent for malformed records. */
@@ -39,6 +44,7 @@ data class ExerciseMedia(
 )
 
 /** Provider identity and synchronization timestamps kept outside the exercise. */
+@Serializable
 data class ExerciseSourceIdentity(
     val sourceKey: String,
     val externalExerciseId: String,
@@ -48,6 +54,7 @@ data class ExerciseSourceIdentity(
 )
 
 /** Normalized adapter output; adapters do not expose provider-specific schemas. */
+@Serializable
 data class NormalizedExerciseImport(
     val exercise: CanonicalExercise,
     val sourceIdentity: ExerciseSourceIdentity? = null,
@@ -56,6 +63,7 @@ data class NormalizedExerciseImport(
     val diagnostics: List<ImportDiagnostic> = emptyList(),
 )
 
+@Serializable
 data class ImportDiagnostic(
     val code: String,
     val message: String,

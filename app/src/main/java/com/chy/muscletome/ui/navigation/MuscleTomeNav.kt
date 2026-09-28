@@ -29,6 +29,7 @@ import androidx.navigation.navArgument
 import com.chy.muscletome.ui.library.AddExerciseScreen
 import com.chy.muscletome.ui.library.ExerciseDetailScreen
 import com.chy.muscletome.ui.library.ExerciseLibraryScreen
+import com.chy.muscletome.ui.library.ExerciseImportReviewScreen
 import com.chy.muscletome.ui.onboarding.OnboardingScreen
 import com.chy.muscletome.ui.onboarding.OnboardingViewModel
 import com.chy.muscletome.ui.routine.AddSlotScreen
@@ -211,10 +212,14 @@ fun MuscleTomeNav() {
                 ExerciseLibraryScreen(
                     onAddExercise = { navController.navigate(Routes.ADD_EXERCISE) },
                     onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
+                    onOpenImportReview = { navController.navigate(Routes.EXERCISE_IMPORT_REVIEW) },
                 )
             }
             composable(Routes.ADD_EXERCISE) {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.EXERCISE_IMPORT_REVIEW) {
+                ExerciseImportReviewScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.EXERCISE_PATTERN,

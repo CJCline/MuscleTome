@@ -25,6 +25,7 @@ import com.chy.muscletome.domain.model.ImportDiagnostic
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.model.NormalizedExerciseImport
+import dagger.Lazy
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,7 +41,10 @@ sealed interface CanonicalImportResult {
 }
 
 @Singleton
-class CanonicalExerciseRepository @Inject constructor(private val catalogDao: CatalogDao) {
+class CanonicalExerciseRepository @Inject constructor(
+    private val catalogDao: CatalogDao,
+    private val reviewRepositoryProvider: Lazy<ExerciseImportReviewRepository>,
+) {
 
     suspend fun get(id: String) = catalogDao.getCanonicalExercise(id)
 
@@ -65,8 +69,10 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
         }
 
         return when (decision) {
-            is ExerciseImportIdentityDecision.ReviewCandidates ->
+            is ExerciseImportIdentityDecision.ReviewCandidates -> {
+                reviewRepositoryProvider.get().enqueue(item, decision.candidates)
                 CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+            }
             is ExerciseImportIdentityDecision.ReimportExisting -> {
                 val current = existingRows.firstOrNull { it.exercise.id == decision.canonicalExerciseId }
                 if (current == null) {
@@ -89,6 +95,29 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
                 CanonicalImportResult.Created(item.exercise.id, item.diagnostics)
             }
         }
+    }
+
+    suspend fun update(item: NormalizedExerciseImport, id: String): CanonicalImportResult {
+        persist(item.copy(exercise = item.exercise.copy(id = id)), id, update = true)
+        return CanonicalImportResult.Updated(id, item.diagnostics)
+    }
+
+    suspend fun createReviewed(item: NormalizedExerciseImport): CanonicalImportResult {
+        val newId = item.exercise.id.ifBlank { "exercise_${UUID.randomUUID()}" }
+        persist(item.copy(exercise = item.exercise.copy(id = newId)), newId, update = false)
+        return CanonicalImportResult.Created(newId, item.diagnostics)
+    }
+
+    suspend fun importForReview(item: NormalizedExerciseImport): CanonicalImportResult {
+        val decision = ExerciseImportIdentityPolicy.resolve(
+            item,
+            catalogDao.getAllCanonicalExercises().map { it.toExistingCanonical() },
+        )
+        if (decision is ExerciseImportIdentityDecision.ReviewCandidates) {
+            reviewRepositoryProvider.get().enqueue(item, decision.candidates)
+            return CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+        }
+        return import(item)
     }
 
     private suspend fun persist(item: NormalizedExerciseImport, id: String, update: Boolean) {
@@ -123,7 +152,9 @@ class CanonicalExerciseRepository @Inject constructor(private val catalogDao: Ca
             exerciseId = id,
             primaryMuscleGroupId = canonical.primaryMuscleGroupId,
             instructions = canonical.instructions.joinToString("\n"),
-            movementFamilyId = canonical.movementFamilyId,
+            movementFamilyId = canonical.movementFamilyId?.takeIf { it != id }?.takeIf {
+                catalogDao.getExercise(it) != null
+            },
             origin = canonical.origin.name,
             isUserEdited = canonical.origin == ExerciseOrigin.USER_CREATED,
         )

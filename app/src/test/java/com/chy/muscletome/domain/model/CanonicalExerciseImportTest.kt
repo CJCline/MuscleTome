@@ -79,6 +79,7 @@ class CanonicalExerciseImportTest {
 
         assertEquals(setOf("cable"), normalized.exercise.equipmentIds)
         assertTrue(normalized.diagnostics.none { it.code == "unmapped_equipment" })
+        assertEquals("squat", normalized.exercise.movementFamilyId ?: MovementFamilies.familyId("Barbell Back Squat"))
     }
 
     @Test

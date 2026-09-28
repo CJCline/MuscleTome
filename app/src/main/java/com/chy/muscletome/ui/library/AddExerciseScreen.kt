@@ -3,6 +3,7 @@ package com.chy.muscletome.ui.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,15 +19,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.MovementType
+import com.chy.muscletome.domain.model.MovementPattern
+import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,12 +86,38 @@ fun AddExerciseScreen(
                 label = { Text("Description") },
             )
 
+            OutlinedTextField(
+                value = state.instructionsText,
+                onValueChange = viewModel::onInstructionsChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Form steps (one per line)") },
+                minLines = 3,
+            )
+            OutlinedTextField(
+                value = state.mediaUri,
+                onValueChange = viewModel::onMediaUriChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Optional media URI") },
+                singleLine = true,
+            )
+
             SectionHeader("Primary muscle")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.muscles.forEach { muscle ->
                     FilterChip(
                         selected = state.primaryMuscleGroupId == muscle.id,
                         onClick = { viewModel.onPrimaryMuscleSelected(muscle.id) },
+                        label = { Text(muscle.name) },
+                    )
+                }
+            }
+
+            SectionHeader("Secondary muscle targets")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.muscles.filter { it.id != state.primaryMuscleGroupId }.forEach { muscle ->
+                    FilterChip(
+                        selected = muscle.id in state.secondaryMuscleIds,
+                        onClick = { viewModel.toggleSecondaryMuscle(muscle.id) },
                         label = { Text(muscle.name) },
                     )
                 }
@@ -101,6 +132,32 @@ fun AddExerciseScreen(
                         label = { Text(type.name) },
                     )
                 }
+            }
+
+            SectionHeader("Movement pattern")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MovementPattern.entries.forEach { pattern ->
+                    FilterChip(
+                        selected = state.movementPattern == pattern,
+                        onClick = { viewModel.onMovementPatternSelected(pattern) },
+                        label = { Text(pattern.name) },
+                    )
+                }
+            }
+
+            SectionHeader("Difficulty")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Difficulty.entries.forEach { difficulty ->
+                    FilterChip(
+                        selected = state.difficulty == difficulty,
+                        onClick = { viewModel.onDifficultySelected(difficulty) },
+                        label = { Text(difficulty.name) },
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Unilateral", modifier = Modifier.weight(1f))
+                Switch(checked = state.unilateral, onCheckedChange = viewModel::onUnilateralChange)
             }
 
             SectionHeader("Equipment")

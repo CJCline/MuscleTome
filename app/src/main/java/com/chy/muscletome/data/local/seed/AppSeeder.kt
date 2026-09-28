@@ -4,6 +4,7 @@ import android.util.Log
 import com.chy.muscletome.data.local.dao.CatalogDao
 import com.chy.muscletome.data.local.dao.UserDao
 import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
+import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.UserEntity
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,6 +25,16 @@ class AppSeeder @Inject constructor(
         catalogDao.insertExercises(SeedCatalog.exercises)
         catalogDao.insertExerciseEquipment(SeedCatalog.exerciseEquipment)
         catalogDao.insertSecondaryMuscles(SeedCatalog.secondaryMuscles)
+        catalogDao.upsertCanonicalMetadata(
+            SeedCatalog.exercises.map { exercise ->
+                CanonicalExerciseEntity(
+                    exerciseId = exercise.id,
+                    primaryMuscleGroupId = exercise.primaryMuscleGroupId,
+                    movementFamilyId = SeedCatalog.familyIdsByExerciseId[exercise.id],
+                    origin = "BUILT_IN",
+                )
+            },
+        )
 
         userDao.insert(UserEntity(id = SeedCatalog.LOCAL_USER_ID, name = "You"))
         userDao.insertAvailableEquipment(

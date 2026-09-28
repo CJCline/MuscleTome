@@ -7,6 +7,7 @@ import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
+import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
@@ -34,6 +35,7 @@ data class ExerciseDetailUiState(
     val loaded: Boolean = false,
     /** Sets display in the user's unit (they're stored in it). */
     val weightUnit: WeightUnit = WeightUnit.KG,
+    val canonical: ExerciseWithCanonicalRelations? = null,
 )
 
 @HiltViewModel
@@ -64,8 +66,19 @@ class ExerciseDetailViewModel @Inject constructor(
             catalogRepository.observeEquipmentForExercise(exerciseId),
             catalogRepository.observeSecondaryMusclesForExercise(exerciseId),
             catalogRepository.observeMuscleGroups(),
+            catalogRepository.observeCanonicalExercise(exerciseId),
             history,
-        ) { exercise, equipment, secondaryMuscles, muscleGroups, currentHistory ->
+        ) { values ->
+            val exercise = values[0] as ExerciseEntity?
+            @Suppress("UNCHECKED_CAST")
+            val equipment = values[1] as List<EquipmentEntity>
+            @Suppress("UNCHECKED_CAST")
+            val secondaryMuscles = values[2] as List<MuscleGroupEntity>
+            @Suppress("UNCHECKED_CAST")
+            val muscleGroups = values[3] as List<MuscleGroupEntity>
+            val canonical = values[4] as ExerciseWithCanonicalRelations?
+            val currentHistory = values[5] as ExerciseHistory
+
             ExerciseDetailUiState(
                 exercise = exercise,
                 equipment = equipment,
@@ -75,6 +88,7 @@ class ExerciseDetailViewModel @Inject constructor(
                     ?.let { id -> muscleGroups.find { it.id == id }?.name }
                     .orEmpty(),
                 loaded = true,
+                canonical = canonical,
             )
         },
         userRepository.observeUser(),

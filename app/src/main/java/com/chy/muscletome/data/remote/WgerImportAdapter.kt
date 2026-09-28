@@ -7,6 +7,7 @@ import com.chy.muscletome.domain.model.ExerciseOrigin
 import com.chy.muscletome.domain.model.ExerciseSourceIdentity
 import com.chy.muscletome.domain.model.ImportDiagnostic
 import com.chy.muscletome.domain.model.NormalizedExerciseImport
+import com.chy.muscletome.domain.model.MovementFamilies
 
 /** Maps an already-parsed wger record into the source-neutral import contract. */
 object WgerImportAdapter {
@@ -89,6 +90,7 @@ object WgerImportAdapter {
                 primaryMuscleGroupId = primary,
                 secondaryMuscleGroupIds = secondary,
                 equipmentIds = equipmentIds,
+                movementFamilyId = MovementFamilies.familyId(name, WgerMapper.movementPattern(name, item.categoryName)),
                 origin = ExerciseOrigin.IMPORTED,
             ),
             sourceIdentity = ExerciseSourceIdentity(

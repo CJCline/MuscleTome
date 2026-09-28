@@ -12,6 +12,8 @@ import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
 import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
+import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
+import com.chy.muscletome.data.local.entity.ExerciseImportResolutionEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
@@ -51,9 +53,12 @@ data class BackupDocument(
     val canonicalSecondaryTargets: List<ExerciseSecondaryTargetEntity> = emptyList(),
     val exerciseMedia: List<ExerciseMediaEntity> = emptyList(),
     val exerciseSourceIdentities: List<ExerciseSourceIdentityEntity> = emptyList(),
+    val pendingExerciseImports: List<PendingExerciseImportEntity> = emptyList(),
+    val exerciseImportResolutions: List<ExerciseImportResolutionEntity> = emptyList(),
+    val familyBackfillVersion: Int = 0,
 ) {
     companion object {
-        const val FORMAT_VERSION = 5
+        const val FORMAT_VERSION = 6
     }
 }
 

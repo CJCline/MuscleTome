@@ -26,6 +26,7 @@ import com.chy.muscletome.domain.model.ExerciseSourceIdentity
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.model.NormalizedExerciseImport
+import dagger.Lazy
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -40,6 +41,7 @@ import org.junit.runner.RunWith
 class CanonicalExercisePersistenceTest {
     private lateinit var database: MuscleTomeDatabase
     private lateinit var catalogDao: CatalogDao
+    private lateinit var reviewRepository: ExerciseImportReviewRepository
 
     @Before
     fun setUp() = runBlocking {
@@ -57,6 +59,16 @@ class CanonicalExercisePersistenceTest {
                 MuscleGroupEntity("back", "Back"),
             ),
         )
+        val canonicalRepository = CanonicalExerciseRepository(
+            catalogDao,
+            Lazy { reviewRepository },
+        )
+        reviewRepository = ExerciseImportReviewRepository(
+            database,
+            database.exerciseImportReviewDao(),
+            catalogDao,
+            canonicalRepository,
+        )
     }
 
     @After
@@ -64,7 +76,7 @@ class CanonicalExercisePersistenceTest {
 
     @Test
     fun createReadAndUpdateReplaceOnlyTargetExerciseRelations() = runBlocking {
-        val repository = CanonicalExerciseRepository(catalogDao)
+        val repository = CanonicalExerciseRepository(catalogDao, Lazy { reviewRepository })
         val first = importRecord("canonical_press", "press-1", "Canonical Press")
         assertTrue(repository.import(first) is RepositoryImportResult.Created)
 
@@ -120,6 +132,8 @@ class CanonicalExercisePersistenceTest {
         val exercise = exerciseRow(id)
         val equipment = EquipmentEntity("rollback-barbell", "Rollback barbell")
         val metadata = CanonicalExerciseEntity(id, "chest", "cue", null, "IMPORTED", false)
+        catalogDao.insertMuscleGroups(listOf(MuscleGroupEntity("core", "Core")))
+        catalogDao.insertMuscleGroups(listOf(MuscleGroupEntity("core", "Core")))
         val failure = runCatching {
             catalogDao.saveCanonicalExerciseBundle(
                 exercise = exercise,
@@ -148,13 +162,15 @@ class CanonicalExercisePersistenceTest {
 
     @Test
     fun importIsIdempotentProtectsEditedRecordsAndReturnsReviewWithoutWriting() = runBlocking {
-        val repository = CanonicalExerciseRepository(catalogDao)
+        val repository = CanonicalExerciseRepository(catalogDao, Lazy { reviewRepository })
+        catalogDao.insertExercises(listOf(exerciseRow("stable_press")))
         val incoming = importRecord("stable_press", "stable-1", "Stable Press")
         assertTrue(repository.import(incoming) is RepositoryImportResult.Created)
         val count = catalogDao.exerciseCount()
         assertTrue(repository.import(incoming) is RepositoryImportResult.Updated)
         assertEquals(count, catalogDao.exerciseCount())
 
+        catalogDao.insertExercises(listOf(exerciseRow("local_custom")))
         val local = importRecord("local_custom", "custom-1", "Custom Local Press", ExerciseOrigin.USER_CREATED)
             .copy(sourceIdentity = ExerciseSourceIdentity("custom-source", "custom-1"))
         assertTrue(repository.import(local) is RepositoryImportResult.Created)

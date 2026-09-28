@@ -2,6 +2,7 @@ package com.chy.muscletome.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chy.muscletome.data.local.dao.ExerciseLibraryRow
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.repository.CatalogRepository
@@ -22,6 +23,8 @@ data class ExerciseLibraryUiState(
     val selectedMuscleId: String? = null,
     val muscleGroups: List<MuscleGroupEntity> = emptyList(),
     val exercises: List<ExerciseEntity> = emptyList(),
+    val familyIds: Map<String, String> = emptyMap(),
+    val libraryRows: List<ExerciseLibraryRow> = emptyList(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -29,25 +32,29 @@ data class ExerciseLibraryUiState(
 class ExerciseLibraryViewModel @Inject constructor(
     private val repository: CatalogRepository,
 ) : ViewModel() {
-
     private val query = MutableStateFlow("")
     private val selectedMuscleId = MutableStateFlow<String?>(null)
 
     private val exerciseResults = combine(query, selectedMuscleId) { q, m -> q to m }
         .debounce(150.milliseconds)
-        .flatMapLatest { (q, m) -> repository.searchExercises(q, m) }
+        .flatMapLatest { (q, m) -> repository.searchLibraryRows(q, m) }
 
     val uiState = combine(
         exerciseResults,
         repository.observeMuscleGroups(),
+        repository.searchLibraryRows("", null),
         query,
         selectedMuscleId,
-    ) { exercises, muscles, currentQuery, muscleId ->
+    ) { results, muscles, allRows, currentQuery, muscleId ->
         ExerciseLibraryUiState(
             query = currentQuery,
             selectedMuscleId = muscleId,
             muscleGroups = muscles,
-            exercises = exercises,
+            exercises = results.map { it.exercise },
+            familyIds = allRows.mapNotNull { row ->
+                row.metadata?.movementFamilyId?.let { row.exercise.id to it }
+            }.toMap(),
+            libraryRows = results,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -55,11 +62,6 @@ class ExerciseLibraryViewModel @Inject constructor(
         initialValue = ExerciseLibraryUiState(),
     )
 
-    fun onQueryChange(value: String) {
-        query.value = value
-    }
-
-    fun onMuscleSelected(muscleId: String?) {
-        selectedMuscleId.value = muscleId
-    }
+    fun onQueryChange(value: String) { query.value = value }
+    fun onMuscleSelected(muscleId: String?) { selectedMuscleId.value = muscleId }
 }
