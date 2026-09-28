@@ -19,6 +19,11 @@
 - One canonical exercise may have multiple source identities. Each meaningful
   variation remains its own canonical exercise with its own ID and may link to
   a shared `movementFamilyId` without being merged with its family members.
+- A movement family is a curated, stable-ID grouping of comparable variations,
+  not a muscle group or generic movement-pattern bucket. Family IDs are stored
+  separately from display labels/localized names. Prefer explicit provider or
+  curated assignments; name matching is a conservative fallback and unknown or
+  ambiguous standalone movements stay ungrouped.
 
 ## Matching and protection
 
@@ -64,12 +69,16 @@
   diagnostics. Equipment/muscle sets may be empty and the primary target may
   be absent when the source value is unmapped.
 
-## Next-phase compatibility work
+## Schema and backup compatibility
 
-A later schema phase must add and migrate movement-family links, multi-item
-media, and source-identity/provenance persistence; determine whether structured
-instructions need a dedicated table or serialized value; and backfill existing
-equipment/secondary-muscle cross-reference data consistently. It should keep
-`ExerciseEntity.id` stable, map legacy `demoUri` into media records, and protect
-user edits during repeatable source imports. No Room schema or migration is
-changed in Phase 1.
+Canonical exercise metadata persists `movementFamilyId` alongside the exercise
+bundle. Backup documents include canonical metadata, source identities, pending
+review rows, and resolution records with defaults so older backups remain
+readable. Schema migrations must preserve exercise IDs and existing assignments.
+
+Merge preserves the existing canonical exercise fields and adds source identity
+provenance; media is unioned by source/URI while retaining attribution and
+license data. Review candidates are deduplicated by source identity. A recorded
+Keep Both, Merge, or Discard resolution suppresses repeat prompts for that
+identity; resolving decisions are exported/restored with backup data.
+

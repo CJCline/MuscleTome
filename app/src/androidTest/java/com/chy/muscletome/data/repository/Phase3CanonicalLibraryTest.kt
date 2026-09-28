@@ -12,7 +12,6 @@ import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.UserEntity
-import com.chy.muscletome.domain.model.CanonicalExercise
 import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.ExerciseOrigin
 import com.chy.muscletome.domain.model.MovementFamilies
@@ -44,7 +43,7 @@ class Phase3CanonicalLibraryTest {
         repo = CatalogRepository(dao)
         lateinit var review: ExerciseImportReviewRepository
         canonicalRepo = CanonicalExerciseRepository(dao, Lazy { review })
-        review = ExerciseImportReviewRepository(db, db.exerciseImportReviewDao(), dao, canonicalRepo)
+        review = ExerciseImportReviewRepository(db, db.exerciseImportReviewDao(), canonicalRepo)
         db.userDao().upsert(UserEntity("local-user", "You"))
         dao.upsertMuscleGroups(listOf(
             MuscleGroupEntity("chest", "Chest"), MuscleGroupEntity("back", "Back"),

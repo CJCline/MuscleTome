@@ -61,8 +61,8 @@ class CanonicalExerciseRepository @Inject constructor(
         val decision = if (identityMatch != null) {
             ExerciseImportIdentityDecision.ReimportExisting(
                 canonicalExerciseId = identityMatch.exercise.id,
-                preserveLocalEdits = identityMatch.metadata?.isUserEdited == true ||
-                    identityMatch.metadata?.origin == ExerciseOrigin.USER_CREATED.name,
+                preserveLocalEdits = (identityMatch.metadata?.isUserEdited == true) ||
+                    (identityMatch.metadata?.origin == ExerciseOrigin.USER_CREATED.name),
             )
         } else {
             ExerciseImportIdentityPolicy.resolve(item, existing)
@@ -70,8 +70,15 @@ class CanonicalExerciseRepository @Inject constructor(
 
         return when (decision) {
             is ExerciseImportIdentityDecision.ReviewCandidates -> {
-                reviewRepositoryProvider.get().enqueue(item, decision.candidates)
-                CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+                val queued = reviewRepositoryProvider.get().enqueue(item, decision.candidates)
+                if (queued == null) {
+                    CanonicalImportResult.Protected(
+                        decision.candidates.first().canonicalExerciseId,
+                        item.diagnostics,
+                    )
+                } else {
+                    CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+                }
             }
             is ExerciseImportIdentityDecision.ReimportExisting -> {
                 val current = existingRows.firstOrNull { it.exercise.id == decision.canonicalExerciseId }
@@ -80,8 +87,7 @@ class CanonicalExerciseRepository @Inject constructor(
                     CanonicalImportResult.Created(item.exercise.id, item.diagnostics)
                 } else if (decision.preserveLocalEdits) {
                     // Preserve the entire local record and attach/refresh provenance only.
-                    val identity = item.sourceIdentity
-                    if (identity != null) {
+                    item.sourceIdentity?.let { identity ->
                         catalogDao.upsertSourceIdentities(listOf(identity.toEntity(current.exercise.id)))
                     }
                     CanonicalImportResult.Protected(current.exercise.id, item.diagnostics)
@@ -114,8 +120,13 @@ class CanonicalExerciseRepository @Inject constructor(
             catalogDao.getAllCanonicalExercises().map { it.toExistingCanonical() },
         )
         if (decision is ExerciseImportIdentityDecision.ReviewCandidates) {
-            reviewRepositoryProvider.get().enqueue(item, decision.candidates)
-            return CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+            val queued = reviewRepositoryProvider.get().enqueue(item, decision.candidates)
+            return queued?.let {
+                CanonicalImportResult.ReviewRequired(decision.candidates, item.diagnostics)
+            } ?: CanonicalImportResult.Protected(
+                decision.candidates.first().canonicalExerciseId,
+                item.diagnostics,
+            )
         }
         return import(item)
     }
@@ -193,8 +204,8 @@ class CanonicalExerciseRepository @Inject constructor(
             difficulty = exercise.difficulty,
             unilateral = exercise.unilateral,
             primaryMuscleGroupId = metadata?.primaryMuscleGroupId ?: exercise.primaryMuscleGroupId,
-            secondaryMuscleGroupIds = secondaryTargets.map { it.id }.toSet(),
-            equipmentIds = equipment.map { it.id }.toSet(),
+            secondaryMuscleGroupIds = secondaryTargets.asSequence().map { it.id }.toSet(),
+            equipmentIds = equipment.asSequence().map { it.id }.toSet(),
             movementFamilyId = metadata?.movementFamilyId,
             origin = metadata?.origin?.let { runCatching { ExerciseOrigin.valueOf(it) }.getOrNull() }
                 ?: if (exercise.isCustom) ExerciseOrigin.USER_CREATED else ExerciseOrigin.IMPORTED,

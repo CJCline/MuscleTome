@@ -5,7 +5,6 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +23,7 @@ class MigrationTest {
         db.execSQL("INSERT INTO exercises (id, name, description, movementPattern, movementType, primaryMuscleGroupId, difficulty, isCustom, createdByUserId, unilateral, source, notes, demoUri) VALUES ('barbell_bench_press', 'Bench Press', '', 'PUSH', 'COMPOUND', 'chest', 'INTERMEDIATE', 0, NULL, 0, 'SEED', '', 'https://legacy.example/demo.png')")
         db.close()
 
-        helper.runMigrationsAndValidate("migration-test", 8, true, *MuscleTomeMigrations.ALL).use { migrated ->
+        helper.runMigrationsAndValidate("migration-test", 9, true, *MuscleTomeMigrations.ALL).use { migrated ->
             migrated.query(SimpleSQLiteQuery("SELECT movementFamilyId FROM canonical_exercises WHERE exerciseId = 'barbell_bench_press'")).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("bench_press", cursor.getString(0))
@@ -36,6 +35,12 @@ class MigrationTest {
             migrated.query(SimpleSQLiteQuery("SELECT COUNT(*) FROM pending_exercise_imports")).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(0, cursor.getInt(0))
+            }
+            migrated.query(SimpleSQLiteQuery("PRAGMA table_info(exercise_import_resolutions)")).use { cursor ->
+                val columns = mutableSetOf<String>()
+                while (cursor.moveToNext()) columns += cursor.getString(1)
+                assertTrue("sourceKey" in columns)
+                assertTrue("externalExerciseId" in columns)
             }
         }
     }

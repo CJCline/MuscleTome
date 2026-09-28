@@ -17,6 +17,15 @@ interface ExerciseImportReviewDao {
     @Query("SELECT * FROM pending_exercise_imports WHERE id = :id")
     suspend fun getPending(id: String): PendingExerciseImportEntity?
 
+    @Query("SELECT * FROM pending_exercise_imports WHERE sourceKey IS :sourceKey AND externalExerciseId IS :externalId LIMIT 1")
+    suspend fun findPending(sourceKey: String?, externalId: String?): PendingExerciseImportEntity?
+
+    @Query("SELECT * FROM exercise_import_resolutions WHERE pendingImportId = :id")
+    suspend fun getResolution(id: String): ExerciseImportResolutionEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM exercise_import_resolutions WHERE sourceKey = :sourceKey AND externalExerciseId = :externalId)")
+    suspend fun hasResolutionForIdentity(sourceKey: String, externalId: String): Boolean
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPending(row: PendingExerciseImportEntity)
 

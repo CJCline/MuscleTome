@@ -1,6 +1,6 @@
 package com.chy.muscletome.domain.model
 
-/** Stable family labels and safe name mapping. Family membership is stored as text metadata. */
+/** Stable family labels and conservative fallback mapping for display names. */
 object MovementFamilies {
     data class Family(val id: String, val label: String)
 
@@ -11,17 +11,31 @@ object MovementFamilies {
         Family("lunge", "Lunge"), Family("plank", "Plank"),
     )
 
+    /**
+     * Families group comparable variations, not all movements sharing a pattern
+     * or muscle. Display names are not stable taxonomy IDs. Source-provided family
+     * IDs should override this conservative name-based fallback.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun familyId(name: String, movementPattern: MovementPattern? = null): String? {
-        val n = name.trim().lowercase()
+        val normalized = name.trim().lowercase()
+            .replace(Regex("[^a-z0-9]+"), " ").trim()
+        val tokens = normalized.split(Regex("\\s+")).toSet()
         return when {
-            n.contains("squat") || n.contains("leg press") || movementPattern == MovementPattern.SQUAT -> "squat"
-            n.contains("bench press") || n.contains("push-up") || n.contains("push up") || n.contains("cable fly") -> "bench_press"
-            n.contains("row") || n.contains("pull-up") || n.contains("pull up") || n.contains("lat pulldown") -> "row"
-            n.contains("deadlift") || n.contains("rdl") -> "deadlift"
-            n.contains("overhead press") || n.contains("shoulder press") -> "overhead_press"
-            n.contains("curl") -> "curl"
-            n.contains("lunge") -> "lunge"
-            n.contains("plank") -> "plank"
+            "squat" in tokens -> "squat"
+            "deadlift" in tokens || "rdl" in tokens -> "deadlift"
+            "lunge" in tokens -> "lunge"
+            "plank" in tokens -> "plank"
+            "curl" in tokens -> "curl"
+            "row" in tokens -> "row"
+            "pulldown" in tokens && "lat" in tokens -> "row"
+            "pullup" in tokens || "chinup" in tokens ||
+                ("pull" in tokens && "up" in tokens) || ("chin" in tokens && "up" in tokens) -> "row"
+            "fly" in tokens -> if ("cable" in tokens || "chest" in tokens) "bench_press" else null
+            "bench" in tokens && "press" in tokens && "pec" !in tokens && "deck" !in tokens -> "bench_press"
+            "pushup" in tokens || ("push" in tokens && "up" in tokens) -> "bench_press"
+            "overhead" in tokens && "press" in tokens -> "overhead_press"
+            "shoulder" in tokens && "press" in tokens -> "overhead_press"
             else -> null
         }
     }

@@ -39,4 +39,6 @@ data class ExerciseImportResolutionEntity(
     val action: String,
     val resolvedExerciseId: String?,
     val resolvedAtEpochMs: Long,
+    val sourceKey: String? = null,
+    val externalExerciseId: String? = null,
 )

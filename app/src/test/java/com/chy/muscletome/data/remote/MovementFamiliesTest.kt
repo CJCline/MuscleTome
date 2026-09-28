@@ -9,12 +9,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MovementFamiliesTest {
-    @Test fun mapsSeedVariationsToFamiliesWithoutChangingExerciseIds() {
+    @Test fun mapsCuratedAliasesAndVariationsWithoutBroadFalsePositives() {
         assertEquals("squat", MovementFamilies.familyId("Bulgarian Split Squat"))
         assertEquals("squat", MovementFamilies.familyId("Single-leg Goblet Squat"))
         assertEquals("bench_press", MovementFamilies.familyId("Dumbbell Bench Press"))
+        assertEquals("bench_press", MovementFamilies.familyId("Push-up"))
+        assertEquals("row", MovementFamilies.familyId("Pull-Up"))
+        assertEquals("row", MovementFamilies.familyId("Lat Pulldown"))
         assertEquals("deadlift", MovementFamilies.familyId("Romanian Deadlift", MovementPattern.HINGE))
-        assertNull(MovementFamilies.familyId("Reverse Pec Deck"))
+        assertEquals("overhead_press", MovementFamilies.familyId("Dumbbell Shoulder Press"))
+        assertEquals("curl", MovementFamilies.familyId("Cable Curl"))
+        assertEquals("lunge", MovementFamilies.familyId("Reverse Lunge"))
+        assertEquals("plank", MovementFamilies.familyId("Side Plank"))
+        assertNull(MovementFamilies.familyId("Leg Press"))
+        assertNull(MovementFamilies.familyId("Unknown standalone movement", MovementPattern.SQUAT))
         assertTrue(SeedCatalog.familyIdsByExerciseId.keys.all { id -> SeedCatalog.exercises.any { it.id == id } })
         assertTrue(SeedCatalog.familyIdsByExerciseId["squat"] == "squat")
     }

@@ -70,5 +70,13 @@ object MuscleTomeMigrations {
             db.execSQL("UPDATE canonical_exercises SET movementFamilyId = NULL WHERE movementFamilyId NOT IN ('squat', 'bench_press', 'row', 'deadlift', 'overhead_press', 'curl', 'lunge', 'plank')")
         }
     }
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `exercise_import_resolutions` ADD COLUMN `sourceKey` TEXT")
+            db.execSQL("ALTER TABLE `exercise_import_resolutions` ADD COLUMN `externalExerciseId` TEXT")
+            db.execSQL("UPDATE `exercise_import_resolutions` SET `sourceKey` = (SELECT `sourceKey` FROM `pending_exercise_imports` WHERE `pending_exercise_imports`.`id` = `exercise_import_resolutions`.`pendingImportId`)")
+            db.execSQL("UPDATE `exercise_import_resolutions` SET `externalExerciseId` = (SELECT `externalExerciseId` FROM `pending_exercise_imports` WHERE `pending_exercise_imports`.`id` = `exercise_import_resolutions`.`pendingImportId`)")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
 }

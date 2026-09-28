@@ -66,7 +66,6 @@ class CanonicalExercisePersistenceTest {
         reviewRepository = ExerciseImportReviewRepository(
             database,
             database.exerciseImportReviewDao(),
-            catalogDao,
             canonicalRepository,
         )
     }
@@ -124,6 +123,18 @@ class CanonicalExercisePersistenceTest {
             listOf("other_exercise_media_one", "other_exercise_media_two"),
             untouched.media.sortedBy { it.sortOrder }.map { it.id },
         )
+    }
+
+    @Test
+    fun canonicalWriteReloadsMovementFamily() = runBlocking {
+        val repository = CanonicalExerciseRepository(catalogDao, Lazy { reviewRepository })
+        catalogDao.insertExercises(listOf(exerciseRow("squat")))
+        val item = importRecord("goblet_squat", "goblet-1", "Goblet Squat").let { record ->
+            record.copy(exercise = record.exercise.copy(movementFamilyId = "squat"))
+        }
+
+        assertTrue(repository.import(item) is RepositoryImportResult.Created)
+        assertEquals("squat", requireNotNull(repository.get("goblet_squat")).metadata?.movementFamilyId)
     }
 
     @Test

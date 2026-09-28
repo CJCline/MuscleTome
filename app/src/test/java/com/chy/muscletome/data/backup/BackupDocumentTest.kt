@@ -3,6 +3,8 @@ package com.chy.muscletome.data.backup
 import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
+import com.chy.muscletome.data.local.entity.ExerciseImportResolutionEntity
+import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
 import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
@@ -44,7 +46,17 @@ class BackupDocumentTest {
     fun canonicalExerciseDataRoundTripsInBackupDocument() {
         val source = emptyDocument().copy(
             canonicalExerciseMetadata = listOf(
-                CanonicalExerciseEntity("row", "chest", "Step one", null, "IMPORTED", true),
+                CanonicalExerciseEntity("row", "chest", "Step one", "row", "IMPORTED", true),
+            ),
+            pendingExerciseImports = listOf(
+                PendingExerciseImportEntity(
+                    id = "pending-1", sourceKey = "wger", externalExerciseId = "88",
+                    displayName = "Row", pattern = "PULL", muscleIdsJson = "[]", equipmentIdsJson = "[]",
+                    payloadJson = "{}", candidateExerciseIdsJson = "[\"row\"]", createdAtEpochMs = 1L,
+                ),
+            ),
+            exerciseImportResolutions = listOf(
+                ExerciseImportResolutionEntity("resolved-1", "DISCARD", null, 2L, "wger", "77"),
             ),
             canonicalInstructions = listOf(ExerciseInstructionEntity("row", 0, "Brace")),
             canonicalEquipment = listOf(ExerciseEquipmentCrossRef("row", "barbell")),
@@ -65,13 +77,17 @@ class BackupDocumentTest {
         assertEquals(source.canonicalSecondaryTargets, restored.canonicalSecondaryTargets)
         assertEquals(source.exerciseMedia, restored.exerciseMedia)
         assertEquals(source.exerciseSourceIdentities, restored.exerciseSourceIdentities)
+        assertEquals(source.pendingExerciseImports, restored.pendingExerciseImports)
+        assertEquals(source.exerciseImportResolutions, restored.exerciseImportResolutions)
+        assertEquals("row", restored.canonicalExerciseMetadata.single().movementFamilyId)
     }
 
     @Test
     fun v3BackupWithoutSelectionHistoryImportsWithEmptyHistory() {
         val legacy = emptyDocument().copy(formatVersion = 3)
         val legacyJson = JsonObject(
-            (json.encodeToJsonElement(BackupDocument.serializer(), legacy).jsonObject - "selectionHistory") +
+            (json.encodeToJsonElement(BackupDocument.serializer(), legacy).jsonObject - "selectionHistory" -
+                "exerciseImportResolutions" - "pendingExerciseImports") +
                 ("formatVersion" to JsonPrimitive(3)),
         )
 

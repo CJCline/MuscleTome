@@ -10,7 +10,6 @@ import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
-import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.CanonicalExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
@@ -97,15 +96,13 @@ interface CatalogDao {
             insertExercises(listOf(exercise))
             if (getExercise(exercise.id) == null) error("Exercise ${exercise.id} already exists")
         }
-        val safeMetadata = metadata.copy(movementFamilyId = null)
-        upsertCanonicalMetadata(listOf(safeMetadata))
+        upsertCanonicalMetadata(listOf(metadata))
         deleteLegacyEquipment(exercise.id)
         deleteLegacySecondaryTargets(exercise.id)
         deleteInstructions(exercise.id)
         deleteCanonicalEquipment(exercise.id)
         deleteSecondaryTargets(exercise.id)
         deleteExerciseMedia(exercise.id)
-        deleteSourceIdentities(exercise.id)
         upsertInstructions(instructions)
         upsertCanonicalEquipment(equipmentLinks)
         upsertSecondaryTargets(secondaryTargets)
