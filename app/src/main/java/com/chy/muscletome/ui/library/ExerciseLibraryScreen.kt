@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 
@@ -174,29 +173,15 @@ fun ExerciseLibraryScreen(
                         }
                         val expanded = matchesSearch || expandedFamilies[familyId] == true
                         item(key = "family:$familyId") {
-                            Row(
-                                modifier = Modifier.fillMaxWidth()
-                                    .clickable { expandedFamilies[familyId] = !expanded }
-                                    .semantics {
-                                        contentDescription = "$familyLabel exercise family"
-                                        stateDescription = if (expanded) "Expanded" else "Collapsed"
-                                    }
-                                    .padding(vertical = 12.dp, horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column {
-                                    Text(familyLabel, style = MaterialTheme.typography.titleMedium)
-                                    Text("${members.size} variations", style = MaterialTheme.typography.bodySmall)
-                                }
-                                Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge)
-                            }
-                            if (expanded) {
-                                members.forEach { variant ->
-                                    ExerciseRow(variant, rowIndex++, onClick = { onOpenExercise(variant.id) })
-                                }
-                            }
-                            LedgerDivider()
+                            ExpandableExerciseFamily(
+                                familyLabel = familyLabel,
+                                members = members,
+                                expanded = expanded,
+                                onToggle = { expandedFamilies[familyId] = !expanded },
+                                onOpenExercise = onOpenExercise,
+                                firstRowIndex = rowIndex,
+                            )
+                            rowIndex += members.size
                         }
                     }
                 }
@@ -206,7 +191,7 @@ fun ExerciseLibraryScreen(
 }
 
 @Composable
-private fun ExerciseRow(
+internal fun ExerciseRow(
     exercise: ExerciseEntity,
     index: Int,
     onClick: () -> Unit,

@@ -1,23 +1,15 @@
 package com.chy.muscletome.ui.library
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.hasText
 import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
@@ -29,31 +21,47 @@ import org.junit.Test
 class ExerciseLibraryInteractionTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun familyExpansionExposesStateAndRendersVariations() {
+    @Test fun actualFamilyCardExpansionExposesStateAndRendersVariations() {
         compose.setContent {
             MaterialTheme {
-                val expanded = remember { mutableStateOf(value = false) }
-                Column {
-                    Text(
-                        "Squat exercise family",
-                        modifier = Modifier
-                            .testTag("family")
-                            .semantics { stateDescription = if (expanded.value) "Expanded" else "Collapsed" }
-                            .clickable { expanded.value = !expanded.value },
-                    )
-                    if (expanded.value) Text("Goblet Squat")
-                }
+                val expandedFamilies = remember { mutableStateMapOf<String, Boolean>() }
+                val expanded = expandedFamilies["squat"] == true
+                ExpandableExerciseFamily(
+                    familyLabel = "Squat",
+                    members = listOf(
+                        ExerciseEntity(
+                            id = "goblet_squat",
+                            name = "Goblet Squat",
+                            movementType = MovementType.COMPOUND,
+                            primaryMuscleGroupId = "quads",
+                        ),
+                        ExerciseEntity(
+                            id = "front_squat",
+                            name = "Front Squat",
+                            movementType = MovementType.COMPOUND,
+                            primaryMuscleGroupId = "quads",
+                        ),
+                    ),
+                    expanded = expanded,
+                    onToggle = { expandedFamilies["squat"] = !expanded },
+                    onOpenExercise = {},
+                )
             }
         }
 
-        compose.onNodeWithTag("family").assert(
+        val family = compose.onNodeWithContentDescription("Squat exercise family")
+        family.assert(
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Collapsed"),
-        ).performClick()
-        compose.onNodeWithText("Goblet Squat").assertExists()
-        compose.onNodeWithTag("family").assert(
+        )
+        compose.onNodeWithText("Goblet Squat").assertDoesNotExist()
+        family.performClick()
+        family.assert(
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"),
-        ).performClick()
-        compose.onNode(hasText("Goblet Squat")).assertDoesNotExist()
+        )
+        compose.onNodeWithText("Goblet Squat").assertExists()
+        compose.onNodeWithText("Front Squat").assertExists()
+        family.performClick()
+        compose.onNodeWithText("Goblet Squat").assertDoesNotExist()
     }
 
     @Test fun detailContentShowsOrderedInstructionsAndMediaAttribution() {

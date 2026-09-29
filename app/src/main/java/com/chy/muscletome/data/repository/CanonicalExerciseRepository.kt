@@ -163,9 +163,8 @@ class CanonicalExerciseRepository @Inject constructor(
             exerciseId = id,
             primaryMuscleGroupId = canonical.primaryMuscleGroupId,
             instructions = canonical.instructions.joinToString("\n"),
-            movementFamilyId = canonical.movementFamilyId?.takeIf { it != id }?.takeIf {
-                catalogDao.getExercise(it) != null
-            },
+            // Family IDs belong to the taxonomy namespace, not the exercise-ID namespace.
+            movementFamilyId = canonical.movementFamilyId?.takeIf { it != id },
             origin = canonical.origin.name,
             isUserEdited = canonical.origin == ExerciseOrigin.USER_CREATED,
         )

@@ -66,6 +66,11 @@ private fun ReviewCard(item: PendingExerciseImportEntity, viewModel: ExerciseImp
             Text(item.displayName, style = MaterialTheme.typography.titleMedium)
             Text("Source: ${item.sourceKey ?: "Unknown"} · ${item.externalExerciseId ?: "No external ID"}")
             Text("Matching signals: name, movement pattern and target overlap")
+            Text(
+                "Merge links this source to the existing exercise and keeps its current name, instructions, targets, and equipment. Incoming edits to those fields will not be applied.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             candidates.forEach { candidate ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { viewModel.merge(item.id, candidate) }) {

@@ -138,6 +138,26 @@ class CanonicalExercisePersistenceTest {
     }
 
     @Test
+    fun canonicalFamilyIdsPersistWithoutMatchingExerciseRows() = runBlocking {
+        val repository = CanonicalExerciseRepository(catalogDao, Lazy { reviewRepository })
+        val cases = listOf(
+            "bench_press" to "Dumbbell Bench Press",
+            "row" to "Chest-Supported Row",
+            "curl" to "Cable Curl",
+            "lunge" to "Reverse Lunge",
+        )
+
+        cases.forEachIndexed { index, (familyId, name) ->
+            val id = "family_case_$index"
+            val item = importRecord(id, "family-external-$index", name).let { record ->
+                record.copy(exercise = record.exercise.copy(movementFamilyId = familyId))
+            }
+            assertTrue(repository.import(item) is RepositoryImportResult.Created)
+            assertEquals(familyId, requireNotNull(repository.get(id)).metadata?.movementFamilyId)
+        }
+    }
+
+    @Test
     fun invalidChildWriteRollsBackEntireBundle() = runBlocking {
         val id = "rollback_exercise"
         val exercise = exerciseRow(id)
