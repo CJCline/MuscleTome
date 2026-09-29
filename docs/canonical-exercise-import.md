@@ -124,8 +124,15 @@ cache image files locally, under these rules:
 - **Failure is graceful.** Network errors, HTTP 404s, undecodable bytes, and
   vanished cache files all fall back to showing the reference URI. Media cache
   issues can never fail backup or restore.
-- **Backups carry metadata only.** `exercise_media_cache` is excluded from the
-  backup document (format v6); a restored device re-fetches on demand.
+- **App JSON backups carry media metadata only.** `exercise_media_cache` rows
+  and cached image bytes are excluded from the app's JSON backup document
+  (format v6); a device restored from that JSON re-fetches on demand. This is
+  separate from Android OS backup/device-transfer policy: the manifest sets
+  `android:allowBackup="false"` and declares no `fullBackupContent` or
+  `dataExtractionRules`. Cloud Auto Backup is disabled; on some manufacturers'
+  Android 12+ devices, device-to-device transfer can still occur. Cached files
+  live under `filesDir/media`, not an OS-excluded cache/no-backup directory, so
+  JSON exclusion alone does not guarantee exclusion from OS device transfer.
 
 ## free-exercise-db normalization rules (curated mapping)
 
@@ -169,8 +176,11 @@ Missing optional values remain absent with a diagnostic; nothing is invented.
 - **Description**: dataset has none; null.
 - **Media**: every image becomes an `IMAGE` `ExerciseMedia` row with the
   raw.githubusercontent URI, `sourceKey=free_exercise_db`, attribution
-  `free-exercise-db (yuhonas)`, license `Unlicense` + URL. References only —
-  no fetch/bundle/display guarantee offline.
+  `free-exercise-db (yuhonas)`, license `Unlicense` + URL. References only at
+  import time: the bundled catalog contains no image asset bytes and import
+  does not fetch them. Phase 5's separate, license-gated on-demand download
+  caches images locally; successfully cached images work offline while their
+  files remain present (until cleared or evicted).
 - **Diagnostics**: every unmapped or absent value above emits an
   `ImportDiagnostic` with the native source value.
 
@@ -196,8 +206,9 @@ Missing optional values remain absent with a diagnostic; nothing is invented.
 - `shoulders` maps to the parent `shoulders` muscle group (dataset lumps delt
   heads); specific delt-head slots match these records only via the engine's
   widened-target fallback.
-- No unilateral data; no descriptions; images require connectivity (consistent
-  with wger media behavior).
+- No unilateral data; no descriptions. Uncached images require connectivity
+  to download; successfully cached images work offline until cleared or evicted
+  (consistent with wger's on-demand media cache).
 - Dataset `id`s are name-derived and stable only as long as the upstream
   dataset keeps them stable; the `(sourceKey, externalExerciseId)` pair is the
   import identity and canonical IDs are never rewritten.
