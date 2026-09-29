@@ -42,6 +42,9 @@ object SeedCatalog {
         EquipmentEntity("machine", "Machine"),
         EquipmentEntity("bodyweight", "Bodyweight"),
         EquipmentEntity("band", "Band"),
+        // free-exercise-db kettlebell records; wger canonical mapping also
+        // emits this id, so the curated catalog has one equipment id for it.
+        EquipmentEntity("kettlebell", "Kettlebell"),
     )
 
     val exercises = listOf(

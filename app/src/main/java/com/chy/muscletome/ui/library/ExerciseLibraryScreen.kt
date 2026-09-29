@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.ExerciseEntity
-import com.chy.muscletome.domain.model.ExerciseSource
+import com.chy.muscletome.domain.model.ExerciseSources
 import com.chy.muscletome.domain.model.MovementFamilies
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
@@ -224,8 +224,10 @@ internal fun ExerciseRow(
         }
         if (exercise.isCustom) {
             MicroTag(text = "Custom")
-        } else if (exercise.source == ExerciseSource.WGER) {
-            MicroTag(text = "wger")
+        } else {
+            ExerciseSources.displayLabel(exercise.source)?.let { label ->
+                MicroTag(text = label)
+            }
         }
     }
 }

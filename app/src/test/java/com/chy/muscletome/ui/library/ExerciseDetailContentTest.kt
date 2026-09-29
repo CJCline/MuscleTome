@@ -26,4 +26,27 @@ class ExerciseDetailContentTest {
         assertEquals("Creator", canonical.media.single().creator)
         assertEquals("CC-BY", canonical.media.single().licenseName)
     }
+
+    @Test fun mediaAttributionJoinsDistinctFieldsAndHandlesMissingProvenance() {
+        // Full provenance: creator doubles as attribution (FEDB pattern) → dedup
+        val full = ExerciseMediaEntity(
+            id = "m1", exerciseId = "fedb_Barbell_Squat", type = "IMAGE",
+            uri = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg",
+            sourceKey = "free_exercise_db", attribution = "free-exercise-db (yuhonas)",
+            creator = "free-exercise-db (yuhonas)", licenseName = "Unlicense",
+            licenseUrl = "https://unlicense.org/",
+        )
+        assertEquals(
+            "free-exercise-db (yuhonas) · Unlicense",
+            mediaAttribution(full),
+        )
+
+        // Partial provenance: only license survives
+        val partial = full.copy(id = "m2", creator = null, attribution = null)
+        assertEquals("Unlicense", mediaAttribution(partial))
+
+        // No provenance: empty string, never a fabricated credit
+        assertEquals("", mediaAttribution(full.copy(creator = null, attribution = null, licenseName = null)))
+        assertEquals("", mediaAttribution(null))
+    }
 }

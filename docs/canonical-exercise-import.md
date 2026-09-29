@@ -82,3 +82,98 @@ license data. Review candidates are deduplicated by source identity. A recorded
 Keep Both, Merge, or Discard resolution suppresses repeat prompts for that
 identity; resolving decisions are exported/restored with backup data.
 
+# Phase 4 — Supported Sources and Catalog Expansion (bundled)
+
+## Approved source registry
+
+| | wger | free-exercise-db |
+|---|---|---|
+| `sourceKey` | `wger` | `free_exercise_db` |
+| Identity | `(wger, <numeric wger id>)`; canonical id `wger_<id>` (legacy) | `(free_exercise_db, <dataset id>)`; canonical id `fedb_<id>` |
+| Delivery | User-triggered network import (Settings) | Bundled curated asset, offline, deterministic |
+| License | CC, per-entry (author + license preserved per record) | Unlicense (public domain) |
+| Attribution | Per record: author + license in sourceAttribution/media | `free-exercise-db (yuhonas)`; courtesy credit to Ollie Jennings' exercises.json |
+| Media | Main image URL (reference only, requires connectivity) | `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/<id>/<n>.jpg` (reference only, requires connectivity) |
+| Refresh | User re-triggers import; exact identity re-import is idempotent | Asset revision (sha256 of records) stored in `catalog_import` prefs; import runs only when revision changes |
+| Provenance | `sourceUrl` = wger exerciseinfo endpoint | `sourceUrl` = GitHub repo record reference |
+
+Unknown source keys are never labeled as a known provider: persist maps
+unrecognized keys to the generic `EXTERNAL` `ExerciseSource`.
+
+## free-exercise-db normalization rules (curated mapping)
+
+Provider-native values are retained in diagnostics when a mapping is not exact.
+Missing optional values remain absent with a diagnostic; nothing is invented.
+
+- **Identity**: dataset `id` (underscore-cased, unique in dataset) is the
+  external ID; canonical id is `fedb_<id>`. Blank `name` rejects the record as
+  unusable identity.
+- **Name**: `name`, trimmed.
+- **Instructions**: `instructions` array, order preserved. Empty is allowed
+  (diagnostic `missing_instructions`).
+- **Muscles**: primary = first entry of `primaryMuscles` (dataset has exactly
+  one multi-primary record; remaining entries join secondary). Mapping:
+  `quadriceps→quads, shoulders→shoulders, abdominals→abs, chest→chest,
+  hamstrings→hamstrings, triceps→triceps, biceps→biceps, lats→lats,
+  middle back→rhomboids, calves→calves, lower back→back, glutes→glutes,
+  traps→traps`. Unmapped (`forearms, neck, abductors, adductors`) records are
+  **skipped by the bundled gate** (diagnostic `unmapped_muscle`); they are
+  valid imports if ever imported deliberately.
+- **Equipment**: `barbell→barbell, dumbbell→dumbbell, cable→cable,
+  body only→bodyweight, machine→machine, kettlebells→kettlebell, bands→band,
+  e-z curl bar→barbell`. Unmapped (`other, medicine ball, exercise ball,
+  foam roll`) → empty set + diagnostic `unmapped_equipment`. `null`
+  (unspecified) → empty set + diagnostic `unspecified_equipment` (never
+  fabricated as bodyweight). Known limitation: exercises with an empty
+  equipment set are treated as always-available by the selection engine.
+- **Movement pattern**: the shared conservative name heuristics
+  (`MovementHeuristics`, also used by wger) take precedence because they encode
+  MuscleTome's taxonomy (squat/hinge/…) which the dataset's `force`
+  (push/pull/static force direction) cannot express; `force` is only a fallback
+  (`pull→PULL, push→PUSH`) when the name yields `OTHER`.
+- **Movement type**: `mechanic` maps `isolation→ISOLATION, compound→COMPOUND`;
+  null defaults to `COMPOUND` (documented default, same as `ExerciseEntity`).
+- **Difficulty**: `level` maps `beginner→BEGINNER, intermediate→INTERMEDIATE,
+  expert→ADVANCED`.
+- **Unilateral**: not provided by the dataset; always null (never inferred from
+  a name).
+- **Family**: conservative `MovementFamilies.familyId(name, pattern)` fallback
+  only; unknown stays null.
+- **Description**: dataset has none; null.
+- **Media**: every image becomes an `IMAGE` `ExerciseMedia` row with the
+  raw.githubusercontent URI, `sourceKey=free_exercise_db`, attribution
+  `free-exercise-db (yuhonas)`, license `Unlicense` + URL. References only —
+  no fetch/bundle/display guarantee offline.
+- **Diagnostics**: every unmapped or absent value above emits an
+  `ImportDiagnostic` with the native source value.
+
+## Bundled batch and refresh policy
+
+- **Batch scope (approved)**: categories `strength`, `powerlifting`,
+  `olympic weightlifting` — 627 of 876 records with mappable primary muscles;
+  30 in-scope records skipped (21 forearms, 5 neck, 2 adductors, 2 abductors).
+- The asset envelope records a `revision` = sha256 of the record list; the
+  importer persists the applied revision and re-imports only on change.
+- Import is per-record transactional: a malformed record cannot abort the
+  batch, but the revision is only marked applied when no record failed
+  (failed records retry on next launch; all writes are identity-idempotent).
+- Five records match seed exercises by normalized name + corroborating
+  attributes (Barbell Curl, Dumbbell Bench Press, Leg Press, Plank, Romanian
+  Deadlift) and enter the import review queue per the candidate rule. No
+  automatic merge.
+- Re-running the pipeline never changes stable canonical IDs, never rewrites
+  references, and preserves local edits per the merge/protection rules above.
+
+## Known limitations (documented omissions)
+
+- `shoulders` maps to the parent `shoulders` muscle group (dataset lumps delt
+  heads); specific delt-head slots match these records only via the engine's
+  widened-target fallback.
+- No unilateral data; no descriptions; images require connectivity (consistent
+  with wger media behavior).
+- Dataset `id`s are name-derived and stable only as long as the upstream
+  dataset keeps them stable; the `(sourceKey, externalExerciseId)` pair is the
+  import identity and canonical IDs are never rewritten.
+- The curation script (`tools/curate_free_exercise_db.py`) uses the network at
+  dev time only; runtime import reads the committed asset.
+

@@ -19,6 +19,7 @@ import com.chy.muscletome.domain.model.ExerciseMatchCandidate
 import com.chy.muscletome.domain.model.ExerciseMedia
 import com.chy.muscletome.domain.model.ExerciseOrigin
 import com.chy.muscletome.domain.model.ExerciseSource
+import com.chy.muscletome.domain.model.ExerciseSources
 import com.chy.muscletome.domain.model.ExerciseSourceIdentity
 import com.chy.muscletome.domain.model.ExistingCanonicalExercise
 import com.chy.muscletome.domain.model.ImportDiagnostic
@@ -39,6 +40,18 @@ sealed interface CanonicalImportResult {
         val diagnostics: List<ImportDiagnostic>,
     ) : CanonicalImportResult
 }
+
+/** Aggregated outcome of a batch run through the canonical import pipeline. */
+data class CanonicalBatchStats(
+    val created: Int = 0,
+    val updated: Int = 0,
+    val protected: Int = 0,
+    val reviewQueued: Int = 0,
+    val skippedUnusable: Int = 0,
+    val failed: Int = 0,
+    /** Record-level diagnostics from every processed item, keyed by exercise id/external id where known. */
+    val failures: List<String> = emptyList(),
+)
 
 @Singleton
 class CanonicalExerciseRepository @Inject constructor(
@@ -108,6 +121,121 @@ class CanonicalExerciseRepository @Inject constructor(
         return CanonicalImportResult.Updated(id, item.diagnostics)
     }
 
+    /**
+     * Batch import through the same identity/decision/persist pipeline as
+     * [import] — not a parallel persistence path. The existing-canonical
+     * snapshot is loaded once and kept current as the batch progresses so a
+     * large bundled catalog neither re-queries per record nor misses
+     * within-batch duplicates. Per-record failures are captured and never
+     * abort the batch.
+     */
+    suspend fun importBatch(items: List<NormalizedExerciseImport>): CanonicalBatchStats {
+        var created = 0
+        var updated = 0
+        var protected = 0
+        var reviewQueued = 0
+        var failed = 0
+        val failures = mutableListOf<String>()
+
+        // Identity → canonical id, and canonical id → current projection.
+        // Both are maintained as the batch writes so later records see
+        // earlier ones exactly as a fresh [import] would.
+        val canonicalIdByIdentity = mutableMapOf<Pair<String, String>, String>()
+        val existingById = LinkedHashMap<String, ExistingCanonicalExercise>()
+        catalogDao.getAllCanonicalExercises().forEach { row ->
+            val projection = row.toExistingCanonical()
+            existingById[row.exercise.id] = projection
+            row.sourceIdentities.forEach { identity ->
+                canonicalIdByIdentity[identity.sourceKey to identity.externalExerciseId] = row.exercise.id
+            }
+        }
+
+        /** Registers a freshly persisted record in the snapshot. */
+        fun register(item: NormalizedExerciseImport, canonicalId: String) {
+            existingById[canonicalId] = ExistingCanonicalExercise(
+                exercise = item.exercise.copy(id = canonicalId),
+                sourceIdentities = listOfNotNull(item.sourceIdentity),
+            )
+            item.sourceIdentity?.let { identity ->
+                canonicalIdByIdentity[identity.sourceKey to identity.externalExerciseId] = canonicalId
+            }
+        }
+
+        items.forEach { item ->
+            try {
+                val identity = item.sourceIdentity
+                val exactId = identity?.let { canonicalIdByIdentity[it.sourceKey to it.externalExerciseId] }
+                val decision = if (exactId != null) {
+                    val current = requireNotNull(existingById[exactId])
+                    ExerciseImportIdentityDecision.ReimportExisting(
+                        canonicalExerciseId = exactId,
+                        preserveLocalEdits = current.isUserEdited ||
+                            current.exercise.origin == ExerciseOrigin.USER_CREATED,
+                    )
+                } else {
+                    ExerciseImportIdentityPolicy.resolve(item, existingById.values.toList())
+                }
+                when (decision) {
+                    is ExerciseImportIdentityDecision.ReviewCandidates -> {
+                        val queued = reviewRepositoryProvider.get().enqueue(item, decision.candidates)
+                        if (queued == null) {
+                            protected++
+                        } else {
+                            reviewQueued++
+                        }
+                    }
+                    is ExerciseImportIdentityDecision.ReimportExisting -> {
+                        val current = existingById[decision.canonicalExerciseId]
+                        if (current == null) {
+                            persist(item, item.exercise.id, update = false)
+                            register(item, item.exercise.id)
+                            created++
+                        } else if (decision.preserveLocalEdits) {
+                            item.sourceIdentity?.let { source ->
+                                catalogDao.upsertSourceIdentities(
+                                    listOf(source.toEntity(decision.canonicalExerciseId)),
+                                )
+                            }
+                            protected++
+                        } else {
+                            persist(item, decision.canonicalExerciseId, update = true)
+                            // Refresh the projection so corroborating
+                            // attributes stay accurate for later records.
+                            catalogDao.getCanonicalExercise(decision.canonicalExerciseId)?.let { row ->
+                                existingById[decision.canonicalExerciseId] = row.toExistingCanonical()
+                                row.sourceIdentities.forEach { rowIdentity ->
+                                    canonicalIdByIdentity[
+                                        rowIdentity.sourceKey to rowIdentity.externalExerciseId
+                                    ] = decision.canonicalExerciseId
+                                }
+                            }
+                            updated++
+                        }
+                    }
+                    ExerciseImportIdentityDecision.CreateNew -> {
+                        val newId = item.exercise.id.ifBlank { "exercise_${UUID.randomUUID()}" }
+                        persist(item, newId, update = false)
+                        register(item, newId)
+                        created++
+                    }
+                }
+            } catch (t: Throwable) {
+                failed++
+                failures += "${item.exercise.id.ifBlank { item.sourceIdentity?.externalExerciseId ?: "unknown" }}: " +
+                    "${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+        return CanonicalBatchStats(
+            created = created,
+            updated = updated,
+            protected = protected,
+            reviewQueued = reviewQueued,
+            skippedUnusable = 0,
+            failed = failed,
+            failures = failures,
+        )
+    }
+
     suspend fun createReviewed(item: NormalizedExerciseImport): CanonicalImportResult {
         val newId = item.exercise.id.ifBlank { "exercise_${UUID.randomUUID()}" }
         persist(item.copy(exercise = item.exercise.copy(id = newId)), newId, update = false)
@@ -153,10 +281,18 @@ class CanonicalExerciseRepository @Inject constructor(
             unilateral = canonical.unilateral ?: false,
             source = when (canonical.origin) {
                 ExerciseOrigin.BUILT_IN -> ExerciseSource.SEED
-                ExerciseOrigin.IMPORTED -> ExerciseSource.WGER
+                ExerciseOrigin.IMPORTED -> ExerciseSources.fromSourceKey(
+                    item.sourceIdentity?.sourceKey,
+                )
                 ExerciseOrigin.USER_CREATED -> ExerciseSource.USER_CREATED
             },
-            notes = item.sourceAttribution.orEmpty(),
+            // Attribution lands in notes on create; on update the existing
+            // notes are user-owned and must survive provider refreshes.
+            notes = if (update) {
+                catalogDao.getExercise(id)?.notes ?: item.sourceAttribution.orEmpty()
+            } else {
+                item.sourceAttribution.orEmpty()
+            },
             demoUri = item.media.firstOrNull { it.type.name == "IMAGE" }?.uri,
         )
         val metadata = CanonicalExerciseEntity(

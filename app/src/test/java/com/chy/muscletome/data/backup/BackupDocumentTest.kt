@@ -83,6 +83,55 @@ class BackupDocumentTest {
     }
 
     @Test
+    fun freeExerciseDbProvenanceRoundTripsInBackupDocument() {
+        val source = emptyDocument().copy(
+            canonicalExerciseMetadata = listOf(
+                CanonicalExerciseEntity("fedb_Barbell_Squat", "quads", "Descend", "squat", "IMPORTED", false),
+            ),
+            exerciseMedia = listOf(
+                ExerciseMediaEntity(
+                    id = "fedb_Barbell_Squat_media_0.jpg",
+                    exerciseId = "fedb_Barbell_Squat",
+                    type = "IMAGE",
+                    uri = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg",
+                    sourceKey = "free_exercise_db",
+                    attribution = "free-exercise-db (yuhonas)",
+                    creator = "free-exercise-db (yuhonas)",
+                    licenseName = "Unlicense",
+                    licenseUrl = "https://unlicense.org/",
+                ),
+            ),
+            exerciseSourceIdentities = listOf(
+                ExerciseSourceIdentityEntity(
+                    "free_exercise_db", "Barbell_Squat", "fedb_Barbell_Squat",
+                    "https://github.com/yuhonas/free-exercise-db", 10L, 20L,
+                ),
+            ),
+            pendingExerciseImports = listOf(
+                PendingExerciseImportEntity(
+                    id = "free_exercise_db:Barbell_Curl", sourceKey = "free_exercise_db",
+                    externalExerciseId = "Barbell_Curl", displayName = "Barbell Curl",
+                    pattern = "PULL", muscleIdsJson = "[]", equipmentIdsJson = "[]",
+                    payloadJson = "{}", candidateExerciseIdsJson = "[\"barbell_curl\"]", createdAtEpochMs = 1L,
+                ),
+            ),
+            exerciseImportResolutions = listOf(
+                ExerciseImportResolutionEntity("free_exercise_db:Plank", "DISCARD", null, 2L, "free_exercise_db", "Plank"),
+            ),
+        )
+
+        val restored = json.decodeFromString<BackupDocument>(json.encodeToString(source))
+
+        assertEquals(source.canonicalExerciseMetadata, restored.canonicalExerciseMetadata)
+        assertEquals(source.exerciseMedia, restored.exerciseMedia)
+        assertEquals(source.exerciseSourceIdentities, restored.exerciseSourceIdentities)
+        assertEquals(source.pendingExerciseImports, restored.pendingExerciseImports)
+        assertEquals(source.exerciseImportResolutions, restored.exerciseImportResolutions)
+        assertEquals("Unlicense", restored.exerciseMedia.single().licenseName)
+        assertEquals("https://unlicense.org/", restored.exerciseMedia.single().licenseUrl)
+    }
+
+    @Test
     fun v3BackupWithoutSelectionHistoryImportsWithEmptyHistory() {
         val legacy = emptyDocument().copy(formatVersion = 3)
         val legacyJson = JsonObject(

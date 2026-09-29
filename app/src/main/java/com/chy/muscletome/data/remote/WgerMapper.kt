@@ -1,6 +1,7 @@
 package com.chy.muscletome.data.remote
 
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.model.MovementHeuristics
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 
@@ -57,23 +58,11 @@ object WgerMapper {
 
     fun equipmentDisplayName(name: String): String = name.trim().ifBlank { "Other" }
 
-    fun movementType(name: String, category: String?): MovementType {
-        val n = name.lowercase()
-        val isolationHints = listOf("fly", "raise", "curl", "extension", "kickback", "shrug", "calf")
-        return if (isolationHints.any { n.contains(it) }) MovementType.ISOLATION else MovementType.COMPOUND
-    }
+    fun movementType(name: String, category: String?): MovementType =
+        MovementHeuristics.movementType(name)
 
-    fun movementPattern(name: String, category: String?): MovementPattern {
-        val n = name.lowercase()
-        return when {
-            n.contains("deadlift") || n.contains("hinge") || n.contains("rdl") -> MovementPattern.HINGE
-            n.contains("squat") || n.contains("lunge") || n.contains("leg press") -> MovementPattern.SQUAT
-            n.contains("row") || n.contains("pull") || n.contains("chin") || n.contains("lat ") -> MovementPattern.PULL
-            n.contains("press") || n.contains("push") || n.contains("dip") -> MovementPattern.PUSH
-            n.contains("carry") || n.contains("walk") -> MovementPattern.CARRY
-            else -> MovementPattern.OTHER
-        }
-    }
+    fun movementPattern(name: String, category: String?): MovementPattern =
+        MovementHeuristics.movementPattern(name)
 
     fun difficulty(name: String): Difficulty = Difficulty.INTERMEDIATE
 

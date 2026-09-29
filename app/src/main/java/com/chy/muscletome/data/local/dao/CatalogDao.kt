@@ -106,6 +106,11 @@ interface CatalogDao {
         upsertInstructions(instructions)
         upsertCanonicalEquipment(equipmentLinks)
         upsertSecondaryTargets(secondaryTargets)
+        // Compatibility mirror: legacy readers (selection engine, detail
+        // screen) still join exercise_equipment / exercise_secondary_muscles;
+        // canonical links stay the single source of truth for writes.
+        upsertExerciseEquipment(equipmentLinks.map { ExerciseEquipmentCrossRef(it.exerciseId, it.equipmentId) })
+        upsertSecondaryMuscles(secondaryTargets.map { ExerciseSecondaryMuscleCrossRef(it.exerciseId, it.muscleGroupId) })
         upsertExerciseMedia(media)
         upsertSourceIdentities(sourceIdentities)
     }

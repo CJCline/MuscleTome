@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.Difficulty
@@ -150,8 +151,7 @@ internal fun ExerciseDetailContent(
                         )
                     }
                     val record = media.firstOrNull { it.uri == uri }
-                    val attribution = listOfNotNull(record?.creator, record?.attribution, record?.licenseName)
-                        .distinct().joinToString(" · ")
+                    val attribution = mediaAttribution(record)
                     if (attribution.isNotBlank()) {
                         Text(attribution, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -199,6 +199,17 @@ internal fun ExerciseDetailContent(
         }
     }
 }
+
+/**
+ * Attribution line for one media record: creator/attribution and license,
+ * deduplicated, absent when the record carries no provenance.
+ */
+internal fun mediaAttribution(record: ExerciseMediaEntity?): String =
+    listOfNotNull(record?.creator, record?.attribution, record?.licenseName)
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+        .joinToString(" · ")
 
 @Preview
 @Composable

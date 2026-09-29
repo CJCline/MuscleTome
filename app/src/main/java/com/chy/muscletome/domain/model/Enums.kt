@@ -6,7 +6,30 @@ enum class MovementType { COMPOUND, ISOLATION }
 
 enum class Difficulty { BEGINNER, INTERMEDIATE, ADVANCED }
 
-enum class ExerciseSource { SEED, WGER, USER_CREATED }
+/**
+ * Persisted provenance label. Stored as TEXT by name; only append values
+ * (never reorder/rename) — older rows decode by name.
+ */
+enum class ExerciseSource { SEED, WGER, FREE_EXERCISE_DB, USER_CREATED, EXTERNAL }
+
+/** Central registry between adapter source keys and persisted labels. */
+object ExerciseSources {
+    /** Maps a [NormalizedExerciseImport] sourceKey to its persisted label. */
+    fun fromSourceKey(sourceKey: String?): ExerciseSource = when (sourceKey) {
+        "wger" -> ExerciseSource.WGER
+        "free_exercise_db" -> ExerciseSource.FREE_EXERCISE_DB
+        null -> ExerciseSource.EXTERNAL
+        else -> ExerciseSource.EXTERNAL
+    }
+
+    /** Short user-facing label for library rows; null = no badge. */
+    fun displayLabel(source: ExerciseSource): String? = when (source) {
+        ExerciseSource.WGER -> "wger"
+        ExerciseSource.FREE_EXERCISE_DB -> "free-exercise-db"
+        ExerciseSource.EXTERNAL -> "imported"
+        else -> null
+    }
+}
 
 enum class SlotType { FIXED, TARGET }
 
