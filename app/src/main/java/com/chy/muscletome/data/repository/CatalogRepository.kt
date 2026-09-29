@@ -1,6 +1,9 @@
 package com.chy.muscletome.data.repository
 
 import com.chy.muscletome.data.local.dao.CatalogDao
+import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
+import com.chy.muscletome.data.local.dao.RoutineDao
+import com.chy.muscletome.data.local.dao.WorkoutDao
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
@@ -31,6 +34,9 @@ enum class CreateExerciseResult { SUCCESS, NAME_TAKEN }
 @Singleton
 class CatalogRepository @Inject constructor(
     private val catalogDao: CatalogDao,
+    private val routineDao: RoutineDao,
+    private val workoutDao: WorkoutDao,
+    private val familyRepository: FamilyRepository,
 ) {
     fun observeExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeExercises()
     fun observeMuscleGroups(): Flow<List<MuscleGroupEntity>> = catalogDao.observeMuscleGroups()
@@ -54,6 +60,11 @@ class CatalogRepository @Inject constructor(
 
     fun observeNameTaken(name: String): Flow<Boolean> = catalogDao.observeNameTaken(name.trim())
 
+    /** True when an exercise is safe to hard-delete (no routine slots or logged sessions). */
+    suspend fun isReferenced(exerciseId: String): Boolean =
+        exerciseId in routineDao.getFixedSlotExerciseIds() ||
+            exerciseId in workoutDao.getResolvedExerciseIds()
+
     /** Persists the user's personal note for an exercise across sessions. */
     suspend fun updateExerciseNotes(exerciseId: String, notes: String) {
         catalogDao.updateExerciseNotes(exerciseId, notes)
@@ -61,6 +72,9 @@ class CatalogRepository @Inject constructor(
 
     suspend fun getExerciseByName(name: String): ExerciseEntity? =
         catalogDao.getExerciseByName(name.trim())
+
+    suspend fun getCanonicalExercise(id: String): ExerciseWithCanonicalRelations? =
+        catalogDao.getCanonicalExercise(id)
 
     suspend fun createCustomExercise(
         name: String,
@@ -73,6 +87,7 @@ class CatalogRepository @Inject constructor(
         secondaryMuscleGroupIds: List<String>,
         instructions: List<String> = emptyList(),
         unilateral: Boolean = false,
+        movementFamilyId: String? = null,
         media: List<ExerciseMedia> = emptyList(),
     ): CreateExerciseResult {
         val trimmedName = name.trim()
@@ -104,13 +119,12 @@ class CatalogRepository @Inject constructor(
         catalogDao.insertSecondaryMuscles(
             secondaryMuscleGroupIds.map { ExerciseSecondaryMuscleCrossRef(id, it) },
         )
-        val familyId: String? = null
         catalogDao.upsertCanonicalMetadata(
             listOf(CanonicalExerciseEntity(
                 exerciseId = id,
                 primaryMuscleGroupId = primaryMuscleGroupId,
                 instructions = instructions.joinToString("\n"),
-                movementFamilyId = familyId,
+                movementFamilyId = movementFamilyId?.takeIf { catalogDao.getMovementFamily(it) != null },
                 origin = ExerciseOrigin.USER_CREATED.name,
                 isUserEdited = true,
             )),
@@ -133,6 +147,117 @@ class CatalogRepository @Inject constructor(
             )
         })
         return CreateExerciseResult.SUCCESS
+    }
+
+    /**
+     * Phase 5B: edits a user-created exercise in place. The canonical ID and
+     * any `(sourceKey, externalExerciseId)` provenance stay untouched; only the
+     * editable fields are rewritten and `isUserEdited` is forced on so later
+     * imports never overwrite the user's values.
+     */
+    suspend fun updateCustomExercise(
+        exerciseId: String,
+        name: String,
+        description: String,
+        primaryMuscleGroupId: String,
+        movementType: MovementType,
+        movementPattern: MovementPattern,
+        difficulty: Difficulty,
+        equipmentIds: List<String>,
+        secondaryMuscleGroupIds: List<String>,
+        instructions: List<String> = emptyList(),
+        unilateral: Boolean = false,
+        movementFamilyId: String? = null,
+        media: List<ExerciseMedia> = emptyList(),
+    ): CreateExerciseResult {
+        val existing = catalogDao.getExercise(exerciseId) ?: return CreateExerciseResult.NAME_TAKEN
+        val trimmedName = name.trim()
+        val clash = catalogDao.getExerciseByName(trimmedName)
+        if (clash != null && clash.id != exerciseId) return CreateExerciseResult.NAME_TAKEN
+
+        catalogDao.upsertExercises(
+            listOf(
+                existing.copy(
+                    name = trimmedName,
+                    description = description.trim(),
+                    movementPattern = movementPattern,
+                    movementType = movementType,
+                    primaryMuscleGroupId = primaryMuscleGroupId,
+                    difficulty = difficulty,
+                    unilateral = unilateral,
+                    demoUri = media.firstOrNull { it.type.name == "IMAGE" }?.uri ?: existing.demoUri,
+                ),
+            ),
+        )
+
+        val existingMetadata = catalogDao.getCanonicalExercise(exerciseId)?.metadata
+            ?: CanonicalExerciseEntity(
+                exerciseId = exerciseId,
+                primaryMuscleGroupId = primaryMuscleGroupId,
+                instructions = instructions.joinToString("\n"),
+                origin = ExerciseOrigin.USER_CREATED.name,
+                isUserEdited = true,
+            )
+        val targetFamily = movementFamilyId?.takeIf { catalogDao.getMovementFamily(it) != null }
+        catalogDao.upsertCanonicalMetadata(
+            listOf(
+                existingMetadata.copy(
+                    primaryMuscleGroupId = primaryMuscleGroupId,
+                    instructions = instructions.joinToString("\n"),
+                    movementFamilyId = targetFamily,
+                    origin = ExerciseOrigin.USER_CREATED.name,
+                    isUserEdited = true,
+                ),
+            ),
+        )
+        familyRepository.assignFamily(exerciseId, targetFamily)
+
+        // Rewrite editable relation tables in place (same shape as create).
+        catalogDao.deleteLegacyEquipment(exerciseId)
+        catalogDao.deleteLegacySecondaryTargets(exerciseId)
+        catalogDao.deleteInstructions(exerciseId)
+        catalogDao.deleteCanonicalEquipment(exerciseId)
+        catalogDao.deleteSecondaryTargets(exerciseId)
+        catalogDao.deleteExerciseMedia(exerciseId)
+        catalogDao.insertExerciseEquipment(equipmentIds.map { ExerciseEquipmentCrossRef(exerciseId, it) })
+        catalogDao.insertSecondaryMuscles(secondaryMuscleGroupIds.map { ExerciseSecondaryMuscleCrossRef(exerciseId, it) })
+        catalogDao.upsertInstructions(instructions.mapIndexed { index, text -> ExerciseInstructionEntity(exerciseId, index, text) })
+        catalogDao.upsertSecondaryTargets(secondaryMuscleGroupIds.map { ExerciseSecondaryTargetEntity(exerciseId, it) })
+        catalogDao.upsertCanonicalEquipment(equipmentIds.map { ExerciseEquipmentLinkEntity(exerciseId, it) })
+        catalogDao.upsertExerciseMedia(media.mapIndexed { index, row ->
+            ExerciseMediaEntity(
+                id = "${exerciseId}_media_${row.uri?.substringAfterLast('/') ?: index}",
+                exerciseId = exerciseId,
+                type = row.type.name,
+                uri = row.uri.orEmpty(),
+                sourceKey = row.sourceKey,
+                attribution = row.attribution,
+                creator = row.creator,
+                licenseName = row.licenseName,
+                licenseUrl = row.licenseUrl,
+                sortOrder = index,
+            )
+        })
+        return CreateExerciseResult.SUCCESS
+    }
+
+    /**
+     * Phase 5B delete policy (documented decision): hard-delete is blocked when
+     * the exercise is referenced by routine slots or logged sessions, so no
+     * reference can be orphaned. Callers must check [isReferenced] first.
+     */
+    suspend fun deleteCustomExercise(exerciseId: String): Boolean {
+        if (isReferenced(exerciseId)) return false
+        catalogDao.deleteInstructions(exerciseId)
+        catalogDao.deleteExerciseMedia(exerciseId)
+        catalogDao.deleteSourceIdentities(exerciseId)
+        catalogDao.deleteSecondaryTargets(exerciseId)
+        catalogDao.deleteCanonicalEquipment(exerciseId)
+        catalogDao.deleteLegacyEquipment(exerciseId)
+        catalogDao.deleteLegacySecondaryTargets(exerciseId)
+        // exercises row CASCADE clears canonical metadata, media cache, x-refs
+        catalogDao.deleteExercise(exerciseId)
+        return true
     }
 
     /** Escapes SQL LIKE wildcards so user input matches literally (DAO uses ESCAPE '\\'). */

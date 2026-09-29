@@ -195,6 +195,14 @@ class BackupRepository @Inject constructor(
                     doc.canonicalExerciseMetadata.filter { it.exerciseId in exerciseIds },
                 )
             }
+            // Phase 5A: restore user-created families so canonical metadata's
+            // movementFamilyId references keep resolving. Existing local rows
+            // (including BUILT_IN seeds re-created at startup) stay authoritative.
+            if (doc.movementFamilies.isNotEmpty()) {
+                doc.movementFamilies
+                    .filter { catalogDao.getMovementFamily(it.id) == null }
+                    .forEach { catalogDao.upsertMovementFamily(it) }
+            }
             selectionHistoryDao.upsertAll(
                 doc.selectionHistory.filter { history ->
                     history.userId == SeedCatalog.LOCAL_USER_ID &&
@@ -246,6 +254,7 @@ class BackupRepository @Inject constructor(
             pendingExerciseImports = exerciseImportReviewDao.getPendingSnapshot(),
             exerciseImportResolutions = exerciseImportReviewDao.getResolutions(),
             familyBackfillVersion = 1,
+            movementFamilies = catalogDao.getMovementFamilies().filter { it.origin != "BUILT_IN" },
             selectionHistory = selectionHistoryDao.getAll(SeedCatalog.LOCAL_USER_ID),
         )
     }

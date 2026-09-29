@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -145,6 +146,29 @@ class BackupDocumentTest {
         requireSupportedBackupVersion(restored.formatVersion)
         assertEquals(3, restored.formatVersion)
         assertEquals(emptyList<ExerciseSelectionHistoryEntity>(), restored.selectionHistory)
+    }
+
+    @Test
+    fun mediaCacheRowsAreExcludedFromBackupDocument() {
+        // Phase 5C: cached media files are device-local and license-gated on
+        // fetch; the backup document carries metadata only (URI, attribution,
+        // license), and a restored device re-fetches on demand. The document
+        // schema therefore must have no media-cache field at all.
+        val serialized = json.encodeToString(emptyDocument())
+        assertFalse(serialized.contains("exercise_media_cache"))
+        assertFalse(serialized.contains("mediaCache"))
+        // Metadata rows still round-trip untouched (regression guard).
+        val withMedia = emptyDocument().copy(
+            exerciseMedia = listOf(
+                ExerciseMediaEntity(
+                    id = "fedb_1_img", exerciseId = "fedb_1", type = "IMAGE",
+                    uri = "https://example/1.jpg", sourceKey = "free_exercise_db",
+                    attribution = "free-exercise-db (yuhonas)", licenseName = "Unlicense",
+                ),
+            ),
+        )
+        val restored = json.decodeFromString<BackupDocument>(json.encodeToString(withMedia))
+        assertEquals(withMedia.exerciseMedia, restored.exerciseMedia)
     }
 
     @Test

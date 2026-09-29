@@ -17,6 +17,8 @@ import com.chy.muscletome.data.local.entity.ExerciseMediaEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
+import com.chy.muscletome.data.local.entity.MovementFamilyEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaCacheEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -54,6 +56,55 @@ interface CatalogDao {
 
     @Query("UPDATE canonical_exercises SET movementFamilyId = :familyId WHERE exerciseId = :exerciseId")
     suspend fun setMovementFamily(exerciseId: String, familyId: String?)
+
+    // -- Movement families (Phase 5A) --
+
+    @Query("SELECT * FROM movement_families ORDER BY displayName COLLATE NOCASE")
+    fun observeMovementFamilies(): Flow<List<MovementFamilyEntity>>
+
+    @Query("SELECT * FROM movement_families ORDER BY displayName COLLATE NOCASE")
+    suspend fun getMovementFamilies(): List<MovementFamilyEntity>
+
+    @Query("SELECT * FROM movement_families WHERE id = :id")
+    suspend fun getMovementFamily(id: String): MovementFamilyEntity?
+
+    @Query("SELECT * FROM movement_families WHERE normalizedKey = :normalizedKey LIMIT 1")
+    suspend fun getMovementFamilyByNormalizedKey(normalizedKey: String): MovementFamilyEntity?
+
+    @Upsert
+    suspend fun upsertMovementFamily(family: MovementFamilyEntity)
+
+    // -- Media cache (Phase 5C) --
+
+    @Query("SELECT * FROM exercise_media_cache WHERE mediaId = :mediaId")
+    suspend fun getMediaCache(mediaId: String): ExerciseMediaCacheEntity?
+
+    @Query("SELECT * FROM exercise_media_cache WHERE mediaId = :mediaId")
+    fun observeMediaCache(mediaId: String): Flow<ExerciseMediaCacheEntity?>
+
+    @Query(
+        """
+        SELECT c.* FROM exercise_media_cache c
+        INNER JOIN exercise_media m ON m.id = c.mediaId
+        WHERE m.exerciseId = :exerciseId ORDER BY m.sortOrder
+        """,
+    )
+    suspend fun getMediaCacheForExercise(exerciseId: String): List<ExerciseMediaCacheEntity>
+
+    @Upsert
+    suspend fun upsertMediaCache(row: ExerciseMediaCacheEntity)
+
+    @Query("DELETE FROM exercise_media_cache WHERE mediaId = :mediaId")
+    suspend fun deleteMediaCache(mediaId: String)
+
+    @Query("DELETE FROM exercise_media_cache")
+    suspend fun clearMediaCache()
+
+    @Query("SELECT COALESCE(SUM(bytes), 0) FROM exercise_media_cache")
+    suspend fun mediaCacheBytes(): Long
+
+    @Query("SELECT * FROM exercise_media_cache ORDER BY fetchedAtEpochMs ASC")
+    suspend fun getMediaCacheOldestFirst(): List<ExerciseMediaCacheEntity>
 
     @Query(
         """
@@ -191,6 +242,10 @@ interface CatalogDao {
 
     @Query("DELETE FROM exercise_secondary_muscles WHERE exerciseId = :exerciseId")
     suspend fun deleteLegacySecondaryTargets(exerciseId: String)
+
+    /** Hard delete of the exercises row; canonical/media/cache/x-ref rows CASCADE. */
+    @Query("DELETE FROM exercises WHERE id = :exerciseId")
+    suspend fun deleteExercise(exerciseId: String)
 
     /** Backup import restores the full row (notes, edits) — upsert, not ignore. */
     @Upsert

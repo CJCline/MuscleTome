@@ -45,7 +45,7 @@ MuscleTome is a modern, clean, and intuitive workout tracking application for An
 
 ## 🗄️ Database schema & migrations
 
-*   The Room database (currently `version = 6`) exports its schema JSON to `app/schemas/`, which is **committed to git**. CI fails if that JSON drifts from the entities in code.
+*   The Room database (currently `version = 6` — stale: shipped code is at `version = 10` as of Phase 5; the parked README-version-sync decision means this number is not auto-updated) exports its schema JSON to `app/schemas/`, which is **committed to git**. CI fails if that JSON drifts from the entities in code.
 *   `DatabaseModule` registers migrations via `addMigrations(...)` and has **no destructive fallback** — an unhandled schema change crashes loudly instead of silently wiping a user's workout history.
 *   To change an entity:
     1.  Bump the `@Database` `version` (e.g. `1` → `2`).

@@ -147,6 +147,43 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
             )
 
+            SectionHeader("Exercise images")
+            val mediaCache by viewModel.mediaCacheState.collectAsStateWithLifecycle()
+            Text(
+                "Imported exercise images are shown from the network by default. " +
+                    "Download a family's images to view them offline. Only images with a " +
+                    "license that permits redistribution are cached; the cache is capped " +
+                    "at 256 MB and evicted oldest-first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Cached: ${mediaCache.cacheBytes / (1024 * 1024)} MB",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (state.families.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.families.forEach { family ->
+                        FilterChip(
+                            selected = false,
+                            enabled = !mediaCache.downloading,
+                            onClick = { viewModel.downloadFamilyMedia(family.id) },
+                            label = { Text("Download: ${family.displayName}") },
+                        )
+                    }
+                }
+            }
+            if (mediaCache.downloading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            OutlinedButton(
+                onClick = viewModel::clearMediaCache,
+                enabled = !mediaCache.downloading && mediaCache.cacheBytes > 0,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Clear cached images")
+            }
+
             SectionHeader("Backup & restore")
             Text(
                 "Everything lives on this device. Export a JSON backup to move devices or keep " +

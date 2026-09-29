@@ -6,8 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.backup.BackupRepository
 import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
+import com.chy.muscletome.data.local.entity.MovementFamilyEntity
 import com.chy.muscletome.data.local.entity.UserEntity
+import com.chy.muscletome.data.media.ExerciseMediaRepository
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.FamilyRepository
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WgerImportRepository
 import com.chy.muscletome.domain.model.EffortScale
@@ -33,6 +36,13 @@ data class SettingsUiState(
     val exercises: List<ExerciseEntity> = emptyList(),
     val excludedExerciseIds: Set<String> = emptySet(),
     val excludedExercises: List<ExerciseEntity> = emptyList(),
+    val families: List<MovementFamilyEntity> = emptyList(),
+)
+
+data class MediaCacheUiState(
+    val cacheBytes: Long = 0,
+    val downloading: Boolean = false,
+    val downloadsCompleted: Int = 0,
 )
 
 @HiltViewModel
@@ -41,7 +51,44 @@ class SettingsViewModel @Inject constructor(
     catalogRepository: CatalogRepository,
     private val wgerImportRepository: WgerImportRepository,
     private val backupRepository: BackupRepository,
+    private val mediaRepository: ExerciseMediaRepository,
+    familyRepository: FamilyRepository,
 ) : ViewModel() {
+
+    private val mediaCache = MutableStateFlow(MediaCacheUiState())
+
+    init {
+        viewModelScope.launch {
+            mediaCache.value = MediaCacheUiState(cacheBytes = mediaRepository.cacheSizeBytes())
+        }
+    }
+
+    /** Kicks a bounded download (one family) and refreshes the cache size. */
+    fun downloadFamilyMedia(familyId: String) {
+        viewModelScope.launch {
+            mediaCache.value = mediaCache.value.copy(downloading = true)
+            val downloaded = mediaRepository.fetchForFamily(familyId)
+            mediaCache.value = MediaCacheUiState(
+                cacheBytes = mediaRepository.cacheSizeBytes(),
+                downloading = false,
+                downloadsCompleted = downloaded,
+            )
+            snackbarMessage(
+                if (downloaded > 0) "Downloaded $downloaded image${if (downloaded == 1) "" else "s"} for offline use"
+                else "No new images to download (offline, licensed out, or already saved)",
+            )
+        }
+    }
+
+    fun clearMediaCache() {
+        viewModelScope.launch {
+            mediaRepository.clearCache()
+            mediaCache.value = MediaCacheUiState(cacheBytes = 0)
+            snackbarMessage("Cached images cleared")
+        }
+    }
+
+    val mediaCacheState: StateFlow<MediaCacheUiState> = mediaCache.asStateFlow()
 
     val uiState = combine(
         userRepository.observeUser(),
@@ -49,7 +96,19 @@ class SettingsViewModel @Inject constructor(
         userRepository.observeAvailableEquipmentIds(),
         catalogRepository.observeExercises(),
         userRepository.observeExcludedExerciseIds(),
-    ) { user, equipment, available, exercises, excluded ->
+        familyRepository.observeFamilies(),
+    ) { values ->
+        val user = values[0] as UserEntity?
+        @Suppress("UNCHECKED_CAST")
+        val equipment = values[1] as List<EquipmentEntity>
+        @Suppress("UNCHECKED_CAST")
+        val available = values[2] as List<String>
+        @Suppress("UNCHECKED_CAST")
+        val exercises = values[3] as List<ExerciseEntity>
+        @Suppress("UNCHECKED_CAST")
+        val excluded = values[4] as List<String>
+        @Suppress("UNCHECKED_CAST")
+        val families = values[5] as List<MovementFamilyEntity>
         val excludedIds = excluded.toSet()
         SettingsUiState(
             user = user,
@@ -58,6 +117,7 @@ class SettingsViewModel @Inject constructor(
             exercises = exercises,
             excludedExerciseIds = excludedIds,
             excludedExercises = exercises.filter { it.id in excludedIds },
+            families = families,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 

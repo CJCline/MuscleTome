@@ -41,4 +41,12 @@ object MovementFamilies {
     }
 
     fun label(id: String): String? = all.firstOrNull { it.id == id }?.label
+
+    /**
+     * Single shared normalizer for family dedup (Phase 5A): trim, lowercase,
+     * collapse runs of non-alphanumerics to a single space. Mirrors how import
+     * name matching normalizes display names.
+     */
+    fun normalizeKey(displayName: String): String =
+        displayName.trim().lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
 }

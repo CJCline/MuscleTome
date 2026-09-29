@@ -78,5 +78,20 @@ object MuscleTomeMigrations {
             db.execSQL("UPDATE `exercise_import_resolutions` SET `externalExerciseId` = (SELECT `externalExerciseId` FROM `pending_exercise_imports` WHERE `pending_exercise_imports`.`id` = `exercise_import_resolutions`.`pendingImportId`)")
         }
     }
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Phase 5A: persisted, queryable movement families. The eight legacy
+            // IDs are seeded BUILT_IN so already-assigned exercises keep resolving.
+            db.execSQL("CREATE TABLE IF NOT EXISTS `movement_families` (`id` TEXT NOT NULL, `displayName` TEXT NOT NULL, `normalizedKey` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `origin` TEXT NOT NULL DEFAULT 'BUILT_IN', PRIMARY KEY(`id`))")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_movement_families_normalizedKey` ON `movement_families` (`normalizedKey`)")
+            db.execSQL("INSERT OR IGNORE INTO `movement_families` (`id`, `displayName`, `normalizedKey`, `createdAtEpochMs`, `origin`) VALUES ('squat', 'Squat', 'squat', 0, 'BUILT_IN'), ('bench_press', 'Bench Press', 'bench press', 0, 'BUILT_IN'), ('row', 'Row', 'row', 0, 'BUILT_IN'), ('deadlift', 'Deadlift', 'deadlift', 0, 'BUILT_IN'), ('overhead_press', 'Overhead Press', 'overhead press', 0, 'BUILT_IN'), ('curl', 'Curl', 'curl', 0, 'BUILT_IN'), ('lunge', 'Lunge', 'lunge', 0, 'BUILT_IN'), ('plank', 'Plank', 'plank', 0, 'BUILT_IN')")
+            // Phase 5C: offline media cache. Metadata (URI, attribution, license)
+            // lives on exercise_media and is never mutated; this table only maps
+            // media rows to downloaded files. Excluded from backups by design.
+            db.execSQL("CREATE TABLE IF NOT EXISTS `exercise_media_cache` (`mediaId` TEXT NOT NULL, `localPath` TEXT NOT NULL, `fetchedAtEpochMs` INTEGER NOT NULL, `bytes` INTEGER NOT NULL, `licenseCheckedAtEpochMs` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`mediaId`), FOREIGN KEY(`mediaId`) REFERENCES `exercise_media`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_media_cache_mediaId` ON `exercise_media_cache` (`mediaId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_media_cache_fetchedAtEpochMs` ON `exercise_media_cache` (`fetchedAtEpochMs`)")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
 }

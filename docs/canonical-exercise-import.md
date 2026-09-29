@@ -93,12 +93,39 @@ identity; resolving decisions are exported/restored with backup data.
 | Delivery | User-triggered network import (Settings) | Bundled curated asset, offline, deterministic |
 | License | CC, per-entry (author + license preserved per record) | Unlicense (public domain) |
 | Attribution | Per record: author + license in sourceAttribution/media | `free-exercise-db (yuhonas)`; courtesy credit to Ollie Jennings' exercises.json |
-| Media | Main image URL (reference only, requires connectivity) | `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/<id>/<n>.jpg` (reference only, requires connectivity) |
+| Media | Main image URL (reference; optionally cached on demand) | `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/<id>/<n>.jpg` (reference; optionally cached on demand) |
 | Refresh | User re-triggers import; exact identity re-import is idempotent | Asset revision (sha256 of records) stored in `catalog_import` prefs; import runs only when revision changes |
 | Provenance | `sourceUrl` = wger exerciseinfo endpoint | `sourceUrl` = GitHub repo record reference |
 
 Unknown source keys are never labeled as a known provider: persist maps
 unrecognized keys to the generic `EXTERNAL` `ExerciseSource`.
+
+## Phase 5 — On-demand media cache
+
+Imported media is no longer strictly "reference only". The app may fetch and
+cache image files locally, under these rules:
+
+- **Explicit, on-demand only.** No eager bulk download. Actions: per-exercise
+  "Download / Show offline" on the detail screen; per-family download in
+  Settings.
+- **License gate.** Only media whose `licenseName` matches an allowlist of
+  redistribution-permitting licenses (Unlicense, CC0/Public Domain, MIT,
+  Apache-2.0, CC BY, CC BY-SA) is fetched. Unlicense covers all free-exercise-db
+  images; wger entries with unclear/absent licenses are skipped and remain
+  reference-only.
+- **Provenance is immutable.** The original URI, attribution, creator, and
+  license columns on `exercise_media` are never modified. Cached files live in
+  app-internal storage (`filesDir/media/<mediaId>.jpg`), tracked in the
+  `exercise_media_cache` table (schema v10) with `localPath`, `fetchedAtEpochMs`,
+  `bytes`, and `licenseCheckedAtEpochMs`.
+- **Bounded cache.** Hard cap of 256 MB; entries are evicted oldest-first.
+  "Clear cached images" (Settings) deletes files and rows but never the media
+  metadata.
+- **Failure is graceful.** Network errors, HTTP 404s, undecodable bytes, and
+  vanished cache files all fall back to showing the reference URI. Media cache
+  issues can never fail backup or restore.
+- **Backups carry metadata only.** `exercise_media_cache` is excluded from the
+  backup document (format v6); a restored device re-fetches on demand.
 
 ## free-exercise-db normalization rules (curated mapping)
 

@@ -20,6 +20,8 @@ import com.chy.muscletome.data.local.entity.ExerciseInstructionEntity
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentLinkEntity
 import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
+import com.chy.muscletome.data.local.entity.ExerciseMediaCacheEntity
+import com.chy.muscletome.data.local.entity.MovementFamilyEntity
 import com.chy.muscletome.data.local.entity.ExerciseEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
@@ -48,6 +50,8 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         CanonicalExerciseEntity::class,
         ExerciseMediaEntity::class,
         ExerciseSourceIdentityEntity::class,
+        ExerciseMediaCacheEntity::class,
+        MovementFamilyEntity::class,
         ExerciseInstructionEntity::class,
         ExerciseSecondaryTargetEntity::class,
         ExerciseEquipmentLinkEntity::class,
@@ -66,7 +70,7 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

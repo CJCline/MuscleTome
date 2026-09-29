@@ -17,8 +17,13 @@ object Routes {
     const val SETTINGS = "settings"
 
     // Parameterless flows
-    const val ADD_EXERCISE = "add_exercise"
     const val EXERCISE_IMPORT_REVIEW = "exercise_import_review"
+
+    // Add/edit exercise: optional exerciseId switches to edit mode
+    const val ADD_EXERCISE_PATTERN = "add_exercise?exerciseId={exerciseId}"
+    const val ADD_EXERCISE = "add_exercise?exerciseId={exerciseId}"
+    fun addExercise(exerciseId: String? = null) =
+        "add_exercise" + (exerciseId?.let { "?exerciseId=$it" } ?: "?exerciseId=")
 
     // Parameterized destinations: pattern for the graph, builder for navigate()
     const val ROUTINE_PATTERN = "routine/{routineId}"

@@ -17,20 +17,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -55,17 +62,42 @@ import com.chy.muscletome.domain.model.MovementType
 @Composable
 fun ExerciseDetailScreen(
     onBack: () -> Unit,
+    onEdit: (String) -> Unit = {},
     viewModel: ExerciseDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.deleted) {
+        if (state.deleted) onBack()
+    }
+    val blockedMessage = state.deleteBlockedMessage
+    LaunchedEffect(blockedMessage) {
+        if (blockedMessage != null) {
+            snackbarHostState.showSnackbar(blockedMessage)
+            viewModel.dismissDeleteBlocked()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(state.exercise?.name ?: "Exercise") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                // Phase 5B: edit/delete only for user-created/user-edited records.
+                actions = {
+                    if (state.userOwned && state.exercise != null) {
+                        IconButton(onClick = { state.exercise?.let { onEdit(it.id) } }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit exercise")
+                        }
+                        IconButton(onClick = viewModel::deleteUserExercise) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete exercise")
+                        }
                     }
                 },
             )
@@ -93,6 +125,7 @@ fun ExerciseDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
+                onDownloadMedia = viewModel::downloadMedia,
             )
         }
     }
@@ -102,6 +135,7 @@ fun ExerciseDetailScreen(
 internal fun ExerciseDetailContent(
     state: ExerciseDetailUiState,
     modifier: Modifier = Modifier,
+    onDownloadMedia: () -> Unit = {},
 ) {
     val exercise = checkNotNull(state.exercise)
     val canonical = state.canonical
@@ -134,6 +168,23 @@ internal fun ExerciseDetailContent(
         if (media.isNotEmpty() || fallbackUri != null) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Media")
+                // Phase 5C: offer an on-demand download for license-allowed media
+                // that isn't cached yet. Cached images display with no network.
+                if (state.downloadableMedia && !state.mediaFullyCached) {
+                    Button(
+                        onClick = onDownloadMedia,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Download / Show offline")
+                    }
+                }
+                if (state.mediaFullyCached) {
+                    Text(
+                        "Saved for offline",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 (media.map { it.type to it.uri } + listOfNotNull(fallbackUri?.let { "IMAGE" to it })).forEach { (type, uri) ->
                     if (type == "VIDEO") {
                         Text(
@@ -142,8 +193,11 @@ internal fun ExerciseDetailContent(
                             modifier = Modifier.clickable { runCatching { uriHandler.openUri(uri) } },
                         )
                     } else {
+                        // Prefer the cached local copy; Coil falls back to the
+                        // network URI when offline and uncached.
+                        val cached = state.cachedMediaUris[media.firstOrNull { it.uri == uri }?.id]
                         Image(
-                            painter = rememberAsyncImagePainter(uri),
+                            painter = rememberAsyncImagePainter(cached ?: uri),
                             contentDescription = "Exercise media",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxWidth().height(220.dp)

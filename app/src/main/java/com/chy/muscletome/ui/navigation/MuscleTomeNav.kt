@@ -210,12 +210,20 @@ fun MuscleTomeNav() {
             }
             composable(Routes.LIBRARY) {
                 ExerciseLibraryScreen(
-                    onAddExercise = { navController.navigate(Routes.ADD_EXERCISE) },
+                    onAddExercise = { navController.navigate(Routes.addExercise()) },
                     onOpenExercise = { exerciseId -> navController.navigate(Routes.exercise(exerciseId)) },
                     onOpenImportReview = { navController.navigate(Routes.EXERCISE_IMPORT_REVIEW) },
                 )
             }
-            composable(Routes.ADD_EXERCISE) {
+            composable(
+                route = Routes.ADD_EXERCISE_PATTERN,
+                arguments = listOf(
+                    navArgument("exerciseId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
+            ) {
                 AddExerciseScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.EXERCISE_IMPORT_REVIEW) {
@@ -225,7 +233,10 @@ fun MuscleTomeNav() {
                 route = Routes.EXERCISE_PATTERN,
                 arguments = listOf(navArgument("exerciseId") { type = NavType.StringType }),
             ) {
-                ExerciseDetailScreen(onBack = { navController.popBackStack() })
+                ExerciseDetailScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { exerciseId -> navController.navigate(Routes.addExercise(exerciseId)) },
+                )
             }
             composable(route = Routes.STATS) {
                 StatsScreen(

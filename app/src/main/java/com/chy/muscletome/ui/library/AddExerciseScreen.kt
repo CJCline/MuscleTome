@@ -49,7 +49,7 @@ fun AddExerciseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New exercise") },
+                title = { Text(if (state.isEdit) "Edit exercise" else "New exercise") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -158,6 +158,36 @@ fun AddExerciseScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Unilateral", modifier = Modifier.weight(1f))
                 Switch(checked = state.unilateral, onCheckedChange = viewModel::onUnilateralChange)
+            }
+
+            SectionHeader("Movement family")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.families.forEach { family ->
+                    FilterChip(
+                        selected = state.selectedFamilyId == family.id,
+                        onClick = {
+                            // Tap again to clear — family is optional.
+                            viewModel.onFamilySelected(
+                                if (state.selectedFamilyId == family.id) null else family.id,
+                            )
+                        },
+                        label = { Text(family.displayName) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = state.newFamilyName,
+                onValueChange = viewModel::onNewFamilyNameChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("New family…") },
+                singleLine = true,
+                isError = state.newFamilyError != null,
+                supportingText = state.newFamilyError?.let { error ->
+                    { Text(error) }
+                },
+            )
+            Button(onClick = viewModel::createFamily, modifier = Modifier.fillMaxWidth()) {
+                Text("Create family")
             }
 
             SectionHeader("Equipment")

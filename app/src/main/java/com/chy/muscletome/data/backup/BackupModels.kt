@@ -10,6 +10,7 @@ import com.chy.muscletome.data.local.entity.ExerciseSecondaryMuscleCrossRef
 import com.chy.muscletome.data.local.entity.ExerciseSecondaryTargetEntity
 import com.chy.muscletome.data.local.entity.ExerciseSelectionHistoryEntity
 import com.chy.muscletome.data.local.entity.ExerciseSourceIdentityEntity
+import com.chy.muscletome.data.local.entity.MovementFamilyEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.MuscleVolumeTargetEntity
 import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
@@ -56,6 +57,8 @@ data class BackupDocument(
     val pendingExerciseImports: List<PendingExerciseImportEntity> = emptyList(),
     val exerciseImportResolutions: List<ExerciseImportResolutionEntity> = emptyList(),
     val familyBackfillVersion: Int = 0,
+    /** Phase 5A: user-created family rows (BUILT_IN seeds are re-created at startup). */
+    val movementFamilies: List<MovementFamilyEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT_VERSION = 6

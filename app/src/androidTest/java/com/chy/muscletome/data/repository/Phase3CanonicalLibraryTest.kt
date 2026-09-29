@@ -40,7 +40,7 @@ class Phase3CanonicalLibraryTest {
         db = Room.inMemoryDatabaseBuilder(context, MuscleTomeDatabase::class.java)
             .allowMainThreadQueries().addMigrations(*MuscleTomeMigrations.ALL).build()
         dao = db.catalogDao()
-        repo = CatalogRepository(dao)
+        repo = CatalogRepository(dao, db.routineDao(), db.workoutDao(), FamilyRepository(dao))
         lateinit var review: ExerciseImportReviewRepository
         canonicalRepo = CanonicalExerciseRepository(dao, Lazy { review })
         review = ExerciseImportReviewRepository(db, db.exerciseImportReviewDao(), canonicalRepo)
