@@ -7,6 +7,7 @@ import com.chy.muscletome.data.local.entity.EquipmentEntity
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
+import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.local.dao.ExerciseWithCanonicalRelations
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.media.ExerciseMediaRepository
@@ -15,6 +16,7 @@ import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.domain.model.WeightUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -51,6 +53,59 @@ data class ExerciseDetailUiState(
     val canonical: ExerciseWithCanonicalRelations? = null,
 )
 
+/** Typed stages keep heterogeneous sources aligned and allow testing without repositories. */
+internal fun exerciseDetailStateFlow(
+    exercise: Flow<ExerciseEntity?>,
+    canonical: Flow<ExerciseWithCanonicalRelations?>,
+    equipment: Flow<List<EquipmentEntity>>,
+    secondaryMuscles: Flow<List<MuscleGroupEntity>>,
+    muscleGroups: Flow<List<MuscleGroupEntity>>,
+    history: Flow<ExerciseHistory>,
+    deleteBlockedMessage: Flow<String?>,
+    deleted: Flow<Boolean>,
+    cachedMediaUris: Flow<Map<String, String>>,
+    downloadable: Flow<Boolean>,
+    fullyCached: Flow<Boolean>,
+    user: Flow<UserEntity?>,
+): Flow<ExerciseDetailUiState> {
+    val catalog = combine(
+        exercise, canonical, equipment, secondaryMuscles, muscleGroups,
+    ) { currentExercise, currentCanonical, currentEquipment, currentSecondary, currentMuscles ->
+        ExerciseDetailUiState(
+            exercise = currentExercise,
+            userOwned = currentCanonical?.metadata?.let {
+                it.origin == "USER_CREATED" || it.isUserEdited
+            } ?: (currentExercise?.isCustom == true),
+            equipment = currentEquipment,
+            secondaryMuscles = currentSecondary,
+            primaryMuscleName = currentExercise?.primaryMuscleGroupId
+                ?.let { id -> currentMuscles.find { it.id == id }?.name }
+                .orEmpty(),
+            loaded = true,
+            canonical = currentCanonical,
+        )
+    }
+    val detail = combine(
+        catalog, history, deleteBlockedMessage, deleted,
+    ) { currentCatalog, currentHistory, blockedMessage, isDeleted ->
+        currentCatalog.copy(
+            history = currentHistory,
+            deleteBlockedMessage = blockedMessage,
+            deleted = isDeleted,
+        )
+    }
+    return combine(
+        detail, cachedMediaUris, downloadable, fullyCached, user,
+    ) { currentDetail, cachedUris, isDownloadable, isFullyCached, currentUser ->
+        currentDetail.copy(
+            cachedMediaUris = cachedUris,
+            downloadableMedia = isDownloadable,
+            mediaFullyCached = isFullyCached,
+            weightUnit = currentUser?.weightUnit ?: WeightUnit.KG,
+        )
+    }
+}
+
 @HiltViewModel
 class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -66,6 +121,8 @@ class ExerciseDetailViewModel @Inject constructor(
     private val deleteBlockedMessage = MutableStateFlow<String?>(null)
     private val deleted = MutableStateFlow(false)
     private val cachedMediaUris = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val downloadable = MutableStateFlow(false)
+    private val fullyCached = MutableStateFlow(false)
 
     init {
         viewModelScope.launch { refreshMediaCache() }
@@ -82,9 +139,6 @@ class ExerciseDetailViewModel @Inject constructor(
         downloadable.value = status.cacheable > 0
         fullyCached.value = status.cacheable > 0 && status.cached >= status.cacheable
     }
-
-    private val downloadable = MutableStateFlow(false)
-    private val fullyCached = MutableStateFlow(false)
 
     /** Kicks the on-demand fetch for this exercise, then refreshes status. */
     fun downloadMedia() {
@@ -119,60 +173,20 @@ class ExerciseDetailViewModel @Inject constructor(
         }
     }
 
-    val uiState = combine(
-        combine(
-            catalogRepository.observeExercise(exerciseId),
-            catalogRepository.observeCanonicalExercise(exerciseId),
-            catalogRepository.observeEquipmentForExercise(exerciseId),
-            catalogRepository.observeSecondaryMusclesForExercise(exerciseId),
-            catalogRepository.observeMuscleGroups(),
-            history,
-            deleteBlockedMessage,
-            deleted,
-            cachedMediaUris,
-            downloadable,
-            fullyCached,
-        ) { values ->
-            val exercise = values[0] as ExerciseEntity?
-            @Suppress("UNCHECKED_CAST")
-            val equipment = values[1] as List<EquipmentEntity>
-            @Suppress("UNCHECKED_CAST")
-            val secondaryMuscles = values[2] as List<MuscleGroupEntity>
-            @Suppress("UNCHECKED_CAST")
-            val muscleGroups = values[3] as List<MuscleGroupEntity>
-            val canonical = values[4] as ExerciseWithCanonicalRelations?
-            val currentHistory = values[5] as ExerciseHistory
-            val blockedMessage = values[6] as String?
-            val isDeleted = values[7] as Boolean
-            @Suppress("UNCHECKED_CAST")
-            val cachedUris = values[8] as Map<String, String>
-            val isDownloadable = values[9] as Boolean
-            val isFullyCached = values[10] as Boolean
-
-            ExerciseDetailUiState(
-                exercise = exercise,
-                userOwned = canonical?.metadata?.let {
-                    it.origin == "USER_CREATED" || it.isUserEdited
-                } ?: (exercise?.isCustom == true),
-                deleteBlockedMessage = blockedMessage,
-                deleted = isDeleted,
-                cachedMediaUris = cachedUris,
-                downloadableMedia = isDownloadable,
-                mediaFullyCached = isFullyCached,
-                equipment = equipment,
-                secondaryMuscles = secondaryMuscles,
-                history = currentHistory,
-                primaryMuscleName = exercise?.primaryMuscleGroupId
-                    ?.let { id -> muscleGroups.find { it.id == id }?.name }
-                    .orEmpty(),
-                loaded = true,
-                canonical = canonical,
-            )
-        },
-        userRepository.observeUser(),
-    ) { detail, user ->
-        detail.copy(weightUnit = user?.weightUnit ?: WeightUnit.KG)
-    }.stateIn(
+    val uiState = exerciseDetailStateFlow(
+        exercise = catalogRepository.observeExercise(exerciseId),
+        canonical = catalogRepository.observeCanonicalExercise(exerciseId),
+        equipment = catalogRepository.observeEquipmentForExercise(exerciseId),
+        secondaryMuscles = catalogRepository.observeSecondaryMusclesForExercise(exerciseId),
+        muscleGroups = catalogRepository.observeMuscleGroups(),
+        history = history,
+        deleteBlockedMessage = deleteBlockedMessage,
+        deleted = deleted,
+        cachedMediaUris = cachedMediaUris,
+        downloadable = downloadable,
+        fullyCached = fullyCached,
+        user = userRepository.observeUser(),
+    ).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ExerciseDetailUiState(),
