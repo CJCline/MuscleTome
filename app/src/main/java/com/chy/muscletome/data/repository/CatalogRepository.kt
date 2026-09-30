@@ -31,6 +31,12 @@ import javax.inject.Singleton
 
 enum class CreateExerciseResult { SUCCESS, NAME_TAKEN }
 
+/** [createCustomExerciseId] outcome: the new exercise id, or the failure reason. */
+sealed interface CreateCustomExerciseResult {
+    data class Success(val exerciseId: String) : CreateCustomExerciseResult
+    data class Failed(val reason: CreateExerciseResult) : CreateCustomExerciseResult
+}
+
 @Singleton
 class CatalogRepository @Inject constructor(
     private val catalogDao: CatalogDao,
@@ -89,10 +95,38 @@ class CatalogRepository @Inject constructor(
         unilateral: Boolean = false,
         movementFamilyId: String? = null,
         media: List<ExerciseMedia> = emptyList(),
-    ): CreateExerciseResult {
+    ): CreateExerciseResult =
+        when (createCustomExerciseId(
+            name, description, primaryMuscleGroupId, movementType, movementPattern,
+            difficulty, equipmentIds, secondaryMuscleGroupIds, instructions,
+            unilateral, movementFamilyId, media,
+        )) {
+            is CreateCustomExerciseResult.Success -> CreateExerciseResult.SUCCESS
+            is CreateCustomExerciseResult.Failed -> CreateExerciseResult.NAME_TAKEN
+        }
+
+    /**
+     * Same write path as [createCustomExercise] but returns the new exercise
+     * id — lets callers (e.g. exercise picking during routine setup) navigate
+     * straight to what was just created.
+     */
+    suspend fun createCustomExerciseId(
+        name: String,
+        description: String,
+        primaryMuscleGroupId: String,
+        movementType: MovementType,
+        movementPattern: MovementPattern,
+        difficulty: Difficulty,
+        equipmentIds: List<String>,
+        secondaryMuscleGroupIds: List<String>,
+        instructions: List<String> = emptyList(),
+        unilateral: Boolean = false,
+        movementFamilyId: String? = null,
+        media: List<ExerciseMedia> = emptyList(),
+    ): CreateCustomExerciseResult {
         val trimmedName = name.trim()
         if (catalogDao.getExerciseByName(trimmedName) != null) {
-            return CreateExerciseResult.NAME_TAKEN
+            return CreateCustomExerciseResult.Failed(CreateExerciseResult.NAME_TAKEN)
         }
         val id = "user_${UUID.randomUUID()}"
         catalogDao.insertExercises(
@@ -146,7 +180,7 @@ class CatalogRepository @Inject constructor(
                 sortOrder = index,
             )
         })
-        return CreateExerciseResult.SUCCESS
+        return CreateCustomExerciseResult.Success(id)
     }
 
     /**
