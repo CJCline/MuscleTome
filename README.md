@@ -63,7 +63,7 @@ MuscleTome is local-first: **your data lives in this app's Room database and now
 
 *   **`allowBackup` is `false`** — workout history (and any future entitlement state) must not silently ride Android's default Auto Backup to Google's cloud. There is no reviewed backup spec yet, so nothing leaves the device without you explicitly doing it.
 *   **Settings → Backup & restore** exports a complete JSON document (catalog edits, routines, slots, full log history, selection history, user prefs) via the system file picker — save it anywhere: Documents, Drive, another phone.
-*   **Import merges** — rows are upserted, so restoring on a new device preserves anything already there. Older supported format versions remain importable; a backup with a newer format version is rejected with a clear message rather than half-imported. The current backup format is v4.
+*   **Import merges** — rows are upserted, so restoring on a new device preserves anything already there. Older supported format versions remain importable; a backup with a newer format version is rejected with a clear message rather than half-imported. The current backup format is v6 (`FORMAT_VERSION` in `BackupModels.kt` — earlier v4 reference was stale and never updated alongside the parked README-sync decision).
 
 ## 📄 License
 
