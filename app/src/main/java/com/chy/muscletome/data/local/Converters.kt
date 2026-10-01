@@ -12,6 +12,8 @@ import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.model.WeightUnit
 
+import com.chy.muscletome.domain.model.WeightStep
+
 class Converters {
     @TypeConverter fun fromMovementPattern(v: MovementPattern) = v.name
     @TypeConverter fun toMovementPattern(v: String) = MovementPattern.valueOf(v)
@@ -42,4 +44,11 @@ class Converters {
 
     @TypeConverter fun fromMatchStrictness(v: MatchStrictness) = v.name
     @TypeConverter fun toMatchStrictness(v: String) = MatchStrictness.valueOf(v)
+
+    @TypeConverter fun fromWeightStep(v: WeightStep) = v.name
+    @TypeConverter fun toWeightStep(v: String): WeightStep = try {
+        WeightStep.valueOf(v)
+    } catch (_: Exception) {
+        WeightStep.STEP_5
+    }
 }

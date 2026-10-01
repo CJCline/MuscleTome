@@ -46,3 +46,17 @@ enum class MatchStrictness { STRICT, LOOSE }
 
 /** Preference for defaulting reps in workouts: configured minimum or maximum bound. */
 enum class DefaultRepPreference { MINIMUM, MAXIMUM }
+
+/** Weight step increment/decrement preference for workout weight controls. */
+enum class WeightStep(val value: Double) {
+    STEP_1(1.0),
+    STEP_2_5(2.5),
+    STEP_5(5.0),
+    STEP_10(10.0);
+
+    fun label(unit: WeightUnit = WeightUnit.LB): String {
+        val numStr = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+        val unitStr = if (unit == WeightUnit.KG) "kg" else "lb"
+        return "$numStr $unitStr"
+    }
+}

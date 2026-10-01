@@ -63,6 +63,19 @@ class MigrationTest {
         }
     }
 
+    @Test fun migrate11To12AddsWeightStepColumn() {
+        val db = helper.createDatabase("migration-11-12", 11)
+        db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty, defaultRepPreference) VALUES ('local-user', 'You', 'LB', 90, 'STRICT', 1, 'ADVANCED', 'MINIMUM')")
+        db.close()
+
+        helper.runMigrationsAndValidate("migration-11-12", 12, true, MuscleTomeMigrations.MIGRATION_11_12).use { migrated ->
+            migrated.query(SimpleSQLiteQuery("SELECT weightStep FROM users WHERE id = 'local-user'")).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("STEP_5", cursor.getString(0))
+            }
+        }
+    }
+
     @Test fun migrateAllFromV1PreservesData() {
         val db = helper.createDatabase("migration-test", 1)
         db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty, subscriptionStatus) VALUES ('local-user', 'You', 'KG', 90, 'STRICT', 1, 'ADVANCED', 'FREE')")
@@ -70,10 +83,14 @@ class MigrationTest {
         db.execSQL("INSERT INTO exercises (id, name, description, movementPattern, movementType, primaryMuscleGroupId, difficulty, isCustom, createdByUserId, unilateral, source, notes, demoUri) VALUES ('barbell_bench_press', 'Bench Press', '', 'PUSH', 'COMPOUND', 'chest', 'INTERMEDIATE', 0, NULL, 0, 'SEED', '', 'https://legacy.example/demo.png')")
         db.close()
 
-        helper.runMigrationsAndValidate("migration-test", 11, true, *MuscleTomeMigrations.ALL).use { migrated ->
+        helper.runMigrationsAndValidate("migration-test", 12, true, *MuscleTomeMigrations.ALL).use { migrated ->
             migrated.query(SimpleSQLiteQuery("SELECT defaultRepPreference FROM users WHERE id = 'local-user'")).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("MINIMUM", cursor.getString(0))
+            }
+            migrated.query(SimpleSQLiteQuery("SELECT weightStep FROM users WHERE id = 'local-user'")).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("STEP_5", cursor.getString(0))
             }
             migrated.query(SimpleSQLiteQuery("SELECT movementFamilyId FROM canonical_exercises WHERE exerciseId = 'barbell_bench_press'")).use { cursor ->
                 assertTrue(cursor.moveToFirst())

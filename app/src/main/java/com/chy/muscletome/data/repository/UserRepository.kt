@@ -12,6 +12,7 @@ import com.chy.muscletome.data.local.seed.SeedCatalog
 import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
+import com.chy.muscletome.domain.model.WeightStep
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.domain.session.WeightUnits
 import javax.inject.Inject
@@ -64,6 +65,11 @@ class UserRepository @Inject constructor(
     suspend fun setDefaultRepPreference(value: DefaultRepPreference) {
         val user = userDao.getUser(userId) ?: return
         userDao.update(user.copy(defaultRepPreference = value))
+    }
+
+    suspend fun setWeightStep(value: WeightStep) {
+        val user = userDao.getUser(userId) ?: return
+        userDao.update(user.copy(weightStep = value))
     }
 
     suspend fun setPreferCompoundEarly(value: Boolean) {

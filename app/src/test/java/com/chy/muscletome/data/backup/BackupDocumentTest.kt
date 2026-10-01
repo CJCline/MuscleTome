@@ -184,6 +184,19 @@ class BackupDocumentTest {
     }
 
     @Test
+    fun userWeightStepRoundTripsInBackupDocument() {
+        val userWithStep = UserEntity(
+            id = "local-user",
+            name = "You",
+            weightStep = com.chy.muscletome.domain.model.WeightStep.STEP_2_5,
+        )
+        val doc = emptyDocument().copy(user = userWithStep)
+        val restored = json.decodeFromString<BackupDocument>(json.encodeToString(doc))
+        assertEquals(com.chy.muscletome.domain.model.WeightStep.STEP_2_5, restored.user.weightStep)
+        assertEquals(2.5, restored.user.weightStep.value, 0.001)
+    }
+
+    @Test
     fun rejectsBackupFromNewerUnsupportedFormat() {
         val error = assertThrows(IllegalStateException::class.java) {
             requireSupportedBackupVersion(BackupDocument.FORMAT_VERSION + 1)

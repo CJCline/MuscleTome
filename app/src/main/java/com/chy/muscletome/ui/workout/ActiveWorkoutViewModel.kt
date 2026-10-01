@@ -123,6 +123,8 @@ data class ActiveWorkoutUiState(
     val effortScale: EffortScale = EffortScale.RPE,
     /** Default rep count preference (MINIMUM or MAXIMUM). */
     val defaultRepPreference: DefaultRepPreference = DefaultRepPreference.MINIMUM,
+    /** Configured weight step size from user preference. */
+    val configuredWeightStep: Double? = null,
     /** Ids of this exercise's logged sets (this session included) that were
      *  all-time PRs when logged. */
     val prSetIds: Set<String> = emptySet(),
@@ -159,9 +161,9 @@ data class ActiveWorkoutUiState(
     val isLastExercise: Boolean get() =
         slots.isEmpty() || currentIndex == slots.lastIndex
 
-    /** Stepper increment driven by the user's unit: 2.5 kg / 5 lb. */
-    val weightStep: Double get() = if (weightUnit == WeightUnit.LB) 5.0 else 2.5
-    /** Long-press micro increment (half plate: 1.25 kg / 2.5 lb). */
+    /** Stepper increment driven by user preference or fallback default. */
+    val weightStep: Double get() = configuredWeightStep ?: if (weightUnit == WeightUnit.LB) 5.0 else 2.5
+    /** Long-press micro increment (half plate). */
     val weightLongStep: Double get() = weightStep / 2.0
     val weightUnitSuffix: String get() = if (weightUnit == WeightUnit.LB) " lb" else " kg"
 
@@ -357,6 +359,7 @@ class ActiveWorkoutViewModel @Inject constructor(
             weightUnit = user?.weightUnit ?: WeightUnit.KG,
             effortScale = user?.effortScale ?: EffortScale.RPE,
             defaultRepPreference = user?.defaultRepPreference ?: DefaultRepPreference.MINIMUM,
+            configuredWeightStep = user?.weightStep?.value,
             prSetIds = buildPrSetIds(exerciseSetPoints),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
@@ -526,7 +529,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     fun bumpWeight(delta: Double) {
         val current = weight.value.toDoubleOrNull() ?: 0.0
-        weight.value = ((current + delta).coerceAtLeast(0.0)).toString()
+        weight.value = WeightUnits.displayText((current + delta).coerceAtLeast(0.0))
     }
 
     fun bumpReps(delta: Int) {

@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
+import com.chy.muscletome.domain.model.WeightStep
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -139,6 +140,22 @@ fun SettingsScreen(
             }
             Text(
                 "Sets default reps to the target range's minimum or maximum when starting an exercise.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            SectionHeader("Weight step")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WeightStep.entries.forEach { step ->
+                    FilterChip(
+                        selected = user?.weightStep == step,
+                        onClick = { viewModel.setWeightStep(step) },
+                        label = { Text(step.label(user?.weightUnit ?: WeightUnit.LB)) },
+                    )
+                }
+            }
+            Text(
+                "Controls weight increment and decrement step size in workout controls.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

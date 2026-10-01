@@ -15,6 +15,7 @@ import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.model.WeightStep
 import com.chy.muscletome.domain.model.WeightUnit
 import kotlinx.serialization.Serializable
 
@@ -32,6 +33,8 @@ data class UserEntity(
     val effortScale: EffortScale = EffortScale.RPE,
     /** Default rep count preference: MINIMUM or MAXIMUM of configured range. */
     val defaultRepPreference: DefaultRepPreference = DefaultRepPreference.MINIMUM,
+    /** Weight step preference for workout controls. */
+    val weightStep: WeightStep = WeightStep.STEP_5,
     /**
      * The routine Home's "Up next" trains. Null (or a stale pointer to a
      * deleted routine) falls back to the newest routine; the user switches

@@ -70,7 +70,7 @@ import com.chy.muscletome.data.local.entity.WorkoutSessionEntity
         UserAvailableEquipmentCrossRef::class,
         UserExcludedExerciseCrossRef::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
