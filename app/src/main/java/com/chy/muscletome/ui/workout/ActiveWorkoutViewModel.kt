@@ -13,10 +13,12 @@ import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.repository.CatalogRepository
+import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.data.timer.RestTimerManager
 import com.chy.muscletome.di.ApplicationScope
+import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
@@ -119,6 +121,8 @@ data class ActiveWorkoutUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     /** Which scale the effort chips speak (user preference). */
     val effortScale: EffortScale = EffortScale.RPE,
+    /** Default rep count preference (MINIMUM or MAXIMUM). */
+    val defaultRepPreference: DefaultRepPreference = DefaultRepPreference.MINIMUM,
     /** Ids of this exercise's logged sets (this session included) that were
      *  all-time PRs when logged. */
     val prSetIds: Set<String> = emptySet(),
@@ -352,6 +356,7 @@ class ActiveWorkoutViewModel @Inject constructor(
             sessionNote = sessionNoteText,
             weightUnit = user?.weightUnit ?: WeightUnit.KG,
             effortScale = user?.effortScale ?: EffortScale.RPE,
+            defaultRepPreference = user?.defaultRepPreference ?: DefaultRepPreference.MINIMUM,
             prSetIds = buildPrSetIds(exerciseSetPoints),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
@@ -420,7 +425,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                         weight.value = last.weight.toString()
                         reps.value = last.reps.toString()
                     } else {
-                        reps.value = current.slot?.repRangeMin?.toString() ?: "8"
+                        reps.value = calculateDefaultReps(current.slot, state.defaultRepPreference).toString()
                     }
                 }
                 // The note belongs to the exercise itself so it persists
@@ -735,6 +740,35 @@ class ActiveWorkoutViewModel @Inject constructor(
             while (restSecondsLeft.value > 0) {
                 delay(1_000)
                 restSecondsLeft.update { (it - 1).coerceAtLeast(0) }
+            }
+        }
+    }
+
+    companion object {
+        fun calculateDefaultReps(
+            slot: RoutineSlotEntity?,
+            preference: DefaultRepPreference,
+        ): Int {
+            if (slot == null) {
+                return when (preference) {
+                    DefaultRepPreference.MINIMUM -> RoutineRepository.DEFAULT_REP_MIN
+                    DefaultRepPreference.MAXIMUM -> RoutineRepository.DEFAULT_REP_MAX
+                }
+            }
+            val min = slot.repRangeMin
+            val max = slot.repRangeMax
+
+            return when (preference) {
+                DefaultRepPreference.MINIMUM -> {
+                    if (min > 0) min
+                    else if (max > 0) max
+                    else RoutineRepository.DEFAULT_REP_MIN
+                }
+                DefaultRepPreference.MAXIMUM -> {
+                    if (max > 0) max
+                    else if (min > 0) min
+                    else RoutineRepository.DEFAULT_REP_MAX
+                }
             }
         }
     }

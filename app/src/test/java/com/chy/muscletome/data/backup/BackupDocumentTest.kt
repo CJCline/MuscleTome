@@ -172,6 +172,18 @@ class BackupDocumentTest {
     }
 
     @Test
+    fun userDefaultRepPreferenceRoundTripsInBackupDocument() {
+        val userWithMaxReps = UserEntity(
+            id = "local-user",
+            name = "You",
+            defaultRepPreference = com.chy.muscletome.domain.model.DefaultRepPreference.MAXIMUM,
+        )
+        val doc = emptyDocument().copy(user = userWithMaxReps)
+        val restored = json.decodeFromString<BackupDocument>(json.encodeToString(doc))
+        assertEquals(com.chy.muscletome.domain.model.DefaultRepPreference.MAXIMUM, restored.user.defaultRepPreference)
+    }
+
+    @Test
     fun rejectsBackupFromNewerUnsupportedFormat() {
         val error = assertThrows(IllegalStateException::class.java) {
             requireSupportedBackupVersion(BackupDocument.FORMAT_VERSION + 1)

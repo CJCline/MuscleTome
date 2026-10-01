@@ -43,3 +43,6 @@ enum class WeightUnit { KG, LB }
 enum class EffortScale { RPE, RIR }
 
 enum class MatchStrictness { STRICT, LOOSE }
+
+/** Preference for defaulting reps in workouts: configured minimum or maximum bound. */
+enum class DefaultRepPreference { MINIMUM, MAXIMUM }

@@ -9,6 +9,7 @@ import com.chy.muscletome.data.local.entity.UserAvailableEquipmentCrossRef
 import com.chy.muscletome.data.local.entity.UserEntity
 import com.chy.muscletome.data.local.entity.UserExcludedExerciseCrossRef
 import com.chy.muscletome.data.local.seed.SeedCatalog
+import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
@@ -58,6 +59,11 @@ class UserRepository @Inject constructor(
     suspend fun setEffortScale(value: EffortScale) {
         val user = userDao.getUser(userId) ?: return
         userDao.update(user.copy(effortScale = value))
+    }
+
+    suspend fun setDefaultRepPreference(value: DefaultRepPreference) {
+        val user = userDao.getUser(userId) ?: return
+        userDao.update(user.copy(defaultRepPreference = value))
     }
 
     suspend fun setPreferCompoundEarly(value: Boolean) {

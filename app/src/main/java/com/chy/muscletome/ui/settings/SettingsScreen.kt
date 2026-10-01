@@ -36,6 +36,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
@@ -115,6 +116,29 @@ fun SettingsScreen(
             }
             Text(
                 "Sets store RPE either way; RIR is shown alongside (RIR = 10 − RPE).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            SectionHeader("Default reps")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DefaultRepPreference.entries.forEach { pref ->
+                    FilterChip(
+                        selected = user?.defaultRepPreference == pref,
+                        onClick = { viewModel.setDefaultRepPreference(pref) },
+                        label = {
+                            Text(
+                                when (pref) {
+                                    DefaultRepPreference.MINIMUM -> "Minimum"
+                                    DefaultRepPreference.MAXIMUM -> "Maximum"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+            Text(
+                "Sets default reps to the target range's minimum or maximum when starting an exercise.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

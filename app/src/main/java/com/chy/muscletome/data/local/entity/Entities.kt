@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.ExerciseSource
@@ -29,6 +30,8 @@ data class UserEntity(
     val maxDifficulty: Difficulty = Difficulty.ADVANCED,
     /** Which effort scale the workout UI speaks (RPE stays the stored canon). */
     val effortScale: EffortScale = EffortScale.RPE,
+    /** Default rep count preference: MINIMUM or MAXIMUM of configured range. */
+    val defaultRepPreference: DefaultRepPreference = DefaultRepPreference.MINIMUM,
     /**
      * The routine Home's "Up next" trains. Null (or a stale pointer to a
      * deleted routine) falls back to the newest routine; the user switches

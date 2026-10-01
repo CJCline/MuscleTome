@@ -13,6 +13,7 @@ import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.FamilyRepository
 import com.chy.muscletome.data.repository.UserRepository
 import com.chy.muscletome.data.repository.WgerImportRepository
+import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightUnit
@@ -182,6 +183,7 @@ class SettingsViewModel @Inject constructor(
     fun setUnit(unit: WeightUnit) = viewModelScope.launch { userRepository.setWeightUnit(unit) }
     fun setStrictness(value: MatchStrictness) = viewModelScope.launch { userRepository.setMatchStrictness(value) }
     fun setEffortScale(value: EffortScale) = viewModelScope.launch { userRepository.setEffortScale(value) }
+    fun setDefaultRepPreference(value: DefaultRepPreference) = viewModelScope.launch { userRepository.setDefaultRepPreference(value) }
     fun setPreferCompoundEarly(value: Boolean) = viewModelScope.launch { userRepository.setPreferCompoundEarly(value) }
 
     fun onExcludeSearchQueryChange(value: String) {
