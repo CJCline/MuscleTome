@@ -184,11 +184,13 @@ class RestTimerManager @Inject constructor(
          * - The chronometer notification ("Ends 3:42 PM") updates
          *   regardless — the beep is the part that can be silenced.
          */
-        fun handleRestFinished(context: Context) {
+        fun handleRestFinished(context: Context, onDone: () -> Unit = {}) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().clear().apply()
-            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
-            playCompletionCue()
+            try {
+                NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+            } catch (_: Exception) {}
+            playCompletionCue(onDone)
         }
 
         /**

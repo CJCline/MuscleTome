@@ -15,9 +15,9 @@ class RestAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_REST_FINISHED) return
         val pending = goAsync()
-        RestTimerManager.playCompletionCue {
+        RestTimerManager.handleRestFinished(context, onDone = {
             pending.finish()
-        }
+        })
     }
 
     companion object {
