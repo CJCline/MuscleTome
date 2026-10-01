@@ -16,7 +16,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
@@ -66,7 +65,7 @@ fun AddExerciseScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 modifier = Modifier.fillMaxWidth(),
@@ -79,21 +78,21 @@ fun AddExerciseScreen(
                     null
                 },
             )
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Description") },
             )
 
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.instructionsText,
                 onValueChange = viewModel::onInstructionsChange,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Form steps (one per line)") },
                 minLines = 3,
             )
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.mediaUri,
                 onValueChange = viewModel::onMediaUriChange,
                 modifier = Modifier.fillMaxWidth(),
@@ -175,7 +174,7 @@ fun AddExerciseScreen(
                     )
                 }
             }
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.newFamilyName,
                 onValueChange = viewModel::onNewFamilyNameChange,
                 modifier = Modifier.fillMaxWidth(),

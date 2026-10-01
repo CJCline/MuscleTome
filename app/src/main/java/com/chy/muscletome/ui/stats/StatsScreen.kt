@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -323,7 +322,7 @@ fun StatsScreen(
             title = { Text("${row.muscle.name} weekly target") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = text,
                         onValueChange = { value ->
                             text = value.filter { it.isDigit() }.take(3)

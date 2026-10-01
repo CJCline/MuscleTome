@@ -20,7 +20,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -266,7 +265,7 @@ fun SettingsScreen(
                 }
             }
 
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = excludeQuery,
                 onValueChange = viewModel::onExcludeSearchQueryChange,
                 modifier = Modifier.fillMaxWidth(),

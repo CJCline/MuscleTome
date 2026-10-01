@@ -119,20 +119,9 @@ fun MetricStepper(
                                 ),
                             )
                         }
-                        var selectAllOnFocus by remember { mutableStateOf(true) }
                         OutlinedTextField(
                             value = fieldValue,
                             onValueChange = { typed ->
-                                val old = fieldValue.text
-                                if (selectAllOnFocus) {
-                                    selectAllOnFocus = false
-                                    if (typed.text == old) {
-                                        fieldValue = typed.copy(
-                                            selection = androidx.compose.ui.text.TextRange(0, old.length),
-                                        )
-                                        return@OutlinedTextField
-                                    }
-                                }
                                 fieldValue = typed
                                 onValueChange(typed.text)
                             },

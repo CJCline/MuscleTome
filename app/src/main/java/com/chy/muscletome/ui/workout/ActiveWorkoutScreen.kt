@@ -31,7 +31,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -577,7 +576,7 @@ fun ActiveWorkoutScreen(
                 if (state.rpe.isNotBlank()) {
                     TextButton(onClick = { viewModel.onRpeChange("") }) { Text("Clear effort") }
                 }
-                OutlinedTextField(
+                com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                     value = state.sessionNote,
                     onValueChange = viewModel::onSessionNoteChange,
                     modifier = Modifier.fillMaxWidth(),
@@ -586,7 +585,7 @@ fun ActiveWorkoutScreen(
                     supportingText = { Text("Saved automatically · this workout only") },
                     minLines = 2,
                 )
-                OutlinedTextField(
+                com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                     value = state.note,
                     onValueChange = viewModel::onNoteChange,
                     modifier = Modifier.fillMaxWidth(),
@@ -646,25 +645,25 @@ fun ActiveWorkoutScreen(
             title = { Text("Edit set ${set.setNumber}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = weightField,
                         onValueChange = { weightField = it },
                         label = { Text("Weight (${state.weightUnitSuffix.trim()})") },
                         singleLine = true,
                     )
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = repsField,
                         onValueChange = { repsField = it },
                         label = { Text("Reps") },
                         singleLine = true,
                     )
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = rpeField,
                         onValueChange = ::onRpeEdit,
                         label = { Text("RPE (optional)") },
                         singleLine = true,
                     )
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = rirField,
                         onValueChange = ::onRirEdit,
                         label = { Text("RIR (optional)") },
@@ -714,7 +713,7 @@ fun ActiveWorkoutScreen(
             title = { Text("Replace exercise") },
             text = {
                 Column {
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = state.swapQuery,
                         onValueChange = viewModel::onSwapQueryChange,
                         modifier = Modifier.fillMaxWidth(),
@@ -778,7 +777,7 @@ fun ActiveWorkoutScreen(
             title = { Text("Superset with…") },
             text = {
                 Column {
-                    OutlinedTextField(
+                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                         value = state.supersetQuery,
                         onValueChange = viewModel::onSupersetQueryChange,
                         modifier = Modifier.fillMaxWidth(),

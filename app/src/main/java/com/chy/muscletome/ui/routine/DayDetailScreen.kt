@@ -36,7 +36,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -50,7 +49,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -542,49 +540,12 @@ internal fun SlotMetricField(
     /** RPE allows half-points (7.5); whole numbers otherwise. */
     allowDecimal: Boolean = false,
 ) {
-    var fieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(value, TextRange(value.length)))
-    }
-    var isFocused by remember { mutableStateOf(false) }
-    var selectAllOnFocus by remember { mutableStateOf(false) }
-
-    LaunchedEffect(value, isValueExternal, isFocused) {
-        if (!isFocused && (isValueExternal || fieldValue.text != value)) {
-            fieldValue = TextFieldValue(value, TextRange(value.length))
-        }
-    }
-
-    OutlinedTextField(
-        value = fieldValue,
-        onValueChange = { typed ->
-            val old = fieldValue.text
-            if (selectAllOnFocus) {
-                selectAllOnFocus = false
-                if (typed.text == old) {
-                    fieldValue = typed.copy(selection = TextRange(0, old.length))
-                    return@OutlinedTextField
-                }
-            }
-            val text = applySlotFieldChange(old, typed.text, allowDecimal)
-            fieldValue = typed.copy(text = text).normalizeSelection(text)
-            if (text != old) onValueChange(text)
-        },
-        modifier = modifier.onFocusChanged { focusState ->
-            val gainedFocus = focusState.isFocused && !isFocused
-            isFocused = focusState.isFocused
-            if (focusState.isFocused) {
-                onFocused(true)
-                if (gainedFocus) {
-                    selectAllOnFocus = true
-                    fieldValue = fieldValue.copy(
-                        selection = TextRange(0, fieldValue.text.length),
-                    )
-                }
-            } else {
-                onFocused(false)
-                selectAllOnFocus = false
-            }
-        },
+    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        onFocused = onFocused,
+        applyValueChange = { old, typed -> applySlotFieldChange(old, typed, allowDecimal) },
         label = { Text(label) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
@@ -633,11 +594,3 @@ internal fun applySlotFieldChange(oldText: String, typedText: String, allowDecim
     }
     return if (isValidSlotFieldText(text, allowDecimal)) text else oldText
 }
-
-/** Keeps the caret inside clamped text (deletions shift it inward). */
-private fun TextFieldValue.normalizeSelection(text: String): TextFieldValue =
-    if (selection.end > text.length || selection.start > text.length) {
-        copy(selection = TextRange(text.length))
-    } else {
-        this
-    }

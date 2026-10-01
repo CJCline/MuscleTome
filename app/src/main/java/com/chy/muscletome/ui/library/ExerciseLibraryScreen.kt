@@ -86,7 +86,7 @@ fun ExerciseLibraryScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
             ) { Text("Import review") }
 
-            OutlinedTextField(
+            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
                 modifier = Modifier
