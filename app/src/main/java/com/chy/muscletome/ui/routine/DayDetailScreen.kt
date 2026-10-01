@@ -107,16 +107,10 @@ fun DayDetailScreen(
     var focusedSlotId by remember { mutableStateOf<String?>(null) }
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible, focusedSlotId, slotRows) {
-        if (imeVisible.not()) return@LaunchedEffect
-        val slotIndex = focusedSlotId?.let { id ->
-            slotRows.indexOfFirst { it.slot.id == id }
-        } ?: return@LaunchedEffect
-        if (slotIndex < 0) return@LaunchedEffect
-        val item = slotListState.layoutInfo.visibleItemsInfo
-            .firstOrNull { it.key == focusedSlotId } ?: return@LaunchedEffect
-        val isClipped = item.offset < 0 ||
-            (item.offset + item.size) > slotListState.layoutInfo.viewportEndOffset
-        if (isClipped) {
+        if (!imeVisible) return@LaunchedEffect
+        val id = focusedSlotId ?: return@LaunchedEffect
+        val slotIndex = slotRows.indexOfFirst { it.slot.id == id }
+        if (slotIndex >= 0) {
             slotListState.animateScrollToItem(slotIndex)
         }
     }
@@ -252,8 +246,8 @@ fun DayDetailScreen(
                     start = 16.dp,
                     top = 16.dp,
                     end = 16.dp,
-                    // Room for the IME-aware FAB below the last row.
-                    bottom = 96.dp,
+                    // Extra padding when IME is visible ensures even bottom-of-list items can scroll completely above the keyboard & FAB.
+                    bottom = if (imeVisible) 280.dp else 120.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

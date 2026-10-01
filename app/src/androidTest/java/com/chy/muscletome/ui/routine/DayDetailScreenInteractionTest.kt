@@ -1,15 +1,21 @@
 package com.chy.muscletome.ui.routine
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import org.junit.Assert.assertEquals
@@ -109,5 +115,39 @@ class DayDetailScreenInteractionTest {
 
         // Verify minText was preserved
         assertEquals("10", minText)
+    }
+
+    @Test
+    fun bottomOfListExerciseFieldEditingWithScroll() {
+        val list = List(15) { "item_$it" }
+        val values = mutableStateMapOf<String, String>().apply {
+            list.forEach { this[it] = "8" }
+        }
+
+        compose.setContent {
+            MaterialTheme {
+                LazyColumn(modifier = Modifier.fillMaxSize().testTag("list")) {
+                    itemsIndexed(list, key = { _, item -> item }) { _, item ->
+                        SlotMetricField(
+                            label = "Rep min",
+                            value = values[item] ?: "",
+                            isValueExternal = false,
+                            onValueChange = { values[item] = it },
+                            modifier = Modifier.testTag("field_$item"),
+                        )
+                    }
+                }
+            }
+        }
+
+        val listNode = compose.onNodeWithTag("list")
+        val lastNode = compose.onNodeWithTag("field_item_14")
+
+        // Scroll to the bottom item and edit
+        listNode.performScrollToNode(hasTestTag("field_item_14"))
+        lastNode.performClick()
+        lastNode.performTextInput("6")
+
+        assertEquals("6", values["item_14"])
     }
 }
