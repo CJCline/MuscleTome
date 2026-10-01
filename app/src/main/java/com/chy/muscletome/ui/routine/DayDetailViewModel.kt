@@ -113,63 +113,55 @@ class DayDetailViewModel @Inject constructor(
         val names = exercises.associate { it.id to it.name }
         val muscleNames = routineRepository.getMuscleGroupNames()
         val targetsBySlot = slotTargets.groupBy { it.slotId }
+        val mappedSlots = slots.map { slot ->
+            val draft = currentDrafts[slot.id]
+            val setsText = draft?.sets ?: slot.sets.toString()
+            val minText = draft?.repMin ?: slot.repRangeMin.toString()
+            val maxText = draft?.repMax ?: slot.repRangeMax.toString()
+            val restText = draft?.restSeconds ?: slot.restSeconds.toString()
+            val effortText = draft?.targetEffort
+                ?: slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
+            val valid = setsText.toIntOrNull() != null &&
+                minText.toIntOrNull() != null &&
+                maxText.toIntOrNull() != null &&
+                restText.toIntOrNull() != null
+            val slotEffortText = slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
+            val dirty = draft != null && (
+                setsText != slot.sets.toString() ||
+                minText != slot.repRangeMin.toString() ||
+                maxText != slot.repRangeMax.toString() ||
+                restText != slot.restSeconds.toString() ||
+                effortText != slotEffortText
+            )
+            val targetLabel = if (slot.type == SlotType.TARGET) {
+                TargetSlotLabel.label(
+                    muscleNames = (targetsBySlot[slot.id] ?: emptyList())
+                        .mapNotNull { muscleNames[it.muscleGroupId] },
+                    movement = slot.targetMovementType,
+                )
+            } else {
+                null
+            }
+            SlotRow(
+                slot = slot,
+                exerciseName = slot.exerciseId?.let { names[it] } ?: "Choose exercise",
+                targetLabel = targetLabel,
+                draftSets = setsText,
+                draftRepMin = minText,
+                draftRepMax = maxText,
+                draftRestSeconds = restText,
+                draftTargetEffort = effortText,
+                isDraftValid = valid,
+                hasUnsavedChanges = dirty,
+            )
+        }
+        val anyDirty = mappedSlots.any { it.hasUnsavedChanges }
+        val allDirtyValid = mappedSlots.all { !it.hasUnsavedChanges || it.isDraftValid }
         DayDetailUiState(
             day = day,
-            slots = slots.map { slot ->
-                val draft = currentDrafts[slot.id]
-                val setsText = draft?.sets ?: slot.sets.toString()
-                val minText = draft?.repMin ?: slot.repRangeMin.toString()
-                val maxText = draft?.repMax ?: slot.repRangeMax.toString()
-                val restText = draft?.restSeconds ?: slot.restSeconds.toString()
-                val effortText = draft?.targetEffort
-                    ?: slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
-                val valid = setsText.toIntOrNull() != null &&
-                    minText.toIntOrNull() != null &&
-                    maxText.toIntOrNull() != null &&
-                    restText.toIntOrNull() != null
-                val dirty = draft != null && (
-                    setOf(
-                        setsText,
-                        minText,
-                        maxText,
-                        restText,
-                    ) != setOf(
-                        slot.sets.toString(),
-                        slot.repRangeMin.toString(),
-                        slot.repRangeMax.toString(),
-                        slot.restSeconds.toString(),
-                    ) || effortText !=
-                        slot.targetRpe?.let { EffortScales.toScaleText(it, effortScalePref) }.orEmpty()
-                    )
-                val targetLabel = if (slot.type == SlotType.TARGET) {
-                    TargetSlotLabel.label(
-                        muscleNames = (targetsBySlot[slot.id] ?: emptyList())
-                            .mapNotNull { muscleNames[it.muscleGroupId] },
-                        movement = slot.targetMovementType,
-                    )
-                } else {
-                    null
-                }
-                SlotRow(
-                    slot = slot,
-                    exerciseName = slot.exerciseId?.let { names[it] } ?: "Choose exercise",
-                    targetLabel = targetLabel,
-                    draftSets = setsText,
-                    draftRepMin = minText,
-                    draftRepMax = maxText,
-                    draftRestSeconds = restText,
-                    draftTargetEffort = effortText,
-                    isDraftValid = valid,
-                    hasUnsavedChanges = dirty,
-                )
-            },
-            hasUnsavedChanges = currentDrafts.isNotEmpty(),
-            canSave = currentDrafts.isNotEmpty() && slots.all { s ->
-                currentDrafts[s.id]?.let { d ->
-                    d.sets.toIntOrNull() != null && d.repMin.toIntOrNull() != null &&
-                        d.repMax.toIntOrNull() != null && d.restSeconds.toIntOrNull() != null
-                } ?: true
-            },
+            slots = mappedSlots,
+            hasUnsavedChanges = anyDirty,
+            canSave = anyDirty && allDirtyValid,
             savedTick = tick,
             effortScale = effortScalePref,
         )

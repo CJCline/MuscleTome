@@ -3,7 +3,7 @@ package com.chy.muscletome.ui.routine
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chy.muscletome.data.local.entity.ExerciseEntity
+import com.chy.muscletome.data.local.dao.ExerciseLibraryRow
 import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
@@ -23,7 +23,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 data class AddSlotUiState(
     val query: String = "",
-    val exercises: List<ExerciseEntity> = emptyList(),
+    /** Search results with family metadata, grouped by the picker screen. */
+    val libraryRows: List<ExerciseLibraryRow> = emptyList(),
     val selectedExerciseIds: Set<String> = emptySet(),
     val muscleGroups: List<MuscleGroupEntity> = emptyList(),
     val selectedMuscleIds: Set<String> = emptySet(),
@@ -56,7 +57,7 @@ class AddSlotViewModel @Inject constructor(
 
     private val exerciseResults = query
         .debounce(150.milliseconds)
-        .flatMapLatest { q -> catalogRepository.searchExercises(q, null) }
+        .flatMapLatest { q -> catalogRepository.searchLibraryRows(q, null) }
 
     val uiState = combine(
         exerciseResults,
@@ -70,7 +71,7 @@ class AddSlotViewModel @Inject constructor(
         saved,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
-        val searchResults = values[0] as List<ExerciseEntity>
+        val searchResults = values[0] as List<ExerciseLibraryRow>
         @Suppress("UNCHECKED_CAST")
         val allMuscles = values[1] as List<MuscleGroupEntity>
         val currentQuery = values[2] as String
@@ -89,7 +90,7 @@ class AddSlotViewModel @Inject constructor(
 
         AddSlotUiState(
             query = currentQuery,
-            exercises = searchResults,
+            libraryRows = searchResults,
             selectedExerciseIds = selectedIds,
             muscleGroups = filteredMuscles,
             selectedMuscleIds = selectedMuscles,
@@ -108,6 +109,20 @@ class AddSlotViewModel @Inject constructor(
         selectedExerciseIds.value = selectedExerciseIds.value.toMutableSet().also { set ->
             if (!set.add(id)) set.remove(id)
         }
+    }
+
+    /**
+     * Family header tap: adds every missing variation, or clears the whole
+     * family when all of them are already picked.
+     */
+    fun toggleFamily(memberIds: List<String>) {
+        val allSelected = memberIds.all { it in selectedExerciseIds.value }
+        selectedExerciseIds.value =
+            if (allSelected) {
+                selectedExerciseIds.value - memberIds.toSet()
+            } else {
+                selectedExerciseIds.value + memberIds.toSet()
+            }
     }
 
     fun setTargetMode(value: Boolean) { isTarget.value = value }

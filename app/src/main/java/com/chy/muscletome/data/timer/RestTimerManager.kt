@@ -171,7 +171,19 @@ class RestTimerManager @Inject constructor(
         private const val ALARM_REQUEST_CODE = 1002
         private const val CONTENT_REQUEST_CODE = 1003
 
-        /** Fired by [RestAlarmReceiver]: clear state, drop notification, beep. */
+        /**
+         * End-of-rest side effects: clear the persisted countdown, drop the
+         * summary notification, and play the completion beep.
+         *
+         * Device-setting limitations, for the user:
+         * - The tone plays on the **notification** stream, so turn the
+         *   notification volume up (not just media) to hear it.
+         * - Silent/vibrate mode and Do-Not-Disturb silence the tone, as
+         *   they silence any other notification sound; a normal heads-up
+         *   notification is still posted for DND bypassed users only.
+         * - The chronometer notification ("Ends 3:42 PM") updates
+         *   regardless — the beep is the part that can be silenced.
+         */
         fun handleRestFinished(context: Context) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().clear().apply()
@@ -179,14 +191,23 @@ class RestTimerManager @Inject constructor(
             playCompletionCue()
         }
 
-        private fun playCompletionCue() {
+        /**
+         * Plays the short completion tone and reports completion through
+         * [onDone] so the caller can keep its broadcast alive while the
+         * sound plays ([RestAlarmReceiver] waits ~900 ms).
+         */
+        fun playCompletionCue(onDone: () -> Unit = {}) {
             val tone = try {
                 ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80)
             } catch (_: RuntimeException) {
+                onDone()
                 return // no audio resource available right now
             }
             tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
-            Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 800)
+            Handler(Looper.getMainLooper()).postDelayed({
+                tone.release()
+                onDone()
+            }, 800)
         }
     }
 }

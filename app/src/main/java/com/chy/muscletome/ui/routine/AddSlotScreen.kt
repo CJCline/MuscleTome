@@ -29,14 +29,25 @@ import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.saveable.mapSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.layout.ContentScale
+import com.chy.muscletome.data.local.dao.ExerciseLibraryRow
+import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.model.MovementFamilies
 import com.chy.muscletome.ui.components.ExerciseDemoImage
+import com.chy.muscletome.ui.components.LedgerDivider
+import com.chy.muscletome.ui.library.groupExerciseFamilies
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +56,18 @@ fun AddSlotScreen(
     viewModel: AddSlotViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Family expansion survives rotation but not leaving the picker — the
+    // library screen's saver pattern, scoped to this session's choices.
+    val expandedFamilies = rememberSaveable(
+        saver = mapSaver(
+            save = { map -> map.mapValues { it.value } },
+            restore = { restored ->
+                mutableStateMapOf<String, Boolean>().apply {
+                    restored.forEach { (key, value) -> this[key] = value as Boolean }
+                }
+            },
+        ),
+    ) { mutableStateMapOf<String, Boolean>() }
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -154,31 +177,84 @@ fun AddSlotScreen(
                         )
                     }
                 } else {
-                    items(state.exercises, key = { it.id }) { exercise ->
-                        ListItem(
-                            headlineContent = { Text(exercise.name) },
-                            supportingContent = { Text(exercise.primaryMuscleGroupId) },
-                            leadingContent = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Checkbox(
-                                        checked = state.selectedExerciseIds.contains(exercise.id),
-                                        onCheckedChange = { viewModel.onExerciseSelected(exercise.id) },
-                                    )
-                                    if (!exercise.demoUri.isNullOrBlank()) {
-                                        ExerciseDemoImage(
-                                            uri = exercise.demoUri,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(36.dp),
-                                            contentScale = ContentScale.Crop,
+                    // Same family grouping as the Exercise Library: variations
+                    // collapse under an expandable family header; a search hit
+                    // inside a family auto-expands it so matches stay visible.
+                    val familyGroups = groupExerciseFamilies(state.libraryRows)
+                    familyGroups.forEach { group ->
+                        val familyId = group.familyId
+                        val members = group.rows.map(ExerciseLibraryRow::exercise)
+                        if (familyId == null) {
+                            val exercise = members.first()
+                            item(key = "exercise:${exercise.id}") {
+                                SlotExerciseRow(
+                                    exercise = exercise,
+                                    selected = exercise.id in state.selectedExerciseIds,
+                                    onToggle = { viewModel.onExerciseSelected(exercise.id) },
+                                )
+                            }
+                        } else {
+                            item(key = "family:$familyId") {
+                                val matchesSearch = state.query.isNotBlank() && members.any {
+                                    it.name.contains(state.query, ignoreCase = true)
+                                }
+                                val expanded = matchesSearch || expandedFamilies[familyId] == true
+                                val allSelected = members.all { it.id in state.selectedExerciseIds }
+                                val someSelected = members.any { it.id in state.selectedExerciseIds }
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { expandedFamilies[familyId] = !expanded }
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        // Header checkbox: checked = every variation
+                                        // picked, indeterminate = partial, unchecked
+                                        // = none; a tap selects all or clears all.
+                                        Checkbox(
+                                            checked = allSelected,
+                                            onCheckedChange = {
+                                                viewModel.toggleFamily(members.map { it.id })
+                                            },
+                                            modifier = Modifier.semantics {
+                                                if (someSelected && !allSelected) {
+                                                    toggleableState = ToggleableState.Indeterminate
+                                                }
+                                            },
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                MovementFamilies.label(familyId) ?: familyId,
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            Text(
+                                                "${members.size} variations",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        Text(
+                                            if (expanded) "−" else "+",
+                                            style = MaterialTheme.typography.titleLarge,
                                         )
                                     }
+                                    LedgerDivider()
+                                    if (expanded) {
+                                        members.forEach { variation ->
+                                            SlotExerciseRow(
+                                                exercise = variation,
+                                                selected = variation.id in state.selectedExerciseIds,
+                                                onToggle = {
+                                                    viewModel.onExerciseSelected(variation.id)
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
-                            },
-                            modifier = Modifier.clickable { viewModel.onExerciseSelected(exercise.id) },
-                        )
+                            }
+                        }
                     }
                 }
             }
@@ -195,4 +271,41 @@ fun AddSlotScreen(
             }
         }
     }
+}
+
+/**
+ * One exercise row of the picker: checkbox + demo thumbnail, tap toggles.
+ * Duplicates are impossible — results are keyed by exercise id, so picking
+ * the same exercise twice (row tap or family select-all) just keeps one.
+ */
+@Composable
+private fun SlotExerciseRow(
+    exercise: ExerciseEntity,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(exercise.name) },
+        supportingContent = { Text(exercise.primaryMuscleGroupId) },
+        leadingContent = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggle() },
+                )
+                if (!exercise.demoUri.isNullOrBlank()) {
+                    ExerciseDemoImage(
+                        uri = exercise.demoUri,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+            }
+        },
+        modifier = Modifier.clickable(onClick = onToggle),
+    )
 }

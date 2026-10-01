@@ -111,9 +111,31 @@ fun MetricStepper(
                     label = "stepper-editing",
                 ) { isEditing ->
                     if (isEditing) {
+                        var fieldValue by remember(editing) {
+                            mutableStateOf(
+                                androidx.compose.ui.text.input.TextFieldValue(
+                                    value,
+                                    selection = androidx.compose.ui.text.TextRange(0, value.length),
+                                ),
+                            )
+                        }
+                        var selectAllOnFocus by remember { mutableStateOf(true) }
                         OutlinedTextField(
-                            value = value,
-                            onValueChange = onValueChange,
+                            value = fieldValue,
+                            onValueChange = { typed ->
+                                val old = fieldValue.text
+                                if (selectAllOnFocus) {
+                                    selectAllOnFocus = false
+                                    if (typed.text == old) {
+                                        fieldValue = typed.copy(
+                                            selection = androidx.compose.ui.text.TextRange(0, old.length),
+                                        )
+                                        return@OutlinedTextField
+                                    }
+                                }
+                                fieldValue = typed
+                                onValueChange(typed.text)
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(if (large) 96.dp else 64.dp)
