@@ -34,7 +34,9 @@ import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
@@ -206,6 +208,10 @@ fun AddSlotScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable { expandedFamilies[familyId] = !expanded }
+                                            .semantics {
+                                                contentDescription = "${MovementFamilies.label(familyId) ?: familyId} exercise family"
+                                                stateDescription = if (expanded) "Expanded" else "Collapsed"
+                                            }
                                             .padding(vertical = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically,
