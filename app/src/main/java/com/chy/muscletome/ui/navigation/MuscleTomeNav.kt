@@ -206,7 +206,10 @@ fun MuscleTomeNav() {
                     navArgument("dayId") { type = NavType.StringType },
                 ),
             ) {
-                AddSlotScreen(onBack = { navController.popBackStack() })
+                AddSlotScreen(
+                    onBack = { navController.popBackStack() },
+                    onAddExercise = { navController.navigate(Routes.addExercise()) },
+                )
             }
             composable(Routes.LIBRARY) {
                 ExerciseLibraryScreen(

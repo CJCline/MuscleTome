@@ -40,7 +40,7 @@ data class AddSlotUiState(
 @HiltViewModel
 class AddSlotViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    catalogRepository: CatalogRepository,
+    private val catalogRepository: CatalogRepository,
     private val routineRepository: RoutineRepository,
 ) : ViewModel() {
 
@@ -48,12 +48,33 @@ class AddSlotViewModel @Inject constructor(
 
     private val query = MutableStateFlow("")
     private val selectedExerciseIds = MutableStateFlow<Set<String>>(emptySet())
-    private val saved = MutableStateFlow(false)
+    private val saved = MutableStateFlow(value = false)
 
-    private val isTarget = MutableStateFlow(false)
+    private val isTarget = MutableStateFlow(value = false)
     private val selectedMuscleIds = MutableStateFlow<Set<String>>(emptySet())
     private val targetMovement = MutableStateFlow(TargetMovementType.ANY)
-    private val asSuperset = MutableStateFlow(false)
+    private val asSuperset = MutableStateFlow(value = false)
+
+    init {
+        viewModelScope.launch {
+            var knownExerciseIds: Set<String>? = null
+            catalogRepository.observeExercises().collect { exercises ->
+                val allIds = exercises.map { it.id }.toSet()
+                if (knownExerciseIds == null) {
+                    knownExerciseIds = allIds
+                } else {
+                    val newCustomIds = exercises
+                        .filter { it.isCustom && (it.id !in knownExerciseIds!!) && (it.id !in selectedExerciseIds.value) }
+                        .map { it.id }
+                    if (newCustomIds.isNotEmpty()) {
+                        knownExerciseIds = knownExerciseIds!! + newCustomIds.toSet()
+                        selectedExerciseIds.value += newCustomIds.toSet()
+                        query.value = ""
+                    }
+                }
+            }
+        }
+    }
 
     private val exerciseResults = query
         .debounce(150.milliseconds)

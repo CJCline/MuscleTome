@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,8 +24,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.runtime.Composable
@@ -54,6 +59,7 @@ import com.chy.muscletome.ui.library.groupExerciseFamilies
 @Composable
 fun AddSlotScreen(
     onBack: () -> Unit,
+    onAddExercise: () -> Unit = {},
     viewModel: AddSlotViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -81,6 +87,15 @@ fun AddSlotScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (!state.isTargetMode) {
+                        TextButton(onClick = onAddExercise) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("New exercise")
+                        }
                     }
                 },
             )
@@ -182,79 +197,121 @@ fun AddSlotScreen(
                     // collapse under an expandable family header; a search hit
                     // inside a family auto-expands it so matches stay visible.
                     val familyGroups = groupExerciseFamilies(state.libraryRows)
-                    familyGroups.forEach { group ->
-                        val familyId = group.familyId
-                        val members = group.rows.map(ExerciseLibraryRow::exercise)
-                        if (familyId == null) {
-                            val exercise = members.first()
-                            item(key = "exercise:${exercise.id}") {
-                                SlotExerciseRow(
-                                    exercise = exercise,
-                                    selected = exercise.id in state.selectedExerciseIds,
-                                    onToggle = { viewModel.onExerciseSelected(exercise.id) },
+                    if (familyGroups.isEmpty()) {
+                        item(key = "create_custom_empty_state") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp, horizontal = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text(
+                                    if (state.query.isNotBlank()) {
+                                        "No exercises found matching \"${state.query}\""
+                                    } else {
+                                        "No exercises available"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                            }
-                        } else {
-                            item(key = "family:$familyId") {
-                                val matchesSearch = state.query.isNotBlank() && members.any {
-                                    it.name.contains(state.query, ignoreCase = true)
+                                Button(onClick = onAddExercise) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        if (state.query.isNotBlank()) {
+                                            "Create \"${state.query}\" exercise"
+                                        } else {
+                                            "Create new exercise"
+                                        },
+                                    )
                                 }
-                                val expanded = matchesSearch || expandedFamilies[familyId] == true
-                                val allSelected = members.all { it.id in state.selectedExerciseIds }
-                                val someSelected = members.any { it.id in state.selectedExerciseIds }
-                                Column {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { expandedFamilies[familyId] = !expanded }
-                                            .semantics {
-                                                contentDescription = "${MovementFamilies.label(familyId) ?: familyId} exercise family"
-                                                stateDescription = if (expanded) "Expanded" else "Collapsed"
-                                            }
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        // Header checkbox: checked = every variation
-                                        // picked, indeterminate = partial, unchecked
-                                        // = none; a tap selects all or clears all.
-                                        Checkbox(
-                                            checked = allSelected,
-                                            onCheckedChange = {
-                                                viewModel.toggleFamily(members.map { it.id })
-                                            },
-                                            modifier = Modifier.semantics {
-                                                if (someSelected && !allSelected) {
-                                                    toggleableState = ToggleableState.Indeterminate
-                                                }
-                                            },
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                MovementFamilies.label(familyId) ?: familyId,
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            Text(
-                                                "${members.size} variations",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                        Text(
-                                            if (expanded) "−" else "+",
-                                            style = MaterialTheme.typography.titleLarge,
-                                        )
+                            }
+                        }
+                    } else {
+                        item(key = "create_custom_action_header") {
+                            OutlinedButton(
+                                onClick = onAddExercise,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Create custom exercise")
+                            }
+                        }
+                        familyGroups.forEach { group ->
+                            val familyId = group.familyId
+                            val members = group.rows.map(ExerciseLibraryRow::exercise)
+                            if (familyId == null) {
+                                val exercise = members.first()
+                                item(key = "exercise:${exercise.id}") {
+                                    SlotExerciseRow(
+                                        exercise = exercise,
+                                        selected = exercise.id in state.selectedExerciseIds,
+                                        onToggle = { viewModel.onExerciseSelected(exercise.id) },
+                                    )
+                                }
+                            } else {
+                                item(key = "family:$familyId") {
+                                    val matchesSearch = state.query.isNotBlank() && members.any {
+                                        it.name.contains(state.query, ignoreCase = true)
                                     }
-                                    LedgerDivider()
-                                    if (expanded) {
-                                        members.forEach { variation ->
-                                            SlotExerciseRow(
-                                                exercise = variation,
-                                                selected = variation.id in state.selectedExerciseIds,
-                                                onToggle = {
-                                                    viewModel.onExerciseSelected(variation.id)
+                                    val expanded = matchesSearch || expandedFamilies[familyId] == true
+                                    val allSelected = members.all { it.id in state.selectedExerciseIds }
+                                    val someSelected = members.any { it.id in state.selectedExerciseIds }
+                                    Column {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { expandedFamilies[familyId] = !expanded }
+                                                .semantics {
+                                                    contentDescription = "${MovementFamilies.label(familyId) ?: familyId} exercise family"
+                                                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                                                }
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Checkbox(
+                                                checked = allSelected,
+                                                onCheckedChange = {
+                                                    viewModel.toggleFamily(members.map { it.id })
+                                                },
+                                                modifier = Modifier.semantics {
+                                                    if (someSelected && !allSelected) {
+                                                        toggleableState = ToggleableState.Indeterminate
+                                                    }
                                                 },
                                             )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    MovementFamilies.label(familyId) ?: familyId,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                )
+                                                Text(
+                                                    "${members.size} variations",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            Text(
+                                                if (expanded) "−" else "+",
+                                                style = MaterialTheme.typography.titleLarge,
+                                            )
+                                        }
+                                        LedgerDivider()
+                                        if (expanded) {
+                                            members.forEach { variation ->
+                                                SlotExerciseRow(
+                                                    exercise = variation,
+                                                    selected = variation.id in state.selectedExerciseIds,
+                                                    onToggle = {
+                                                        viewModel.onExerciseSelected(variation.id)
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
