@@ -495,9 +495,13 @@ fun ActiveWorkoutScreen(
             // --- Rest banner: plate-ring countdown -------------------------
             if (state.restSecondsLeft > 0) {
                 item {
-                    val plannedRest = current?.slot?.restSeconds ?: 0
+                    val plannedRest = if (state.totalRestSeconds > 0) {
+                        state.totalRestSeconds
+                    } else {
+                        current?.slot?.restSeconds ?: 0
+                    }
                     val fraction = if (plannedRest > 0) {
-                        state.restSecondsLeft.toFloat() / plannedRest
+                        (state.restSecondsLeft.toFloat() / plannedRest).coerceIn(0f, 1f)
                     } else {
                         1f
                     }

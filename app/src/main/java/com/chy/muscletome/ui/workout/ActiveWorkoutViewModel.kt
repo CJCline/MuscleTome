@@ -105,6 +105,7 @@ data class ActiveWorkoutUiState(
     val reps: String = "8",
     val rpe: String = "",
     val restSecondsLeft: Int = 0,
+    val totalRestSeconds: Int = 0,
     val finished: Boolean = false,
     val catalogExercises: List<ExerciseEntity> = emptyList(),
     val swapQuery: String = "",
@@ -199,6 +200,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val reps = MutableStateFlow("8")
     private val rpe = MutableStateFlow("")
     private val restSecondsLeft = MutableStateFlow(0)
+    private val totalRestSeconds = MutableStateFlow(0)
     private val finished = MutableStateFlow(false)
     private val swapQuery = MutableStateFlow("")
     private val supersetQuery = MutableStateFlow("")
@@ -286,6 +288,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         reps,
         rpe,
         restSecondsLeft,
+        totalRestSeconds,
         finished,
         swapQuery,
         currentExerciseSets,
@@ -308,16 +311,17 @@ class ActiveWorkoutViewModel @Inject constructor(
         val repsText = values[6] as String
         val rpeText = values[7] as String
         val rest = values[8] as Int
-        val isFinished = values[9] as Boolean
-        val swapFilter = values[10] as String
+        val totalRest = values[9] as Int
+        val isFinished = values[10] as Boolean
+        val swapFilter = values[11] as String
         @Suppress("UNCHECKED_CAST")
-        val exerciseSetPoints = values[11] as List<ExerciseSetPoint>
-        val span = values[12] as ProgressSpan
-        val noteText = values[13] as String
+        val exerciseSetPoints = values[12] as List<ExerciseSetPoint>
+        val span = values[13] as ProgressSpan
+        val noteText = values[14] as String
         @Suppress("UNCHECKED_CAST")
-        val user = values[14] as UserEntity?
-        val sessionNoteText = values[15] as String
-        val supersetFilter = values[16] as String
+        val user = values[15] as UserEntity?
+        val sessionNoteText = values[16] as String
+        val supersetFilter = values[17] as String
 
         val exerciseMap = exercises.associateBy { it.id }
         val slotMap = routineSlots.associateBy { it.id }
@@ -345,6 +349,7 @@ class ActiveWorkoutViewModel @Inject constructor(
             reps = repsText,
             rpe = rpeText,
             restSecondsLeft = rest,
+            totalRestSeconds = totalRest,
             finished = isFinished,
             catalogExercises = exercises.filter {
                 it.name.contains(swapFilter, ignoreCase = true)
@@ -596,13 +601,10 @@ class ActiveWorkoutViewModel @Inject constructor(
      * - Skipped exercises: Leaving an exercise before completing all planned sets does NOT
      *   mark it complete or remove it from the session. It remains available in [ActiveWorkoutUiState.slots].
      * - Notes: Pending exercise cues and session notes are immediately flushed to storage.
-     * - Timer: Any active rest countdown is cancelled so the user can focus on the selected exercise.
+     * - Timer: Any active rest countdown remains running when switching exercises.
      */
     fun selectExercise(resultId: String) {
         if (currentResultId.value == resultId) return
-        restJob?.cancel()
-        restSecondsLeft.value = 0
-        restTimerManager.cancel()
         moveToResult(resultId)
     }
 
@@ -644,15 +646,13 @@ class ActiveWorkoutViewModel @Inject constructor(
             slot.result.supersetGroupId == null ||
                 slot.result.supersetGroupId != from.result.supersetGroupId
         } ?: return
-        restJob?.cancel()
-        restSecondsLeft.value = 0
-        restTimerManager.cancel()
         moveToResult(next.result.id)
     }
 
     fun skipRest() {
         restJob?.cancel()
         restSecondsLeft.value = 0
+        totalRestSeconds.value = 0
         restTimerManager.cancel()
     }
 
@@ -661,12 +661,16 @@ class ActiveWorkoutViewModel @Inject constructor(
         val current = restSecondsLeft.value
         if (current <= 0) return
         restTimerManager.addSeconds(seconds)
+        totalRestSeconds.update { it + seconds }
         runCountdownUI(current + seconds)
     }
 
     fun finishWorkout() {
         flushNoteSave()
         flushSessionNoteSave()
+        restJob?.cancel()
+        restSecondsLeft.value = 0
+        totalRestSeconds.value = 0
         restTimerManager.cancel()
         viewModelScope.launch {
             workoutRepository.finishSession(sessionId)
@@ -720,6 +724,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         flushSessionNoteSave()
         restJob?.cancel()
         restSecondsLeft.value = 0
+        totalRestSeconds.value = 0
         restTimerManager.cancel()
         val plannedSets = if (oneShot) 1 else {
             (current.plannedSets - current.sets.size).coerceAtLeast(1)
@@ -757,8 +762,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         restJob?.cancel()
         if (seconds <= 0) {
             restSecondsLeft.value = 0
+            totalRestSeconds.value = 0
             return
         }
+        totalRestSeconds.value = seconds
         // The notification + alarm survive screen-off and process death; the
         // coroutine only drives the on-screen ring.
         restTimerManager.startRest(seconds, uiState.value.current?.exercise?.name.orEmpty())
@@ -770,10 +777,14 @@ class ActiveWorkoutViewModel @Inject constructor(
         restJob?.cancel()
         restJob = viewModelScope.launch {
             restSecondsLeft.value = seconds
+            if (totalRestSeconds.value <= 0) {
+                totalRestSeconds.value = seconds
+            }
             while (restSecondsLeft.value > 0) {
                 delay(1_000)
                 restSecondsLeft.update { (it - 1).coerceAtLeast(0) }
             }
+            totalRestSeconds.value = 0
         }
     }
 
