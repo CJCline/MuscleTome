@@ -656,13 +656,18 @@ class ActiveWorkoutViewModel @Inject constructor(
         restTimerManager.cancel()
     }
 
-    /** Adds [seconds] to the countdown; restarts the timer from the new total. */
+    /** Adds or subtracts [seconds] to/from the countdown. */
     fun addRest(seconds: Int) {
         val current = restSecondsLeft.value
         if (current <= 0) return
+        val newRemaining = current + seconds
+        if (newRemaining <= 0) {
+            skipRest()
+            return
+        }
         restTimerManager.addSeconds(seconds)
-        totalRestSeconds.update { it + seconds }
-        runCountdownUI(current + seconds)
+        totalRestSeconds.update { (it + seconds).coerceAtLeast(newRemaining) }
+        runCountdownUI(newRemaining)
     }
 
     fun finishWorkout() {

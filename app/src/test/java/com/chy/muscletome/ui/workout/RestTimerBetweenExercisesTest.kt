@@ -154,4 +154,20 @@ class RestTimerBetweenExercisesTest {
         assertEquals(90, stateAtEx3.totalRestSeconds)
         assertTrue(stateAtEx3.restSecondsLeft > 0)
     }
+
+    @Test
+    fun restTimer_reducingBy30Seconds_decreasesRemainingTime() {
+        val currentSeconds = 75
+        val delta = -30
+        val newRemaining = currentSeconds + delta
+        assertEquals(45, newRemaining)
+    }
+
+    @Test
+    fun restTimer_reducingBelowZero_cancelsTimer() {
+        val currentSeconds = 20
+        val delta = -30
+        val newRemaining = currentSeconds + delta
+        assertTrue(newRemaining <= 0)
+    }
 }

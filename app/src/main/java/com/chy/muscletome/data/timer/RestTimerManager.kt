@@ -52,14 +52,19 @@ class RestTimerManager @Inject constructor(
         showNotification(exerciseName, endWallMs)
     }
 
-    /** Adds [seconds] to the active countdown; no-op when none is active. */
+    /** Adds [seconds] (positive or negative) to the active countdown; no-op when none is active. */
     fun addSeconds(seconds: Int) {
         val end = prefs().getLong(KEY_END_WALL_MS, 0L)
-        if (end <= System.currentTimeMillis()) return
-        val exerciseName = prefs().getString(KEY_EXERCISE, "").orEmpty()
+        val now = System.currentTimeMillis()
+        if (end <= now) return
         val newEnd = end + (seconds * 1000L)
+        if (newEnd <= now) {
+            cancel()
+            return
+        }
+        val exerciseName = prefs().getString(KEY_EXERCISE, "").orEmpty()
         persist(newEnd, exerciseName)
-        scheduleAlarm(((newEnd - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(1))
+        scheduleAlarm(((newEnd - now) / 1000L).toInt().coerceAtLeast(1))
         showNotification(exerciseName, newEnd)
     }
 

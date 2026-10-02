@@ -537,6 +537,9 @@ fun ActiveWorkoutScreen(
                             ) {
                                 SectionHeader("Rest")
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { viewModel.addRest(-30) }) {
+                                        Text("-30s")
+                                    }
                                     OutlinedButton(onClick = { viewModel.addRest(30) }) {
                                         Text("+30s")
                                     }
