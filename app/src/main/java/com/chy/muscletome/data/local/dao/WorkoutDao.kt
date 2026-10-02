@@ -256,4 +256,7 @@ interface WorkoutDao {
 
     @Query("SELECT COUNT(*) FROM set_logs sl INNER JOIN session_slot_results ssr ON sl.sessionSlotResultId = ssr.id WHERE ssr.sessionId = :sessionId")
     suspend fun setCountForSession(sessionId: String): Int
+
+    @Query("UPDATE session_slot_results SET sortOrder = :sortOrder WHERE id = :id")
+    suspend fun updateSlotResultSortOrder(id: String, sortOrder: Int)
 }

@@ -354,6 +354,14 @@ class WorkoutRepository @Inject constructor(
         return partner.id
     }
 
+    suspend fun reorderSlotResults(sessionId: String, orderedResultIds: List<String>) {
+        database.withTransaction {
+            orderedResultIds.forEachIndexed { index, id ->
+                workoutDao.updateSlotResultSortOrder(id, index)
+            }
+        }
+    }
+
     private suspend fun buildCatalog(): List<EngineCandidate> {
         val exercises = catalogDao.getExercises()
         val equipmentLinks = catalogDao.getExerciseEquipment().groupBy { it.exerciseId }

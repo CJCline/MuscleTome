@@ -161,6 +161,9 @@ data class ActiveWorkoutUiState(
     val isLastExercise: Boolean get() =
         slots.isEmpty() || currentIndex == slots.lastIndex
 
+    /** The slot immediately following the current exercise in routine sequence. */
+    val nextSlot: ActiveSlot? get() = slots.getOrNull(currentIndex + 1)
+
     /** Stepper increment driven by user preference or fallback default. */
     val weightStep: Double get() = configuredWeightStep ?: if (weightUnit == WeightUnit.LB) 5.0 else 2.5
     /** Long-press micro increment (half plate). */
@@ -720,6 +723,13 @@ class ActiveWorkoutViewModel @Inject constructor(
         flushNoteSave()
         viewModelScope.launch {
             workoutRepository.overrideSlot(current.result, exerciseId)
+        }
+    }
+
+    /** Reorders the workout session slots in place; current selection stays intact. */
+    fun reorderSlots(orderedIds: List<String>) {
+        viewModelScope.launch {
+            workoutRepository.reorderSlotResults(sessionId, orderedIds)
         }
     }
 

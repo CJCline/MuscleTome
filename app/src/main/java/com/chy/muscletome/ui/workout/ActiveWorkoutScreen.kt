@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -65,6 +67,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,6 +82,8 @@ import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.PlateRing
 import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.ui.components.SetTicks
+import com.chy.muscletome.ui.components.dragReorderItem
+import com.chy.muscletome.ui.components.rememberDragReorderState
 import com.chy.muscletome.ui.library.ExerciseInfoContent
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -96,6 +101,7 @@ fun ActiveWorkoutScreen(
     val current = state.current
     var showSwap by remember { mutableStateOf(false) }
     var showSuperset by remember { mutableStateOf(false) }
+    var showReorder by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showPlates by remember { mutableStateOf(false) }
     var showSetDetails by remember { mutableStateOf(false) }
@@ -255,6 +261,103 @@ fun ActiveWorkoutScreen(
                         if (viewModel.canSuperset()) {
                             OutlinedButton(onClick = { showSuperset = true }) {
                                 Text("Superset")
+                            }
+                        }
+                        if (state.slots.size > 1) {
+                            OutlinedButton(onClick = { showReorder = true }) {
+                                Text("Reorder")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Up Next Exercise Preview ----------------------------------
+            item {
+                val nextSlot = state.nextSlot
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (nextSlot != null) {
+                            val nextExercise = nextSlot.exercise
+                            if (nextExercise != null && !nextExercise.demoUri.isNullOrBlank()) {
+                                ExerciseDemoImage(
+                                    uri = nextExercise.demoUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.FitnessCenter,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                MicroTag(
+                                    text = "UP NEXT IN ROUTINE",
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = nextSlot.exercise?.name ?: "Next exercise",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                val planned = nextSlot.plannedSets
+                                val minReps = nextSlot.slot?.repRangeMin ?: 0
+                                val maxReps = nextSlot.slot?.repRangeMax ?: 0
+                                val repsDetail = if (minReps > 0 && maxReps > 0) " · $minReps–$maxReps reps" else ""
+                                val setsDetail = if (planned > 0) "$planned planned sets$repsDetail" else ""
+                                if (setsDetail.isNotBlank()) {
+                                    Text(
+                                        text = setsDetail,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                MicroTag(
+                                    text = "UP NEXT",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "Final exercise in current routine",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -448,12 +551,18 @@ fun ActiveWorkoutScreen(
                     }
 
                     if (state.isCurrentComplete && !state.isLastExercise) {
+                        val nextName = state.nextSlot?.exercise?.name
+                        val buttonText = if (!nextName.isNullOrBlank()) {
+                            "Next exercise: $nextName".uppercase()
+                        } else {
+                            "Next exercise".uppercase()
+                        }
                         OutlinedButton(
                             onClick = viewModel::nextExercise,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp),
-                        ) { Text("Next exercise".uppercase()) }
+                        ) { Text(buttonText) }
                     }
 
                     if (state.isCurrentComplete && state.isLastExercise) {
@@ -845,6 +954,77 @@ fun ActiveWorkoutScreen(
                     showSuperset = false
                     viewModel.onSupersetQueryChange("")
                 }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showReorder) {
+        var localSlots by remember(state.slots) { mutableStateOf(state.slots) }
+        var dragging by remember { mutableStateOf(false) }
+        val listState = rememberLazyListState()
+        val dragState = rememberDragReorderState(
+            listState = listState,
+            onMove = { from, to ->
+                dragging = true
+                localSlots = localSlots.toMutableList().apply { add(to, removeAt(from)) }
+            },
+            onDrop = {
+                dragging = false
+                viewModel.reorderSlots(localSlots.map { it.result.id })
+            },
+        )
+        AlertDialog(
+            onDismissRequest = { showReorder = false },
+            title = { Text("Reorder exercises") },
+            text = {
+                Column {
+                    Text(
+                        "Long-press and drag to change exercise order",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.weight(1f, fill = false),
+                    ) {
+                        items(
+                            items = localSlots,
+                            key = { it.result.id },
+                        ) { slot ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .dragReorderItem(dragState, slot.result.id)
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DragHandle,
+                                    contentDescription = "Drag handle",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = slot.exercise?.name ?: "Exercise",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (slot.result.id == current?.result?.id) FontWeight.Bold else FontWeight.Normal,
+                                    )
+                                    if (slot.result.id == current?.result?.id) {
+                                        MicroTag(
+                                            text = "Current",
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showReorder = false }) { Text("Done") }
             },
         )
     }
