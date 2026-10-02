@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
@@ -101,7 +100,6 @@ fun ActiveWorkoutScreen(
     val current = state.current
     var showSwap by remember { mutableStateOf(false) }
     var showSuperset by remember { mutableStateOf(false) }
-    var showReorder by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showPlates by remember { mutableStateOf(false) }
     var showSetDetails by remember { mutableStateOf(false) }
@@ -272,11 +270,6 @@ fun ActiveWorkoutScreen(
                         if (viewModel.canSuperset()) {
                             OutlinedButton(onClick = { showSuperset = true }) {
                                 Text("Superset")
-                            }
-                        }
-                        if (state.slots.size > 1) {
-                            OutlinedButton(onClick = { showReorder = true }) {
-                                Text("Reorder")
                             }
                         }
                     }
@@ -1010,77 +1003,6 @@ fun ActiveWorkoutScreen(
                     showSuperset = false
                     viewModel.onSupersetQueryChange("")
                 }) { Text("Cancel") }
-            },
-        )
-    }
-
-    if (showReorder) {
-        var localSlots by remember(state.slots) { mutableStateOf(state.slots) }
-        var dragging by remember { mutableStateOf(false) }
-        val listState = rememberLazyListState()
-        val dragState = rememberDragReorderState(
-            listState = listState,
-            onMove = { from, to ->
-                dragging = true
-                localSlots = localSlots.toMutableList().apply { add(to, removeAt(from)) }
-            },
-            onDrop = {
-                dragging = false
-                viewModel.reorderSlots(localSlots.map { it.result.id })
-            },
-        )
-        AlertDialog(
-            onDismissRequest = { showReorder = false },
-            title = { Text("Reorder exercises") },
-            text = {
-                Column {
-                    Text(
-                        "Long-press and drag to change exercise order",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.weight(1f, fill = false),
-                    ) {
-                        items(
-                            items = localSlots,
-                            key = { it.result.id },
-                        ) { slot ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .dragReorderItem(dragState, slot.result.id)
-                                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DragHandle,
-                                    contentDescription = "Drag handle",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = slot.exercise?.name ?: "Exercise",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (slot.result.id == current?.result?.id) FontWeight.Bold else FontWeight.Normal,
-                                    )
-                                    if (slot.result.id == current?.result?.id) {
-                                        MicroTag(
-                                            text = "Current",
-                                            color = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showReorder = false }) { Text("Done") }
             },
         )
     }
