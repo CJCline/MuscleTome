@@ -105,6 +105,7 @@ fun ActiveWorkoutScreen(
     var showInfo by remember { mutableStateOf(false) }
     var showPlates by remember { mutableStateOf(false) }
     var showSetDetails by remember { mutableStateOf(false) }
+    var showExercisePicker by remember { mutableStateOf(false) }
     val infoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptics = LocalHapticFeedback.current
     var showFinishConfirm by remember { mutableStateOf(false) }
@@ -208,7 +209,12 @@ fun ActiveWorkoutScreen(
                     ) {
                         MicroTag(
                             text = "Exercise ${state.currentIndex + 1} / " +
-                                state.slots.size.coerceAtLeast(1).toString(),
+                                state.slots.size.coerceAtLeast(1).toString() +
+                                if (state.slots.size > 1) " ▾" else "",
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = if (state.slots.size > 1) {
+                                Modifier.clickable { showExercisePicker = true }
+                            } else Modifier,
                         )
                         MicroTag(
                             text = viewModel.reasonLabel(),
@@ -248,6 +254,11 @@ fun ActiveWorkoutScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (state.slots.size > 1) {
+                            OutlinedButton(onClick = { showExercisePicker = true }) {
+                                Text("Exercises")
+                            }
+                        }
                         if (viewModel.canReroll()) {
                             OutlinedButton(onClick = viewModel::reroll) {
                                 Text("Reroll")
@@ -282,7 +293,13 @@ fun ActiveWorkoutScreen(
                         1.dp,
                         MaterialTheme.colorScheme.outlineVariant,
                     ),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (nextSlot != null) {
+                                Modifier.clickable { viewModel.selectExercise(nextSlot.result.id) }
+                            } else Modifier,
+                        ),
                 ) {
                     Row(
                         modifier = Modifier
@@ -321,7 +338,7 @@ fun ActiveWorkoutScreen(
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 MicroTag(
-                                    text = "UP NEXT IN ROUTINE",
+                                    text = "UP NEXT IN ROUTINE (TAP TO SWITCH)",
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                                 Text(
@@ -399,7 +416,9 @@ fun ActiveWorkoutScreen(
                             }
                             group.forEach { member ->
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.selectExercise(member.result.id) },
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -1080,6 +1099,109 @@ fun ActiveWorkoutScreen(
                 showPlates = false
             },
         )
+    }
+
+    // Exercise picker sheet: select any exercise in the routine during workout
+    if (showExercisePicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showExercisePicker = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Select Exercise",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "Choose an exercise from your routine. Progress on skipped exercises is preserved.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                state.slots.forEachIndexed { index, slot ->
+                    val isSelected = slot.result.id == current?.result?.id
+                    val isDone = slot.isComplete
+                    val loggedSetsCount = slot.sets.size
+                    val plannedSetsCount = slot.plannedSets
+
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                        },
+                        border = BorderStroke(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant
+                            },
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.selectExercise(slot.result.id)
+                                showExercisePicker = false
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SetTicks(
+                                done = loggedSetsCount,
+                                total = plannedSetsCount.coerceAtLeast(1),
+                                modifier = Modifier.width(56.dp),
+                            )
+
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = "${index + 1}. ${slot.exercise?.name ?: "Exercise"}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+
+                                val repDetail = if ((slot.slot?.repRangeMin ?: 0) > 0) {
+                                    " · ${slot.slot?.repRangeMin}–${slot.slot?.repRangeMax} reps"
+                                } else ""
+                                Text(
+                                    text = "$loggedSetsCount / $plannedSetsCount sets logged$repDetail",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            when {
+                                isSelected -> MicroTag("Current", color = MaterialTheme.colorScheme.primary)
+                                isDone -> MicroTag("Complete", color = MaterialTheme.colorScheme.primary)
+                                loggedSetsCount > 0 -> MicroTag("In Progress", color = MaterialTheme.colorScheme.secondary)
+                                else -> MicroTag("Upcoming", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+            }
+        }
     }
 }
 

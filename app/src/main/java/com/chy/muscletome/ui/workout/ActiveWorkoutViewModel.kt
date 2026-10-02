@@ -586,6 +586,26 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Navigates directly to any exercise in the workout routine by its result id.
+     *
+     * Progress behavior when navigating away:
+     * - Logged sets: All sets already logged for the current exercise are saved in Room DB
+     *   and remain attached to its [ActiveSlot]. They are preserved when switching exercises
+     *   and will be displayed when returning to this exercise later.
+     * - Skipped exercises: Leaving an exercise before completing all planned sets does NOT
+     *   mark it complete or remove it from the session. It remains available in [ActiveWorkoutUiState.slots].
+     * - Notes: Pending exercise cues and session notes are immediately flushed to storage.
+     * - Timer: Any active rest countdown is cancelled so the user can focus on the selected exercise.
+     */
+    fun selectExercise(resultId: String) {
+        if (currentResultId.value == resultId) return
+        restJob?.cancel()
+        restSecondsLeft.value = 0
+        restTimerManager.cancel()
+        moveToResult(resultId)
+    }
+
     /** Navigates to a result id, flushing drafts that belong to the old one. */
     private fun moveToResult(resultId: String) {
         if (currentResultId.value == resultId) return
