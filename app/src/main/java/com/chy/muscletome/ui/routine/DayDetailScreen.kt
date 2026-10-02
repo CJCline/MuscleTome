@@ -73,6 +73,14 @@ import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.routine.TargetSlotLabel
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DayDetailScreen(
@@ -87,6 +95,7 @@ fun DayDetailScreen(
     val focusManager = LocalFocusManager.current
     var showBackConfirm by rememberSaveable { mutableStateOf(value = false) }
     var deletingSlot by remember { mutableStateOf<RoutineSlotEntity?>(null) }
+    var replacingActiveSlotForRoutineExercise by remember { mutableStateOf<SlotRow?>(null) }
 
     // Drag-reorder: hold a local order while dragging, persist on drop.
     // Rows expose slot ids for the reorder call; drafts ride along untouched.
@@ -350,6 +359,15 @@ fun DayDetailScreen(
                                         )
                                     }
                                 }
+                                if (state.activeSessionSlots.isNotEmpty()) {
+                                    IconButton(onClick = { replacingActiveSlotForRoutineExercise = row }) {
+                                        Icon(
+                                            Icons.Default.SwapHoriz,
+                                            contentDescription = "Replace in active workout",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
                                 IconButton(onClick = { deletingSlot = row.slot }) {
                                     Icon(
                                         Icons.Default.Delete,
@@ -511,6 +529,149 @@ fun DayDetailScreen(
                 TextButton(onClick = { deletingSlot = null }) { Text("Cancel") }
             },
         )
+    }
+
+    replacingActiveSlotForRoutineExercise?.let { row ->
+        var pickerSearchQuery by remember { mutableStateOf("") }
+        var showLibraryPicker by remember { mutableStateOf(false) }
+
+        if (!showLibraryPicker) {
+            AlertDialog(
+                onDismissRequest = { replacingActiveSlotForRoutineExercise = null },
+                title = { Text("Replace in active workout") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "Swap \"${row.exerciseName}\" into your active workout, or pick a new exercise:",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        OutlinedButton(
+                            onClick = { showLibraryPicker = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Pick a library exercise instead...")
+                        }
+                        SectionHeader("Replace which active exercise?")
+                        LazyColumn(
+                            modifier = Modifier.height(200.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(state.activeSessionSlots) { option ->
+                                Surface(
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            replacingActiveSlotForRoutineExercise = null
+                                            val targetExerciseId = row.slot.exerciseId
+                                            if (targetExerciseId != null) {
+                                                viewModel.overrideActiveWorkoutSlot(option.result, targetExerciseId)
+                                                val oldName = option.currentExerciseName
+                                                val newName = row.exerciseName
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Replaced \"$oldName\" with \"$newName\" in active workout")
+                                                }
+                                            } else {
+                                                showLibraryPicker = true
+                                            }
+                                        },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        MonoText(
+                                            text = (option.sortOrder + 1).toString().padStart(2, '0'),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = option.currentExerciseName,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { replacingActiveSlotForRoutineExercise = null }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        } else {
+            val filteredCatalog = remember(pickerSearchQuery, state.catalogExercises) {
+                state.catalogExercises.filter {
+                    it.name.contains(pickerSearchQuery, ignoreCase = true)
+                }
+            }
+            AlertDialog(
+                onDismissRequest = {
+                    showLibraryPicker = false
+                    replacingActiveSlotForRoutineExercise = null
+                },
+                title = { Text("Pick replacement exercise") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SelectOnFocusOutlinedTextField(
+                            value = pickerSearchQuery,
+                            onValueChange = { pickerSearchQuery = it },
+                            placeholder = { Text("Search exercises...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+                        LazyColumn(
+                            modifier = Modifier.height(280.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(filteredCatalog) { catalogExercise ->
+                                Surface(
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val matchingResult = state.activeSessionSlots.find {
+                                                it.result.routineSlotId == row.slot.id
+                                            } ?: state.activeSessionSlots.firstOrNull()
+                                            if (matchingResult != null) {
+                                                viewModel.overrideActiveWorkoutSlot(matchingResult.result, catalogExercise.id)
+                                                val oldName = matchingResult.currentExerciseName
+                                                val newName = catalogExercise.name
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Replaced \"$oldName\" with \"$newName\" in active workout")
+                                                }
+                                            }
+                                            showLibraryPicker = false
+                                            replacingActiveSlotForRoutineExercise = null
+                                        },
+                                ) {
+                                    Text(
+                                        text = catalogExercise.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.padding(12.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = {
+                        showLibraryPicker = false
+                        replacingActiveSlotForRoutineExercise = null
+                    }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
     }
 }
 

@@ -213,6 +213,7 @@ class ExerciseDetailStateFlowTest {
         val downloadable = MutableStateFlow(true)
         val fullyCached = MutableStateFlow(false)
         val user = MutableStateFlow<UserEntity?>(UserEntity("user", "Lifter", weightUnit = WeightUnit.LB))
+        val activeSessionSlots = MutableStateFlow<List<com.chy.muscletome.data.repository.ActiveSlotOverrideOption>>(emptyList())
         val states = exerciseDetailStateFlow(
             exercise = exercise,
             canonical = canonical,
@@ -226,6 +227,7 @@ class ExerciseDetailStateFlowTest {
             downloadable = downloadable,
             fullyCached = fullyCached,
             user = user,
+            activeSessionSlots = activeSessionSlots,
         )
     }
 }

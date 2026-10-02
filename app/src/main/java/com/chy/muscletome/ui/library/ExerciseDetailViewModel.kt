@@ -23,6 +23,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
+import com.chy.muscletome.data.repository.ActiveSlotOverrideOption
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+
 data class ExerciseHistory(
     val lastSet: SetLogEntity? = null,
     val bestWeight: Double? = null,
@@ -51,6 +57,7 @@ data class ExerciseDetailUiState(
     /** Sets display in the user's unit (they're stored in it). */
     val weightUnit: WeightUnit = WeightUnit.KG,
     val canonical: ExerciseWithCanonicalRelations? = null,
+    val activeSessionSlots: List<ActiveSlotOverrideOption> = emptyList(),
 )
 
 /** Typed stages keep heterogeneous sources aligned and allow testing without repositories. */
@@ -67,6 +74,7 @@ internal fun exerciseDetailStateFlow(
     downloadable: Flow<Boolean>,
     fullyCached: Flow<Boolean>,
     user: Flow<UserEntity?>,
+    activeSessionSlots: Flow<List<ActiveSlotOverrideOption>>,
 ): Flow<ExerciseDetailUiState> {
     val catalog = combine(
         exercise, canonical, equipment, secondaryMuscles, muscleGroups,
@@ -95,13 +103,24 @@ internal fun exerciseDetailStateFlow(
         )
     }
     return combine(
-        detail, cachedMediaUris, downloadable, fullyCached, user,
-    ) { currentDetail, cachedUris, isDownloadable, isFullyCached, currentUser ->
+        detail, cachedMediaUris, downloadable, fullyCached, user, activeSessionSlots,
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        val currentDetail = values[0] as ExerciseDetailUiState
+        @Suppress("UNCHECKED_CAST")
+        val cachedUris = values[1] as Map<String, String>
+        val isDownloadable = values[2] as Boolean
+        val isFullyCached = values[3] as Boolean
+        val currentUser = values[4] as UserEntity?
+        @Suppress("UNCHECKED_CAST")
+        val slots = values[5] as List<ActiveSlotOverrideOption>
+
         currentDetail.copy(
             cachedMediaUris = cachedUris,
             downloadableMedia = isDownloadable,
             mediaFullyCached = isFullyCached,
             weightUnit = currentUser?.weightUnit ?: WeightUnit.KG,
+            activeSessionSlots = slots,
         )
     }
 }
@@ -110,7 +129,7 @@ internal fun exerciseDetailStateFlow(
 class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val catalogRepository: CatalogRepository,
-    workoutRepository: WorkoutRepository,
+    private val workoutRepository: WorkoutRepository,
     userRepository: UserRepository,
     private val mediaRepository: ExerciseMediaRepository,
 ) : ViewModel() {
@@ -123,6 +142,27 @@ class ExerciseDetailViewModel @Inject constructor(
     private val cachedMediaUris = MutableStateFlow<Map<String, String>>(emptyMap())
     private val downloadable = MutableStateFlow(false)
     private val fullyCached = MutableStateFlow(false)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val activeSessionSlots: Flow<List<ActiveSlotOverrideOption>> =
+        workoutRepository.observeOpenSession().flatMapLatest { session ->
+            if (session == null) flowOf(emptyList())
+            else {
+                combine(
+                    workoutRepository.observeSlotResults(session.id),
+                    catalogRepository.observeExercises(),
+                ) { results, exercises ->
+                    val exerciseMap = exercises.associateBy { it.id }
+                    results.sortedBy { it.sortOrder }.map { result ->
+                        ActiveSlotOverrideOption(
+                            result = result,
+                            currentExerciseName = exerciseMap[result.resolvedExerciseId]?.name ?: "Exercise",
+                            sortOrder = result.sortOrder,
+                        )
+                    }
+                }
+            }
+        }
 
     init {
         viewModelScope.launch { refreshMediaCache() }
@@ -163,6 +203,12 @@ class ExerciseDetailViewModel @Inject constructor(
         deleteBlockedMessage.value = null
     }
 
+    fun replaceInActiveWorkout(result: SessionSlotResultEntity) {
+        viewModelScope.launch {
+            workoutRepository.overrideSlot(result, exerciseId)
+        }
+    }
+
     init {
         viewModelScope.launch {
             history.value = ExerciseHistory(
@@ -186,6 +232,7 @@ class ExerciseDetailViewModel @Inject constructor(
         downloadable = downloadable,
         fullyCached = fullyCached,
         user = userRepository.observeUser(),
+        activeSessionSlots = activeSessionSlots,
     ).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

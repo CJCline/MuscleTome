@@ -35,6 +35,13 @@ sealed class StartResult {
     data class NoMatch(val slotLabel: String) : StartResult()
 }
 
+/** Active slot information for on-the-fly workout replacements. */
+data class ActiveSlotOverrideOption(
+    val result: SessionSlotResultEntity,
+    val currentExerciseName: String,
+    val sortOrder: Int,
+)
+
 /** One upcoming exercise in a day preview (Home's "Up next" card). */
 data class UpcomingExercise(
     val name: String,

@@ -1,33 +1,39 @@
 package com.chy.muscletome.ui.routine
 
-import com.chy.muscletome.data.repository.WorkoutRepository
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
+import com.chy.muscletome.data.local.entity.SessionSlotResultEntity
 import com.chy.muscletome.data.local.entity.SlotTargetMuscleCrossRef
 import com.chy.muscletome.data.local.entity.UserEntity
+import com.chy.muscletome.data.repository.ActiveSlotOverrideOption
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.data.repository.StartResult
 import com.chy.muscletome.data.repository.UserRepository
+import com.chy.muscletome.data.repository.WorkoutRepository
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.routine.TargetSlotLabel
 import com.chy.muscletome.domain.session.EffortScales
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /** Fields on a slot that can be edited inline on the day screen. */
@@ -64,6 +70,8 @@ data class SlotRow(
     val hasUnsavedChanges: Boolean,
 )
 
+
+
 data class DayDetailUiState(
     val day: RoutineDayEntity? = null,
     val slots: List<SlotRow> = emptyList(),
@@ -72,13 +80,15 @@ data class DayDetailUiState(
     val savedTick: Int = 0,
     /** Which scale the target-effort field speaks (user preference). */
     val effortScale: EffortScale = EffortScale.RPE,
+    val activeSessionSlots: List<ActiveSlotOverrideOption> = emptyList(),
+    val catalogExercises: List<ExerciseEntity> = emptyList(),
 )
 
 @HiltViewModel
 class DayDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val routineRepository: RoutineRepository,
-    catalogRepository: CatalogRepository,
+    private val catalogRepository: CatalogRepository,
     userRepository: UserRepository,
     private val workoutRepository: WorkoutRepository,
 ) : ViewModel() {
@@ -88,6 +98,27 @@ class DayDetailViewModel @Inject constructor(
     private val drafts = MutableStateFlow<Map<String, SlotDraft>>(emptyMap())
     private val _savedTick = MutableStateFlow(0)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val activeSessionSlots: Flow<List<ActiveSlotOverrideOption>> =
+        workoutRepository.observeOpenSession().flatMapLatest { session ->
+            if (session == null) flowOf(emptyList())
+            else {
+                combine(
+                    workoutRepository.observeSlotResults(session.id),
+                    catalogRepository.observeExercises(),
+                ) { results, exercises ->
+                    val exerciseMap = exercises.associateBy { it.id }
+                    results.sortedBy { it.sortOrder }.map { result ->
+                        ActiveSlotOverrideOption(
+                            result = result,
+                            currentExerciseName = exerciseMap[result.resolvedExerciseId]?.name ?: "Exercise",
+                            sortOrder = result.sortOrder,
+                        )
+                    }
+                }
+            }
+        }
+
     val uiState = combine(
         routineRepository.observeDay(dayId),
         routineRepository.observeSlots(dayId),
@@ -96,6 +127,7 @@ class DayDetailViewModel @Inject constructor(
         userRepository.observeUser(),
         drafts,
         _savedTick,
+        activeSessionSlots,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val day = values[0] as RoutineDayEntity?
@@ -109,6 +141,9 @@ class DayDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val currentDrafts = values[5] as Map<String, SlotDraft>
         val tick = values[6] as Int
+        @Suppress("UNCHECKED_CAST")
+        val activeSlots = values[7] as List<ActiveSlotOverrideOption>
+
         val effortScalePref = user?.effortScale ?: EffortScale.RPE
         val names = exercises.associate { it.id to it.name }
         val muscleNames = routineRepository.getMuscleGroupNames()
@@ -164,12 +199,20 @@ class DayDetailViewModel @Inject constructor(
             canSave = anyDirty && allDirtyValid,
             savedTick = tick,
             effortScale = effortScalePref,
+            activeSessionSlots = activeSlots,
+            catalogExercises = exercises,
         )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         DayDetailUiState(),
     )
+
+    fun overrideActiveWorkoutSlot(result: SessionSlotResultEntity, newExerciseId: String) {
+        viewModelScope.launch {
+            workoutRepository.overrideSlot(result, newExerciseId)
+        }
+    }
 
     fun deleteSlot(id: String) {
         viewModelScope.launch {
