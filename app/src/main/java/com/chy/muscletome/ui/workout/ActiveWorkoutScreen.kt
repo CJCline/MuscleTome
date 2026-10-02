@@ -535,16 +535,46 @@ fun ActiveWorkoutScreen(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                SectionHeader("Rest")
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(onClick = { viewModel.addRest(-30) }) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    SectionHeader("Rest")
+                                    TextButton(
+                                        onClick = viewModel::skipRest,
+                                        contentPadding = PaddingValues(horizontal = 8.dp),
+                                    ) {
+                                        Text("Skip")
+                                    }
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.addRest(-30) },
+                                        contentPadding = PaddingValues(horizontal = 6.dp),
+                                    ) {
                                         Text("-30s")
                                     }
-                                    OutlinedButton(onClick = { viewModel.addRest(30) }) {
-                                        Text("+30s")
+                                    OutlinedButton(
+                                        onClick = { viewModel.addRest(-10) },
+                                        contentPadding = PaddingValues(horizontal = 6.dp),
+                                    ) {
+                                        Text("-10s")
                                     }
-                                    TextButton(onClick = viewModel::skipRest) {
-                                        Text("Skip")
+                                    OutlinedButton(
+                                        onClick = { viewModel.addRest(10) },
+                                        contentPadding = PaddingValues(horizontal = 6.dp),
+                                    ) {
+                                        Text("+10s")
+                                    }
+                                    OutlinedButton(
+                                        onClick = { viewModel.addRest(30) },
+                                        contentPadding = PaddingValues(horizontal = 6.dp),
+                                    ) {
+                                        Text("+30s")
                                     }
                                 }
                             }

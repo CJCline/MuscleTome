@@ -164,6 +164,13 @@ class RestTimerBetweenExercisesTest {
     }
 
     @Test
+    fun restTimer_adjustingBy10Seconds_updatesRemainingTime() {
+        val currentSeconds = 45
+        assertEquals(35, currentSeconds - 10)
+        assertEquals(55, currentSeconds + 10)
+    }
+
+    @Test
     fun restTimer_reducingBelowZero_cancelsTimer() {
         val currentSeconds = 20
         val delta = -30
