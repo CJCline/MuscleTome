@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.template.RoutineTemplate
 import com.chy.muscletome.ui.theme.MonoFont
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
 
 /**
  * Ledger primitives — the recurring "book spine" motif: a heavy vertical bar
@@ -59,7 +60,7 @@ fun SectionHeader(
         Spacer(Modifier.width(10.dp))
         Text(
             text = label.uppercase(),
-            style = MaterialTheme.typography.labelLarge,
+            style = MuscleTomeTextStyles.sectionTitle,
             color = MaterialTheme.colorScheme.onBackground,
         )
     }
@@ -93,7 +94,7 @@ fun StatBlock(
     ) {
         Text(
             text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
+            style = MuscleTomeTextStyles.label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
@@ -122,8 +123,7 @@ fun LedgerIndex(
 }
 
 /**
- * Empty state: cream headline, steel body. Use for "No routines yet" style
- * screens — the tagline lives here too.
+ * Empty state: cream headline, steel body. ALL UPPERCASE, terse, no exclamation points.
  */
 @Composable
 fun EmptyState(
@@ -138,20 +138,19 @@ fun EmptyState(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold,
+            text = title.uppercase(),
+            style = MuscleTomeTextStyles.emptyState,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
+            text = body.uppercase(),
+            style = MuscleTomeTextStyles.systemMessage,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-/** Amber micro-tag — small uppercase status chip (OPEN, REROLLED, +30s…). */
+/** Micro-tag — small uppercase status chip (OPEN, REROLLED, +30S…). */
 @Composable
 fun MicroTag(
     text: String,
@@ -160,7 +159,7 @@ fun MicroTag(
 ) {
     Text(
         text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
+        style = MuscleTomeTextStyles.tag,
         color = color,
         modifier = modifier,
     )
@@ -206,7 +205,7 @@ fun TemplateCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = template.name,
+                    text = template.name.uppercase(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -214,7 +213,7 @@ fun TemplateCard(
                 Icon(Icons.Default.Add, contentDescription = null)
             }
             Text(
-                text = template.blurb,
+                text = template.blurb.uppercase(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -224,7 +223,7 @@ fun TemplateCard(
                     day.slots.count { it.type == SlotType.TARGET }
                 }
                 MicroTag(
-                    text = "${template.days.size} days · $slots slots · $autoPicked auto-picked",
+                    text = "${template.days.size} DAYS · $slots SLOTS · $autoPicked AUTO-PICKED",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

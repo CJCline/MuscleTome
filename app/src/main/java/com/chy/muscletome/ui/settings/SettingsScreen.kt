@@ -1,10 +1,14 @@
 package com.chy.muscletome.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -33,18 +36,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.domain.model.DefaultRepPreference
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightStep
 import com.chy.muscletome.domain.model.WeightUnit
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.SectionHeader
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.OutlinedButton
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -55,8 +58,6 @@ fun SettingsScreen(
     val user = state.user
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
 
-    // SAF: the user picks where the backup lands (Documents, Drive, whatever) —
-    // no storage permission needed.
     val exportPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri -> uri?.let(viewModel::exportBackup) }
@@ -66,11 +67,11 @@ fun SettingsScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
-        viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.messages.collect { snackbarHostState.showSnackbar(it.uppercase(Locale.US)) }
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) },
+        topBar = { TopAppBar(title = { Text("SETTINGS", style = MuscleTomeTextStyles.heading) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(
@@ -81,24 +82,23 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SectionHeader("Units")
+            SectionHeader("UNITS")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WeightUnit.entries.forEach { unit ->
                     FilterChip(
                         selected = user?.weightUnit == unit,
                         onClick = { viewModel.setUnit(unit) },
-                        label = { Text(unit.name.lowercase()) },
+                        label = { Text(unit.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
             Text(
-                "Switching converts every logged set to the new unit, so " +
-                    "history, PRs and volume stay true.",
-                style = MaterialTheme.typography.bodySmall,
+                "SWITCHING CONVERTS ALL LOGGED SETS TO THE NEW UNIT.",
+                style = MuscleTomeTextStyles.systemMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("Effort scale")
+            SectionHeader("EFFORT SCALE")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 EffortScale.entries.forEach { scale ->
                     FilterChip(
@@ -107,21 +107,17 @@ fun SettingsScreen(
                         label = {
                             Text(
                                 when (scale) {
-                                    EffortScale.RPE -> "RPE — 1–10, 10 = max"
-                                    EffortScale.RIR -> "RIR — 0–4, 0 = max"
+                                    EffortScale.RPE -> "RPE (1–10)"
+                                    EffortScale.RIR -> "RIR (0–4)"
                                 },
+                                style = MuscleTomeTextStyles.tag,
                             )
                         },
                     )
                 }
             }
-            Text(
-                "Sets store RPE either way; RIR is shown alongside (RIR = 10 − RPE).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
-            SectionHeader("Default reps")
+            SectionHeader("DEFAULT REPS")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DefaultRepPreference.entries.forEach { pref ->
                     FilterChip(
@@ -130,45 +126,34 @@ fun SettingsScreen(
                         label = {
                             Text(
                                 when (pref) {
-                                    DefaultRepPreference.MINIMUM -> "Minimum"
-                                    DefaultRepPreference.MAXIMUM -> "Maximum"
+                                    DefaultRepPreference.MINIMUM -> "MINIMUM"
+                                    DefaultRepPreference.MAXIMUM -> "MAXIMUM"
                                 },
+                                style = MuscleTomeTextStyles.tag,
                             )
                         },
                     )
                 }
             }
-            Text(
-                "Sets default reps to the target range's minimum or maximum when starting an exercise.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
-            SectionHeader("Weight step")
+            SectionHeader("WEIGHT STEP")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WeightStep.entries.forEach { step ->
                     FilterChip(
                         selected = user?.weightStep == step,
                         onClick = { viewModel.setWeightStep(step) },
-                        label = { Text(step.label(user?.weightUnit ?: WeightUnit.LB)) },
+                        label = { Text(step.label(user?.weightUnit ?: WeightUnit.LB).uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
-            Text(
-                "Controls weight increment and decrement step size in workout controls.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
-            SectionHeader("Exercise catalog")
+            SectionHeader("EXERCISE CATALOG")
             val importState by viewModel.importProgress.collectAsStateWithLifecycle()
-            Button(
+            AccentButton(
+                text = if (importState.running) "IMPORTING..." else "IMPORT FROM WGER (ENGLISH)",
                 onClick = viewModel::importFromWger,
                 enabled = !importState.running,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (importState.running) "Importing…" else "Import from wger (English)")
-            }
+            )
             if (importState.running || importState.fraction > 0f) {
                 LinearProgressIndicator(
                     progress = { importState.fraction },
@@ -176,30 +161,14 @@ fun SettingsScreen(
                 )
             }
             if (importState.message.isNotBlank()) {
-                Text(importState.message)
+                Text(importState.message.uppercase(Locale.US), style = MuscleTomeTextStyles.systemMessage)
             }
-            if (importState.error != null) {
-                Text("Error: ${importState.error}")
-            }
-            Text(
-                "English translations only. Main demo image URL is stored when wger provides one. " +
-                    "Text is typically CC-BY-SA; attribution is saved on each exercise.",
-                style = MaterialTheme.typography.bodySmall,
-            )
 
-            SectionHeader("Exercise images")
+            SectionHeader("EXERCISE IMAGES")
             val mediaCache by viewModel.mediaCacheState.collectAsStateWithLifecycle()
             Text(
-                "Imported exercise images are shown from the network by default. " +
-                    "Download a family's images to view them offline. Only images with a " +
-                    "license that permits redistribution are cached; the cache is capped " +
-                    "at 256 MB and evicted oldest-first.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Cached: ${mediaCache.cacheBytes / (1024 * 1024)} MB",
-                style = MaterialTheme.typography.bodySmall,
+                "CACHED IMAGES: ${mediaCache.cacheBytes / (1024 * 1024)} MB",
+                style = MuscleTomeTextStyles.systemMessage,
             )
             if (state.families.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -208,7 +177,7 @@ fun SettingsScreen(
                             selected = false,
                             enabled = !mediaCache.downloading,
                             onClick = { viewModel.downloadFamilyMedia(family.id) },
-                            label = { Text("Download: ${family.displayName}") },
+                            label = { Text("DOWNLOAD: ${family.displayName.uppercase(Locale.US)}", style = MuscleTomeTextStyles.tag) },
                         )
                     }
                 }
@@ -216,76 +185,64 @@ fun SettingsScreen(
             if (mediaCache.downloading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-            OutlinedButton(
+            BrutalistOutlinedButton(
+                text = "CLEAR CACHED IMAGES",
                 onClick = viewModel::clearMediaCache,
                 enabled = !mediaCache.downloading && mediaCache.cacheBytes > 0,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Clear cached images")
-            }
-
-            SectionHeader("Backup & restore")
-            Text(
-                "Everything lives on this device. Export a JSON backup to move devices or keep " +
-                    "a copy — import merges it back (routines, logs, catalog edits).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(
-                onClick = {
-                    exportPicker.launch("muscletome-backup.json")
-                },
+
+            SectionHeader("BACKUP & RESTORE")
+            AccentButton(
+                text = if (backupState.running) "WORKING..." else "EXPORT BACKUP",
+                onClick = { exportPicker.launch("muscletome-backup.json") },
                 enabled = !backupState.running,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (backupState.running) "Working…" else "Export backup")
-            }
-            OutlinedButton(
+            )
+            BrutalistOutlinedButton(
+                text = "IMPORT BACKUP",
                 onClick = { importPicker.launch(arrayOf("application/json")) },
                 enabled = !backupState.running,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Import backup")
-            }
+            )
 
-            SectionHeader("Available equipment")
+            SectionHeader("AVAILABLE EQUIPMENT")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.equipment.forEach { item ->
                     FilterChip(
                         selected = item.id in state.availableEquipmentIds,
                         onClick = { viewModel.toggleEquipment(item.id) },
-                        label = { Text(item.name) },
+                        label = { Text(item.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            SectionHeader("Primary match")
+            SectionHeader("PRIMARY MATCH")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MatchStrictness.entries.forEach { value ->
                     FilterChip(
                         selected = user?.primaryMatchStrictness == value,
                         onClick = { viewModel.setStrictness(value) },
-                        label = { Text(value.name) },
+                        label = { Text(value.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Prefer compound early")
+                Text("PREFER COMPOUND EARLY", style = MuscleTomeTextStyles.label)
                 Switch(
                     checked = user?.preferCompoundEarly ?: true,
                     onCheckedChange = viewModel::setPreferCompoundEarly,
                 )
             }
 
-            SectionHeader("Excluded exercises")
+            SectionHeader("EXCLUDED EXERCISES")
             val excludeQuery by viewModel.excludeSearchQuery.collectAsStateWithLifecycle()
             val excludeResults by viewModel.excludeSearchResults.collectAsStateWithLifecycle()
 
             if (state.excludedExercises.isEmpty()) {
                 Text(
-                    "Nothing excluded. Search below to add exercises the variety engine should never pick.",
-                    style = MaterialTheme.typography.bodySmall,
+                    "NO EXCLUDED EXERCISES",
+                    style = MuscleTomeTextStyles.systemMessage,
                 )
             } else {
                 FlowRow(
@@ -296,44 +253,38 @@ fun SettingsScreen(
                         FilterChip(
                             selected = true,
                             onClick = { viewModel.toggleExcluded(exercise.id) },
-                            label = { Text(exercise.name) },
+                            label = { Text(exercise.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                             leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
                             trailingIcon = {
-                                Icon(Icons.Default.Close, contentDescription = "Remove exclusion")
+                                Icon(Icons.Default.Close, contentDescription = "REMOVE EXCLUSION")
                             },
                         )
                     }
                 }
             }
 
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = excludeQuery,
                 onValueChange = viewModel::onExcludeSearchQueryChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Search exercises to exclude") },
+                label = { Text("SEARCH EXERCISES TO EXCLUDE", style = MuscleTomeTextStyles.label) },
             )
             excludeResults.forEach { exercise ->
                 ListItem(
                     modifier = Modifier.fillMaxWidth(),
-                    headlineContent = { Text(exercise.name) },
+                    headlineContent = { Text(exercise.name.uppercase(Locale.US), style = MuscleTomeTextStyles.button) },
                     supportingContent = {
                         Text(
-                            "${exercise.movementType} · ${exercise.difficulty} · ${exercise.primaryMuscleGroupId}",
-                            style = MaterialTheme.typography.bodySmall,
+                            "${exercise.movementType.name.uppercase(Locale.US)} · ${exercise.difficulty.name.uppercase(Locale.US)} · ${exercise.primaryMuscleGroupId.uppercase(Locale.US)}",
+                            style = MuscleTomeTextStyles.tag,
                         )
                     },
                     trailingContent = {
                         IconButton(onClick = { viewModel.toggleExcluded(exercise.id) }) {
-                            Icon(Icons.Default.Add, contentDescription = "Exclude ${exercise.name}")
+                            Icon(Icons.Default.Add, contentDescription = "EXCLUDE ${exercise.name.uppercase(Locale.US)}")
                         }
                     },
-                )
-            }
-            if (excludeQuery.isNotBlank() && excludeResults.isEmpty()) {
-                Text(
-                    "No matching exercises (already-excluded ones are hidden).",
-                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }

@@ -8,21 +8,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
 /**
- * MuscleTome is a dark-only, brutalist iron journal. The scheme is fixed:
- * Material You dynamic color and light mode are intentionally absent so the
- * cast-iron / archival-cream / data-amber brand reads identically everywhere.
+ * MuscleTome is a dark-only, tactical army green/orange/black brutalist journal.
+ * Pure black background (#000000), dark olive cast-iron surfaces, army green
+ * secondary accents, hard 1px steel borders, and high-vis safety orange CTAs.
  */
-private val IronTomeColorScheme = darkColorScheme(
-    primary = DataAmber,
+private val TacticalColorScheme = darkColorScheme(
+    primary = SafetyOrange,
     onPrimary = Ink,
     primaryContainer = AmberContainer,
-    onPrimaryContainer = DataAmber,
-    inversePrimary = DataAmber,
+    onPrimaryContainer = SafetyOrange,
+    inversePrimary = SafetyOrange,
 
-    secondary = SteelBlue,
+    secondary = ArmyGreenLight,
     onSecondary = Ink,
-    secondaryContainer = IronRaised,
-    onSecondaryContainer = SteelBlue,
+    secondaryContainer = ArmyGreenMuted,
+    onSecondaryContainer = ArmyGreenLight,
 
     tertiary = ArchivalCream,
     onTertiary = Ink,
@@ -68,7 +68,7 @@ private val IronShapes = Shapes(
 @Composable
 fun MuscleTomeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = IronTomeColorScheme,
+        colorScheme = TacticalColorScheme,
         typography = Typography,
         shapes = IronShapes,
         content = content,

@@ -8,11 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.stateDescription
-
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,17 +18,15 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.saveable.mapSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -42,10 +35,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.domain.model.ExerciseSources
 import com.chy.muscletome.domain.model.MovementFamilies
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
-import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,15 +61,15 @@ fun ExerciseLibraryScreen(
     )) { mutableStateMapOf<String, Boolean>() }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Exercise library") }) },
+        topBar = { TopAppBar(title = { Text("EXERCISE LIBRARY", style = MuscleTomeTextStyles.heading) }) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddExercise,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large,
+                shape = MaterialTheme.shapes.small,
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add exercise")
+                Icon(Icons.Default.Add, contentDescription = "ADD EXERCISE")
             }
         },
     ) { innerPadding ->
@@ -81,19 +78,24 @@ fun ExerciseLibraryScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            TextButton(
-                onClick = onOpenImportReview,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            ) { Text("Import review") }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onOpenImportReview) {
+                    Text("IMPORT REVIEW", style = MuscleTomeTextStyles.button)
+                }
+            }
 
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 singleLine = true,
-                label = { Text("Search") },
+                label = { Text("SEARCH", style = MuscleTomeTextStyles.label) },
             )
 
             LazyRow(
@@ -104,7 +106,7 @@ fun ExerciseLibraryScreen(
                     FilterChip(
                         selected = state.selectedMuscleId == null,
                         onClick = { viewModel.onMuscleSelected(null) },
-                        label = { Text("All") },
+                        label = { Text("ALL", style = MuscleTomeTextStyles.tag) },
                     )
                 }
                 itemsIndexed(state.muscleGroups, key = { _, muscle -> muscle.id }) { _, muscle ->
@@ -114,7 +116,7 @@ fun ExerciseLibraryScreen(
                             val next = if (state.selectedMuscleId == muscle.id) null else muscle.id
                             viewModel.onMuscleSelected(next)
                         },
-                        label = { Text(muscle.name) },
+                        label = { Text(muscle.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
@@ -133,24 +135,18 @@ fun ExerciseLibraryScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
                             EmptyState(
-                                title = "Nothing here yet",
+                                title = "NO EXERCISES FOUND",
                                 body = if (state.query.isBlank() && state.selectedMuscleId == null) {
-                                    "The library fills up from the seed catalog and wger imports."
+                                    "THE LIBRARY FILLS FROM THE SEED CATALOG AND IMPORTS."
                                 } else {
-                                    "No exercises match your search."
+                                    "NO EXERCISES MATCH YOUR SEARCH."
                                 },
                             )
                             if (state.query.isBlank() && state.selectedMuscleId == null) {
-                                Button(
+                                AccentButton(
+                                    text = "CREATE CUSTOM EXERCISE",
                                     onClick = onAddExercise,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(56.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                                    ),
-                                ) { Text("Create custom exercise".uppercase()) }
+                                )
                             }
                         }
                     }
@@ -204,26 +200,24 @@ internal fun ExerciseRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // No image previews in the list — art lives on the exercise's own
-        // detail card. Rows keep their ledger index.
         LedgerIndex(index = index + 1)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                exercise.name,
+                exercise.name.uppercase(Locale.US),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                "${exercise.movementType} · ${exercise.difficulty} · ${exercise.primaryMuscleGroupId}",
-                style = MaterialTheme.typography.bodySmall,
+                "${exercise.movementType.name.uppercase(Locale.US)} · ${exercise.difficulty.name.uppercase(Locale.US)} · ${exercise.primaryMuscleGroupId.uppercase(Locale.US)}",
+                style = MuscleTomeTextStyles.tag,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (exercise.isCustom) {
-            MicroTag(text = "Custom")
+            MicroTag(text = "CUSTOM")
         } else {
             ExerciseSources.displayLabel(exercise.source)?.let { label ->
                 MicroTag(text = label)

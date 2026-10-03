@@ -4,10 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -24,12 +22,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import com.chy.muscletome.ui.components.SectionHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +34,7 @@ import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -46,14 +43,19 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.layout.ContentScale
 import com.chy.muscletome.data.local.dao.ExerciseLibraryRow
 import com.chy.muscletome.data.local.entity.ExerciseEntity
-import com.chy.muscletome.domain.model.TargetMovementType
 import com.chy.muscletome.domain.model.MovementFamilies
+import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.ExerciseDemoImage
 import com.chy.muscletome.ui.components.LedgerDivider
+import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
 import com.chy.muscletome.ui.library.groupExerciseFamilies
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,8 +65,6 @@ fun AddSlotScreen(
     viewModel: AddSlotViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Family expansion survives rotation but not leaving the picker — the
-    // library screen's saver pattern, scoped to this session's choices.
     val expandedFamilies = rememberSaveable(
         saver = mapSaver(
             save = { map -> map.mapValues { it.value } },
@@ -83,10 +83,10 @@ fun AddSlotScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.isTargetMode) "Add target slot" else "Add exercise") },
+                title = { Text(if (state.isTargetMode) "ADD TARGET SLOT" else "ADD EXERCISE", style = MuscleTomeTextStyles.heading) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                     }
                 },
                 actions = {
@@ -94,7 +94,7 @@ fun AddSlotScreen(
                         TextButton(onClick = onAddExercise) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("New exercise")
+                            Text("NEW EXERCISE", style = MuscleTomeTextStyles.button)
                         }
                     }
                 },
@@ -112,44 +112,37 @@ fun AddSlotScreen(
                 FilterChip(
                     selected = !state.isTargetMode,
                     onClick = { viewModel.setTargetMode(false) },
-                    label = { Text("Fixed exercise") },
+                    label = { Text("FIXED EXERCISE", style = MuscleTomeTextStyles.tag) },
                 )
                 FilterChip(
                     selected = state.isTargetMode,
                     onClick = { viewModel.setTargetMode(true) },
-                    label = { Text("Target muscle") },
+                    label = { Text("TARGET MUSCLE", style = MuscleTomeTextStyles.tag) },
                 )
             }
 
-            // What each mode actually does at session time — the difference
-            // is invisible until the workout starts otherwise.
             Text(
                 if (state.isTargetMode) {
-                    "We'll pick the exercise when you start: something that hits your " +
-                        "selected muscles, fits your equipment, and you haven't done " +
-                        "lately. A fresh pick every session — auto-rotate for accessories."
+                    "AUTOMATIC EXERCISE SELECTION AT SESSION START BASED ON TARGET MUSCLES AND EQUIPMENT."
                 } else {
-                    "The exact exercise you pick, every time this day comes up — " +
-                        "best for the heavy stuff you always want in the same slot."
+                    "EXACT FIXED EXERCISE EVERY SESSION."
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = MuscleTomeTextStyles.systemMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             if (state.isTargetMode) {
-                SectionHeader("Movement preference", modifier = Modifier.padding(top = 8.dp))
+                SectionHeader("MOVEMENT PREFERENCE", modifier = Modifier.padding(top = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TargetMovementType.entries.forEach { type ->
                         FilterChip(
                             selected = state.targetMovement == type,
                             onClick = { viewModel.setTargetMovement(type) },
-                            label = { Text(type.name) },
+                            label = { Text(type.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                         )
                     }
                 }
             } else if (state.selectedExerciseIds.size > 1) {
-                // Multi-pick: offer to insert everything as one round-robin
-                // group instead of separate slots.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -160,17 +153,17 @@ fun AddSlotScreen(
                         onCheckedChange = viewModel::setAsSuperset,
                     )
                     Text(
-                        "Add as superset (train them round-robin)",
-                        style = MaterialTheme.typography.bodyMedium,
+                        "ADD AS SUPERSET (ROUND-ROBIN)",
+                        style = MuscleTomeTextStyles.label,
                     )
                 }
             }
 
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(if (state.isTargetMode) "Search muscles" else "Search exercises") },
+                label = { Text(if (state.isTargetMode) "SEARCH MUSCLES" else "SEARCH EXERCISES", style = MuscleTomeTextStyles.label) },
                 singleLine = true,
             )
 
@@ -182,7 +175,7 @@ fun AddSlotScreen(
                 if (state.isTargetMode) {
                     items(state.muscleGroups, key = { it.id }) { muscle ->
                         ListItem(
-                            headlineContent = { Text(muscle.name) },
+                            headlineContent = { Text(muscle.name.uppercase(Locale.US), style = MuscleTomeTextStyles.button) },
                             leadingContent = {
                                 Checkbox(
                                     checked = state.selectedMuscleIds.contains(muscle.id),
@@ -193,9 +186,6 @@ fun AddSlotScreen(
                         )
                     }
                 } else {
-                    // Same family grouping as the Exercise Library: variations
-                    // collapse under an expandable family header; a search hit
-                    // inside a family auto-expands it so matches stay visible.
                     val familyGroups = groupExerciseFamilies(state.libraryRows)
                     if (familyGroups.isEmpty()) {
                         item(key = "create_custom_empty_state") {
@@ -208,38 +198,32 @@ fun AddSlotScreen(
                             ) {
                                 Text(
                                     if (state.query.isNotBlank()) {
-                                        "No exercises found matching \"${state.query}\""
+                                        "NO EXERCISES MATCHING \"${state.query.uppercase(Locale.US)}\""
                                     } else {
-                                        "No exercises available"
+                                        "NO EXERCISES AVAILABLE"
                                     },
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MuscleTomeTextStyles.systemMessage,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Button(onClick = onAddExercise) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        if (state.query.isNotBlank()) {
-                                            "Create \"${state.query}\" exercise"
-                                        } else {
-                                            "Create new exercise"
-                                        },
-                                    )
-                                }
+                                AccentButton(
+                                    text = if (state.query.isNotBlank()) {
+                                        "CREATE \"${state.query.uppercase(Locale.US)}\" EXERCISE"
+                                    } else {
+                                        "CREATE NEW EXERCISE"
+                                    },
+                                    onClick = onAddExercise,
+                                )
                             }
                         }
                     } else {
                         item(key = "create_custom_action_header") {
-                            OutlinedButton(
+                            BrutalistOutlinedButton(
+                                text = "CREATE CUSTOM EXERCISE",
                                 onClick = onAddExercise,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Create custom exercise")
-                            }
+                            )
                         }
                         familyGroups.forEach { group ->
                             val familyId = group.familyId
@@ -267,8 +251,8 @@ fun AddSlotScreen(
                                                 .fillMaxWidth()
                                                 .clickable { expandedFamilies[familyId] = !expanded }
                                                 .semantics {
-                                                    contentDescription = "${MovementFamilies.label(familyId) ?: familyId} exercise family"
-                                                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                                                    contentDescription = "${MovementFamilies.label(familyId) ?: familyId} EXERCISE FAMILY"
+                                                    stateDescription = if (expanded) "EXPANDED" else "COLLAPSED"
                                                 }
                                                 .padding(vertical = 4.dp),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -287,12 +271,12 @@ fun AddSlotScreen(
                                             )
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    MovementFamilies.label(familyId) ?: familyId,
+                                                    (MovementFamilies.label(familyId) ?: familyId).uppercase(Locale.US),
                                                     style = MaterialTheme.typography.titleMedium,
                                                 )
                                                 Text(
-                                                    "${members.size} variations",
-                                                    style = MaterialTheme.typography.bodySmall,
+                                                    "${members.size} VARIATIONS",
+                                                    style = MuscleTomeTextStyles.tag,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
@@ -321,25 +305,17 @@ fun AddSlotScreen(
                 }
             }
 
-            Button(
+            val count = if (state.isTargetMode) state.selectedMuscleIds.size else state.selectedExerciseIds.size
+            AccentButton(
+                text = if (count > 1) "ADD $count EXERCISES" else "ADD TO DAY",
                 onClick = viewModel::save,
                 enabled = state.canSave,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                val count = if (state.isTargetMode) state.selectedMuscleIds.size else state.selectedExerciseIds.size
-                Text(if (count > 1) "Add $count exercises" else "Add to day")
-            }
+                minHeight = 56.dp,
+            )
         }
     }
 }
 
-/**
- * One exercise row of the picker: checkbox + demo thumbnail, tap toggles.
- * Duplicates are impossible — results are keyed by exercise id, so picking
- * the same exercise twice (row tap or family select-all) just keeps one.
- */
 @Composable
 private fun SlotExerciseRow(
     exercise: ExerciseEntity,
@@ -347,8 +323,8 @@ private fun SlotExerciseRow(
     onToggle: () -> Unit,
 ) {
     ListItem(
-        headlineContent = { Text(exercise.name) },
-        supportingContent = { Text(exercise.primaryMuscleGroupId) },
+        headlineContent = { Text(exercise.name.uppercase(Locale.US), style = MuscleTomeTextStyles.button) },
+        supportingContent = { Text(exercise.primaryMuscleGroupId.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
         leadingContent = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

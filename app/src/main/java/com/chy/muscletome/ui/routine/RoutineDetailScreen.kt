@@ -1,5 +1,6 @@
 package com.chy.muscletome.ui.routine
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,14 +42,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.background
-import androidx.compose.material3.ButtonDefaults
 import com.chy.muscletome.data.local.entity.RoutineDayEntity
 import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.dragReorderItem
 import com.chy.muscletome.ui.components.rememberDragReorderState
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +64,6 @@ fun RoutineDetailScreen(
     var showDeleteRoutine by remember { mutableStateOf(false) }
     var deletingDay by remember { mutableStateOf<RoutineDayEntity?>(null) }
 
-    // Drag-reorder: keep a local order while dragging, persist on drop.
     var dayRows by remember { mutableStateOf(days) }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(days) { if (!dragging) dayRows = days }
@@ -83,20 +83,20 @@ fun RoutineDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(routine?.name ?: "Routine") },
+                title = { Text((routine?.name ?: "ROUTINE").uppercase(Locale.US), style = MuscleTomeTextStyles.heading) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::duplicateRoutine) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Duplicate routine")
+                        Icon(Icons.Default.ContentCopy, contentDescription = "DUPLICATE ROUTINE")
                     }
                     IconButton(onClick = { showDeleteRoutine = true }) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Delete routine",
+                            contentDescription = "DELETE ROUTINE",
                             tint = MaterialTheme.colorScheme.outline,
                         )
                     }
@@ -108,9 +108,9 @@ fun RoutineDetailScreen(
                 onClick = { showCreate = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large,
+                shape = MaterialTheme.shapes.small,
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add day")
+                Icon(Icons.Default.Add, contentDescription = "ADD DAY")
             }
         },
     ) { innerPadding ->
@@ -125,8 +125,8 @@ fun RoutineDetailScreen(
             if (dayRows.isEmpty()) {
                 item {
                     EmptyState(
-                        title = "No days yet",
-                        body = "Add training days to this routine.",
+                        title = "NO DAYS YET",
+                        body = "ADD TRAINING DAYS TO THIS ROUTINE.",
                     )
                 }
             }
@@ -139,7 +139,6 @@ fun RoutineDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Day marker: amber spine tick + mono index — the page edge.
                     Spacer(
                         modifier = Modifier
                             .width(3.dp)
@@ -153,27 +152,27 @@ fun RoutineDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            day.name,
+                            day.name.uppercase(Locale.US),
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
                         MonoText(
                             text = "DAY ${(day.orderIndex + 1).toString().padStart(2, '0')}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MuscleTomeTextStyles.tag,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(onClick = { viewModel.duplicateDay(day.id) }) {
                         Icon(
                             Icons.Default.ContentCopy,
-                            contentDescription = "Duplicate day",
+                            contentDescription = "DUPLICATE DAY",
                             tint = MaterialTheme.colorScheme.outline,
                         )
                     }
                     IconButton(onClick = { deletingDay = day }) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Delete day",
+                            contentDescription = "DELETE DAY",
                             tint = MaterialTheme.colorScheme.outline,
                         )
                     }
@@ -187,9 +186,9 @@ fun RoutineDetailScreen(
 
     if (showCreate) {
         NameDialog(
-            title = "New day",
-            label = "Day name",
-            confirmLabel = "Add",
+            title = "NEW DAY",
+            label = "DAY NAME",
+            confirmLabel = "ADD",
             onDismiss = { showCreate = false },
             onConfirm = { name ->
                 viewModel.addDay(name)
@@ -201,11 +200,11 @@ fun RoutineDetailScreen(
     if (showDeleteRoutine) {
         AlertDialog(
             onDismissRequest = { showDeleteRoutine = false },
-            title = { Text("Delete routine?") },
+            title = { Text("DELETE ROUTINE?", style = MuscleTomeTextStyles.heading) },
             text = {
                 Text(
-                    "\"${routine?.name ?: "This routine"}\" and all its days and slots will be " +
-                        "deleted. Your logged workouts are kept.",
+                    "\"${(routine?.name ?: "THIS ROUTINE").uppercase(Locale.US)}\" AND ALL DAYS WILL BE DELETED. LOGGED WORKOUTS REMAIN.",
+                    style = MuscleTomeTextStyles.systemMessage,
                 )
             },
             confirmButton = {
@@ -215,13 +214,14 @@ fun RoutineDetailScreen(
                         viewModel.deleteRoutine()
                         onBack()
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Delete") }
+                ) {
+                    Text("DELETE", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteRoutine = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteRoutine = false }) {
+                    Text("CANCEL", style = MuscleTomeTextStyles.button)
+                }
             },
         )
     }
@@ -229,11 +229,11 @@ fun RoutineDetailScreen(
     deletingDay?.let { day ->
         AlertDialog(
             onDismissRequest = { deletingDay = null },
-            title = { Text("Delete day?") },
+            title = { Text("DELETE DAY?", style = MuscleTomeTextStyles.heading) },
             text = {
                 Text(
-                    "\"${day.name}\" and its exercise slots will be removed from this routine. " +
-                        "Your logged workouts are kept.",
+                    "\"${day.name.uppercase(Locale.US)}\" AND ITS SLOTS WILL BE REMOVED FROM ROUTINE. LOGGED WORKOUTS REMAIN.",
+                    style = MuscleTomeTextStyles.systemMessage,
                 )
             },
             confirmButton = {
@@ -242,13 +242,14 @@ fun RoutineDetailScreen(
                         viewModel.deleteDay(day.id)
                         deletingDay = null
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Delete") }
+                ) {
+                    Text("DELETE", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { deletingDay = null }) { Text("Cancel") }
+                TextButton(onClick = { deletingDay = null }) {
+                    Text("CANCEL", style = MuscleTomeTextStyles.button)
+                }
             },
         )
     }

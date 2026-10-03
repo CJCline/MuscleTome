@@ -24,12 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.chy.muscletome.domain.template.RoutineTemplate
 import com.chy.muscletome.domain.template.RoutineTemplates
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
 
 /**
  * Collapsible starter-program banner. Collapsed: one-line header row
- * (amber spine + "Starter programs" + chevron). Expanded: the three
- * template cards stacked below the header. Shown on first-run Home and in
- * the Routines tab, where program management lives.
+ * (amber spine + "STARTER PROGRAMS" + chevron). Expanded: the three
+ * template cards stacked below the header.
  */
 @Composable
 fun TemplatesBanner(
@@ -62,17 +62,17 @@ fun TemplatesBanner(
                     .background(MaterialTheme.colorScheme.primary),
             )
             Text(
-                "Starter programs",
-                style = MaterialTheme.typography.labelLarge,
+                "STARTER PROGRAMS",
+                style = MuscleTomeTextStyles.sectionTitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = if (expanded) {
-                    "Collapse starter programs"
+                    "COLLAPSE STARTER PROGRAMS"
                 } else {
-                    "Expand starter programs"
+                    "EXPAND STARTER PROGRAMS"
                 },
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

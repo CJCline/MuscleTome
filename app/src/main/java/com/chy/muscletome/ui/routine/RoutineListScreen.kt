@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -44,14 +43,11 @@ import com.chy.muscletome.ui.components.EmptyState
 import com.chy.muscletome.ui.components.LedgerDivider
 import com.chy.muscletome.ui.components.LedgerIndex
 import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
 import com.chy.muscletome.ui.components.TemplatesBanner
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
-/**
- * The full program list: create, duplicate, delete, switch the active
- * program, and — via the collapsible starter-programs banner — add a
- * starter program. Home stays focused on "what do I do today?" and links
- * here for anything program-management related.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineListScreen(
@@ -68,21 +64,21 @@ fun RoutineListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.routineAdded.collect { name ->
-            snackbarHostState.showSnackbar("Added \"$name\" — set as your program")
+            snackbarHostState.showSnackbar("ADDED \"${name.uppercase(Locale.US)}\" — SET AS PROGRAM")
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { TopAppBar(title = { Text("Routines") }) },
+        topBar = { TopAppBar(title = { Text("ROUTINES", style = MuscleTomeTextStyles.heading) }) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showCreate = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large,
+                shape = MaterialTheme.shapes.small,
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create routine")
+                Icon(Icons.Default.Add, contentDescription = "CREATE ROUTINE")
             }
         },
     ) { innerPadding ->
@@ -91,9 +87,6 @@ fun RoutineListScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            // Starter programs: the template banner lives here now that Home
-            // no longer lists routines. Collapsible; hidden while empty
-            // (the empty state below offers the same entry point as a CTA).
             if (routines.isNotEmpty()) {
                 TemplatesBanner(
                     expanded = templatesExpanded,
@@ -111,8 +104,8 @@ fun RoutineListScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     EmptyState(
-                        title = "No routines yet",
-                        body = "Create Push/Pull/Legs or a custom split.",
+                        title = "NO ROUTINES YET",
+                        body = "CREATE PUSH/PULL/LEGS OR A CUSTOM SPLIT.",
                     )
                     TemplatesBanner(
                         expanded = templatesExpanded,
@@ -140,31 +133,31 @@ fun RoutineListScreen(
                             LedgerIndex(index = index + 1)
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    routine.name,
+                                    routine.name.uppercase(Locale.US),
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onBackground,
                                 )
                                 if (routine.id == activeRoutineId) {
-                                    MicroTag(text = "Active")
+                                    MicroTag(text = "ACTIVE")
                                 } else {
                                     TextButton(
                                         onClick = { viewModel.setActiveRoutine(routine.id) },
                                     ) {
-                                        Text("Set active")
+                                        Text("SET ACTIVE", style = MuscleTomeTextStyles.button)
                                     }
                                 }
                             }
                             IconButton(onClick = { viewModel.duplicateRoutine(routine.id) }) {
                                 Icon(
                                     Icons.Default.ContentCopy,
-                                    contentDescription = "Duplicate routine",
+                                    contentDescription = "DUPLICATE ROUTINE",
                                     tint = MaterialTheme.colorScheme.outline,
                                 )
                             }
                             IconButton(onClick = { deletingRoutine = routine }) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Delete routine",
+                                    contentDescription = "DELETE ROUTINE",
                                     tint = MaterialTheme.colorScheme.outline,
                                 )
                             }
@@ -180,9 +173,9 @@ fun RoutineListScreen(
 
     if (showCreate) {
         NameDialog(
-            title = "New routine",
-            label = "Routine name",
-            confirmLabel = "Create",
+            title = "NEW ROUTINE",
+            label = "ROUTINE NAME",
+            confirmLabel = "CREATE",
             onDismiss = { showCreate = false },
             onConfirm = { name ->
                 viewModel.createRoutine(name)
@@ -193,11 +186,11 @@ fun RoutineListScreen(
     deletingRoutine?.let { routine ->
         AlertDialog(
             onDismissRequest = { deletingRoutine = null },
-            title = { Text("Delete routine?") },
+            title = { Text("DELETE ROUTINE?", style = MuscleTomeTextStyles.heading) },
             text = {
                 Text(
-                    "\"${routine.name}\" and all its days and slots will be " +
-                        "deleted. Your logged workouts are kept.",
+                    "\"${routine.name.uppercase(Locale.US)}\" AND ALL DAYS WILL BE DELETED. LOGGED WORKOUTS ARE KEPT.",
+                    style = MuscleTomeTextStyles.systemMessage,
                 )
             },
             confirmButton = {
@@ -206,13 +199,14 @@ fun RoutineListScreen(
                         viewModel.deleteRoutine(routine.id)
                         deletingRoutine = null
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Delete") }
+                ) {
+                    Text("DELETE", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { deletingRoutine = null }) { Text("Cancel") }
+                TextButton(onClick = { deletingRoutine = null }) {
+                    Text("CANCEL", style = MuscleTomeTextStyles.button)
+                }
             },
         )
     }
@@ -229,12 +223,12 @@ fun NameDialog(
     var name by rememberSaveable { mutableStateOf(value = "") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(title.uppercase(Locale.US), style = MuscleTomeTextStyles.heading) },
         text = {
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(label) },
+                label = { Text(label.uppercase(Locale.US), style = MuscleTomeTextStyles.label) },
                 singleLine = true,
             )
         },
@@ -242,10 +236,14 @@ fun NameDialog(
             TextButton(
                 onClick = { onConfirm(name) },
                 enabled = name.isNotBlank(),
-            ) { Text(confirmLabel) }
+            ) {
+                Text(confirmLabel.uppercase(Locale.US), style = MuscleTomeTextStyles.button)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text("CANCEL", style = MuscleTomeTextStyles.button)
+            }
         },
     )
 }

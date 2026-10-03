@@ -3,10 +3,12 @@ package com.chy.muscletome.ui.routine
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,8 +21,8 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,56 +32,51 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.TextButton
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import com.chy.muscletome.ui.components.EmptyState
-import com.chy.muscletome.ui.components.MicroTag
-import com.chy.muscletome.ui.components.MonoText
-import com.chy.muscletome.ui.components.dragReorderItem
-import com.chy.muscletome.ui.components.rememberDragReorderState
 import com.chy.muscletome.data.local.entity.RoutineSlotEntity
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.routine.TargetSlotLabel
-
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
+import com.chy.muscletome.ui.components.EmptyState
+import com.chy.muscletome.ui.components.MicroTag
+import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
+import com.chy.muscletome.ui.components.dragReorderItem
+import com.chy.muscletome.ui.components.rememberDragReorderState
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -97,20 +94,11 @@ fun DayDetailScreen(
     var deletingSlot by remember { mutableStateOf<RoutineSlotEntity?>(null) }
     var replacingActiveSlotForRoutineExercise by remember { mutableStateOf<SlotRow?>(null) }
 
-    // Drag-reorder: hold a local order while dragging, persist on drop.
-    // Rows expose slot ids for the reorder call; drafts ride along untouched.
     var slotRows by remember { mutableStateOf(state.slots) }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(state.slots) { if (!dragging) slotRows = state.slots }
     val slotListState = rememberLazyListState()
-    // Editing near the bottom of a long routine: with the keyboard open, the
-    // focused field must stay visible. The list below applies ime + nav-bar
-    // insets, so it shrinks; the IME's own bring-into-view only guarantees
-    // the cursor, not the rest of the row — and the FAB floats above the
-    // keyboard covering the last row. When a field gains focus (or the IME
-    // lands after its animation) and the focused row is clipped, scroll it
-    // into view. Keys: focus id, IME visibility, and row order — whichever
-    // changes re-evaluates the visibility.
+
     var focusedSlotId by remember { mutableStateOf<String?>(null) }
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible, focusedSlotId, slotRows) {
@@ -142,7 +130,7 @@ fun DayDetailScreen(
     LaunchedEffect(viewModel) {
         viewModel.errorMessage.collect { message ->
             scope.launch {
-                snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(message.uppercase(Locale.US))
             }
         }
     }
@@ -150,14 +138,14 @@ fun DayDetailScreen(
     LaunchedEffect(state.savedTick) {
         if (state.savedTick > 0) {
             focusManager.clearFocus()
-            snackbarHostState.showSnackbar("Changes saved")
+            snackbarHostState.showSnackbar("CHANGES SAVED")
         }
     }
 
     Scaffold(
         topBar = {
              TopAppBar(
-                title = { Text(state.day?.name ?: "Day") },
+                title = { Text((state.day?.name ?: "DAY").uppercase(Locale.US), style = MuscleTomeTextStyles.heading) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (state.hasUnsavedChanges) {
@@ -166,7 +154,7 @@ fun DayDetailScreen(
                             onBack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                     }
                 },
                 actions = {
@@ -175,23 +163,21 @@ fun DayDetailScreen(
                         enabled = state.slots.isNotEmpty() && !state.hasUnsavedChanges,
                     ) {
                         Text(
-                            "Start".uppercase(),
+                            "START",
+                            style = MuscleTomeTextStyles.button,
                             color = if (state.slots.isNotEmpty() && !state.hasUnsavedChanges) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            fontWeight = FontWeight.Bold,
                         )
                     }
-                    // Always visible so it is discoverable; disabled when there is
-                    // nothing to save, and hidden while a Back-confirm dialog is up.
                     if (!showBackConfirm) {
                         TextButton(
                             onClick = viewModel::saveChanges,
                             enabled = state.canSave,
                         ) {
-                            Text("Save", fontWeight = FontWeight.Bold)
+                            Text("SAVE", style = MuscleTomeTextStyles.button)
                         }
                     }
                 },
@@ -202,16 +188,13 @@ fun DayDetailScreen(
             FloatingActionButton(
                 onClick = onAddSlot,
                 modifier = Modifier
-                    // The FAB otherwise covers the bottom row exactly where
-                    // the user is editing; riding above the keyboard keeps
-                    // the last exercises reachable while typing.
                     .imePadding()
                     .navigationBarsPadding(),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large,
+                shape = MaterialTheme.shapes.small,
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add exercise")
+                Icon(Icons.Default.Add, contentDescription = "ADD EXERCISE")
             }
         },
     ) { innerPadding ->
@@ -224,19 +207,13 @@ fun DayDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 EmptyState(
-                    title = "Blank page",
-                    body = "Add exercises to fill this day of the tome.",
+                    title = "BLANK PAGE",
+                    body = "ADD EXERCISES TO FILL THIS DAY OF THE TOME.",
                 )
-                Button(
+                AccentButton(
+                    text = "ADD FIRST EXERCISE",
                     onClick = onAddSlot,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) { Text("Add first exercise".uppercase()) }
+                )
             }
         } else {
             LazyColumn(
@@ -244,22 +221,17 @@ fun DayDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    // Under the keyboard the list itself shrinks and scrolls;
-                    // the nav-bar inset keeps the last exercise reachable
-                    // when the keyboard is closed.
                     .imePadding()
                     .navigationBarsPadding(),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     top = 16.dp,
                     end = 16.dp,
-                    // Extra padding when IME is visible ensures even bottom-of-list items can scroll completely above the keyboard & FAB.
                     bottom = if (imeVisible) 280.dp else 120.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 itemsIndexed(slotRows, key = { _, row -> row.slot.id }) { index, row ->
-                    // Amber spine while the row has unsaved edits — dirty pages glow.
                     val spineColor = if (row.hasUnsavedChanges) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -298,16 +270,13 @@ fun DayDetailScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
-                                    // TARGET slots speak for themselves:
-                                    // "Chest isolation · AI pick" instead of a
-                                    // generic "Target slot".
-                                    val title = row.targetLabel ?: row.exerciseName
+                                    val title = (row.targetLabel ?: row.exerciseName).uppercase(Locale.US)
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (row.slot.supersetGroupId != null &&
                                             row.slot.supersetGroupId != slotRows.getOrNull(index - 1)?.slot?.supersetGroupId
                                         ) {
                                             MicroTag(
-                                                text = "Superset",
+                                                text = "SUPERSET",
                                                 color = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.padding(end = 8.dp),
                                             )
@@ -315,6 +284,7 @@ fun DayDetailScreen(
                                         Text(
                                             title,
                                             style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onBackground,
                                         )
                                         if (row.targetLabel != null) {
@@ -328,14 +298,11 @@ fun DayDetailScreen(
                                     MonoText(
                                         text = "${row.draftSets} × " +
                                             "${row.draftRepMin}-${row.draftRepMax} · " +
-                                            "${row.draftRestSeconds}s",
-                                        style = MaterialTheme.typography.bodySmall,
+                                            "${row.draftRestSeconds}S",
+                                        style = MuscleTomeTextStyles.tag,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                // Superset membership follows the group id, never
-                                // adjacency — the icon shows the slot's state;
-                                // drag-reordering a group's rows apart keeps it.
                                 IconButton(
                                     onClick = {
                                         if (row.slot.supersetGroupId == null) {
@@ -348,13 +315,13 @@ fun DayDetailScreen(
                                     if (row.slot.supersetGroupId == null) {
                                         Icon(
                                             Icons.Default.Link,
-                                            contentDescription = "Group with next exercise",
+                                            contentDescription = "GROUP WITH NEXT EXERCISE",
                                             tint = MaterialTheme.colorScheme.outline,
                                         )
                                     } else {
                                         Icon(
                                             Icons.Default.LinkOff,
-                                            contentDescription = "Remove from superset",
+                                            contentDescription = "REMOVE FROM SUPERSET",
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
                                     }
@@ -363,7 +330,7 @@ fun DayDetailScreen(
                                     IconButton(onClick = { replacingActiveSlotForRoutineExercise = row }) {
                                         Icon(
                                             Icons.Default.SwapHoriz,
-                                            contentDescription = "Replace in active workout",
+                                            contentDescription = "REPLACE IN ACTIVE WORKOUT",
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
                                     }
@@ -371,7 +338,7 @@ fun DayDetailScreen(
                                 IconButton(onClick = { deletingSlot = row.slot }) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Remove slot",
+                                        contentDescription = "REMOVE SLOT",
                                         tint = MaterialTheme.colorScheme.outline,
                                     )
                                 }
@@ -383,7 +350,7 @@ fun DayDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 SlotMetricField(
-                                    label = "Sets",
+                                    label = "SETS",
                                     value = row.draftSets,
                                     isValueExternal = !row.hasUnsavedChanges,
                                     onValueChange = {
@@ -395,7 +362,7 @@ fun DayDetailScreen(
                                     modifier = Modifier.weight(1f),
                                 )
                                 SlotMetricField(
-                                    label = "Rep min",
+                                    label = "MIN",
                                     value = row.draftRepMin,
                                     isValueExternal = !row.hasUnsavedChanges,
                                     onValueChange = {
@@ -407,7 +374,7 @@ fun DayDetailScreen(
                                     modifier = Modifier.weight(1f),
                                 )
                                 SlotMetricField(
-                                    label = "Rep max",
+                                    label = "MAX",
                                     value = row.draftRepMax,
                                     isValueExternal = !row.hasUnsavedChanges,
                                     onValueChange = {
@@ -419,7 +386,7 @@ fun DayDetailScreen(
                                     modifier = Modifier.weight(1f),
                                 )
                                 SlotMetricField(
-                                    label = "Rest (s)",
+                                    label = "REST",
                                     value = row.draftRestSeconds,
                                     isValueExternal = !row.hasUnsavedChanges,
                                     onValueChange = {
@@ -432,8 +399,8 @@ fun DayDetailScreen(
                                 )
                                 SlotMetricField(
                                     label = when (state.effortScale) {
-                                        EffortScale.RPE -> "Target RPE"
-                                        EffortScale.RIR -> "Target RIR"
+                                        EffortScale.RPE -> "RPE"
+                                        EffortScale.RIR -> "RIR"
                                     },
                                     value = row.draftTargetEffort,
                                     isValueExternal = !row.hasUnsavedChanges,
@@ -461,7 +428,7 @@ fun DayDetailScreen(
                                 ) {
                                     if (!row.isDraftValid) {
                                         MicroTag(
-                                            text = "Enter valid numbers",
+                                            text = "ENTER VALID NUMBERS",
                                             color = MaterialTheme.colorScheme.error,
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
@@ -469,7 +436,7 @@ fun DayDetailScreen(
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
                                     TextButton(onClick = { viewModel.discardChanges(row.slot.id) }) {
-                                        Text("Discard")
+                                        Text("DISCARD", style = MuscleTomeTextStyles.button)
                                     }
                                 }
                             }
@@ -483,15 +450,15 @@ fun DayDetailScreen(
     if (showBackConfirm) {
         AlertDialog(
             onDismissRequest = { showBackConfirm = false },
-            title = { Text("Unsaved changes") },
-            text = { Text("You have unsaved edits to this day. Save them before leaving?") },
+            title = { Text("UNSAVED CHANGES", style = MuscleTomeTextStyles.heading) },
+            text = { Text("UNSAVED EDITS TO THIS DAY. SAVE BEFORE LEAVING?", style = MuscleTomeTextStyles.systemMessage) },
             confirmButton = {
                 TextButton(onClick = {
                     showBackConfirm = false
                     viewModel.saveChanges()
                     onBack()
                 }) {
-                    Text("Save")
+                    Text("SAVE", style = MuscleTomeTextStyles.button)
                 }
             },
             dismissButton = {
@@ -499,7 +466,7 @@ fun DayDetailScreen(
                     showBackConfirm = false
                     onBack()
                 }) {
-                    Text("Discard and leave")
+                    Text("DISCARD AND LEAVE", style = MuscleTomeTextStyles.button)
                 }
             },
         )
@@ -507,11 +474,11 @@ fun DayDetailScreen(
     deletingSlot?.let { slot ->
         AlertDialog(
             onDismissRequest = { deletingSlot = null },
-            title = { Text("Remove exercise?") },
+            title = { Text("REMOVE EXERCISE?", style = MuscleTomeTextStyles.heading) },
             text = {
                 Text(
-                    "Remove \"${slot.exerciseId ?: "this slot"}\" from this day? " +
-                        "Your logged workouts are kept.",
+                    "REMOVE \"${(slot.exerciseId ?: "THIS SLOT").uppercase(Locale.US)}\" FROM THIS DAY? LOGGED WORKOUTS REMAIN.",
+                    style = MuscleTomeTextStyles.systemMessage,
                 )
             },
             confirmButton = {
@@ -520,13 +487,10 @@ fun DayDetailScreen(
                         viewModel.deleteSlot(slot.id)
                         deletingSlot = null
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Remove") }
+                ) { Text("REMOVE", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deletingSlot = null }) { Text("Cancel") }
+                TextButton(onClick = { deletingSlot = null }) { Text("CANCEL", style = MuscleTomeTextStyles.button) }
             },
         )
     }
@@ -538,27 +502,26 @@ fun DayDetailScreen(
         if (!showLibraryPicker) {
             AlertDialog(
                 onDismissRequest = { replacingActiveSlotForRoutineExercise = null },
-                title = { Text("Replace in active workout") },
+                title = { Text("REPLACE IN ACTIVE WORKOUT", style = MuscleTomeTextStyles.heading) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            "Swap \"${row.exerciseName}\" into your active workout, or pick a new exercise:",
-                            style = MaterialTheme.typography.bodyMedium,
+                            "SWAP \"${row.exerciseName.uppercase(Locale.US)}\" INTO ACTIVE WORKOUT OR PICK NEW EXERCISE:",
+                            style = MuscleTomeTextStyles.systemMessage,
                         )
-                        OutlinedButton(
+                        BrutalistOutlinedButton(
+                            text = "PICK LIBRARY EXERCISE INSTEAD...",
                             onClick = { showLibraryPicker = true },
                             modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Pick a library exercise instead...")
-                        }
-                        SectionHeader("Replace which active exercise?")
+                        )
+                        SectionHeader("REPLACE WHICH ACTIVE EXERCISE?")
                         LazyColumn(
                             modifier = Modifier.height(200.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             items(state.activeSessionSlots) { option ->
                                 Surface(
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = MaterialTheme.shapes.small,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -570,7 +533,7 @@ fun DayDetailScreen(
                                                 val oldName = option.currentExerciseName
                                                 val newName = row.exerciseName
                                                 scope.launch {
-                                                    snackbarHostState.showSnackbar("Replaced \"$oldName\" with \"$newName\" in active workout")
+                                                    snackbarHostState.showSnackbar("REPLACED \"${oldName.uppercase(Locale.US)}\" WITH \"${newName.uppercase(Locale.US)}\"")
                                                 }
                                             } else {
                                                 showLibraryPicker = true
@@ -588,7 +551,7 @@ fun DayDetailScreen(
                                             color = MaterialTheme.colorScheme.primary,
                                         )
                                         Text(
-                                            text = option.currentExerciseName,
+                                            text = option.currentExerciseName.uppercase(Locale.US),
                                             style = MaterialTheme.typography.bodyLarge,
                                         )
                                     }
@@ -600,7 +563,7 @@ fun DayDetailScreen(
                 confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { replacingActiveSlotForRoutineExercise = null }) {
-                        Text("Cancel")
+                        Text("CANCEL", style = MuscleTomeTextStyles.button)
                     }
                 },
             )
@@ -615,13 +578,13 @@ fun DayDetailScreen(
                     showLibraryPicker = false
                     replacingActiveSlotForRoutineExercise = null
                 },
-                title = { Text("Pick replacement exercise") },
+                title = { Text("PICK REPLACEMENT EXERCISE", style = MuscleTomeTextStyles.heading) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SelectOnFocusOutlinedTextField(
                             value = pickerSearchQuery,
                             onValueChange = { pickerSearchQuery = it },
-                            placeholder = { Text("Search exercises...") },
+                            placeholder = { Text("SEARCH EXERCISES...", style = MuscleTomeTextStyles.tag) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                         )
@@ -631,7 +594,7 @@ fun DayDetailScreen(
                         ) {
                             items(filteredCatalog) { catalogExercise ->
                                 Surface(
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = MaterialTheme.shapes.small,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -644,7 +607,7 @@ fun DayDetailScreen(
                                                 val oldName = matchingResult.currentExerciseName
                                                 val newName = catalogExercise.name
                                                 scope.launch {
-                                                    snackbarHostState.showSnackbar("Replaced \"$oldName\" with \"$newName\" in active workout")
+                                                    snackbarHostState.showSnackbar("REPLACED \"${oldName.uppercase(Locale.US)}\" WITH \"${newName.uppercase(Locale.US)}\"")
                                                 }
                                             }
                                             showLibraryPicker = false
@@ -652,7 +615,7 @@ fun DayDetailScreen(
                                         },
                                 ) {
                                     Text(
-                                        text = catalogExercise.name,
+                                        text = catalogExercise.name.uppercase(Locale.US),
                                         style = MaterialTheme.typography.bodyLarge,
                                         modifier = Modifier.padding(12.dp),
                                     )
@@ -667,7 +630,7 @@ fun DayDetailScreen(
                         showLibraryPicker = false
                         replacingActiveSlotForRoutineExercise = null
                     }) {
-                        Text("Cancel")
+                        Text("CANCEL", style = MuscleTomeTextStyles.button)
                     }
                 },
             )
@@ -675,39 +638,23 @@ fun DayDetailScreen(
     }
 }
 
-/**
- * One editable metric of a slot (sets, rep range, rest, target effort).
- *
- * The field owns its text state: the ViewModel's draft map follows the
- * user's keystrokes through [onValueChange], but the field only re-applies
- * the model's value when the row reports it as external (no unsaved draft)
- * AND the text actually differs — save, discard, and routine reloads.
- * Recomposition can no longer overwrite an in-progress edit with stale
- * state (the draft map re-sends the row on every keystroke).
- *
- * Focus selects the whole value so typing replaces it; partial edits
- * (cursor mid-text, backspace from the end) keep normal caret placement.
- */
 @Composable
 internal fun SlotMetricField(
     label: String,
     value: String,
-    /** True while the row has no unsaved draft: the model owns the value. */
     isValueExternal: Boolean,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    /** Reports focus changes so the row can be scrolled clear of the IME. */
     onFocused: (Boolean) -> Unit = {},
-    /** RPE allows half-points (7.5); whole numbers otherwise. */
     allowDecimal: Boolean = false,
 ) {
-    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+    SelectOnFocusOutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
         onFocused = onFocused,
         applyValueChange = { old, typed -> applySlotFieldChange(old, typed, allowDecimal) },
-        label = { Text(label) },
+        label = { Text(label, style = MuscleTomeTextStyles.label) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,
@@ -715,16 +662,8 @@ internal fun SlotMetricField(
     )
 }
 
-/** The characters a numeric slot field accepts while the user types. */
 private const val DECIMAL = "."
 
-/**
- * Whether [text] is a legal value for a slot metric field: whole-number
- * fields accept up to 4 digits (a rest of 9999 s is conceivable), decimal
- * fields accept 0-2 integer digits with an optional decimal point and at
- * most one fractional digit (RPE halves). Empty is always valid — clearing
- * is part of editing.
- */
 internal fun isValidSlotFieldText(text: String, allowDecimal: Boolean): Boolean =
     if (allowDecimal) {
         text.isEmpty() || text.matches(Regex("^\\d{1,2}(\\.\\d?)?$"))
@@ -732,15 +671,8 @@ internal fun isValidSlotFieldText(text: String, allowDecimal: Boolean): Boolean 
         text.isEmpty() || (text.all { it.isDigit() } && text.length <= 4)
     }
 
-/**
- * Applies an IME text change to a metric field. When the typed text would
- * be invalid (letter keys, too many digits, a period that starts the
- * number, or a second period) the previous text is kept instead.
- */
 internal fun applySlotFieldChange(oldText: String, typedText: String, allowDecimal: Boolean): String {
     var text = typedText
-    // A period cannot start the number (RPE starts at 5) and a second
-    // period must be ignored — the IME cannot enforce either itself.
     if (text.startsWith(DECIMAL)) {
         text = text.removePrefix(DECIMAL)
     }

@@ -35,16 +35,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.chy.muscletome.ui.theme.MonoFont
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
 
 /**
  * MetricStepper — the mid-set input primitive. A huge monospace value
  * flanked by steel +/- plate chips. Bigger numbers, bigger targets: you
  * should be able to adjust weight between sets without aiming.
- *
- * Stepping is handled by the caller via [onDelta] (e.g. ±2.5 kg / ±1 rep);
- * tapping the value opens the raw field for typing exact numbers.
- * When [longDeltaStep] is set, long-pressing a plate steps by that instead
- * (e.g. half plates in lbs: tap 5, long-press 2.5).
  */
 @Composable
 fun MetricStepper(
@@ -72,7 +68,7 @@ fun MetricStepper(
     ) {
         Text(
             text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
+            style = MuscleTomeTextStyles.label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Row(
@@ -88,7 +84,7 @@ fun MetricStepper(
             ) {
                 Icon(
                     Icons.Default.Remove,
-                    contentDescription = "$label minus $deltaStep",
+                    contentDescription = "${label.uppercase()} MINUS $deltaStep",
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -96,7 +92,7 @@ fun MetricStepper(
             Surface(
                 onClick = { editing = true },
                 enabled = enabled,
-                shape = MaterialTheme.shapes.large,
+                shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 border = BorderStroke(
                     1.dp,
@@ -171,7 +167,7 @@ fun MetricStepper(
             ) {
                 Icon(
                     Icons.Default.Add,
-                    contentDescription = "$label plus $deltaStep",
+                    contentDescription = "${label.uppercase()} PLUS $deltaStep",
                     modifier = Modifier.size(20.dp),
                 )
             }

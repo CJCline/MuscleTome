@@ -1,16 +1,25 @@
 package com.chy.muscletome.ui.workout
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +30,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -31,21 +38,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,13 +58,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,16 +70,20 @@ import com.chy.muscletome.data.local.entity.SetLogEntity
 import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.session.EffortScales
 import com.chy.muscletome.domain.session.WeightUnits
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistCard
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.ExerciseDemoImage
+import com.chy.muscletome.ui.components.LedgerRow
 import com.chy.muscletome.ui.components.MetricStepper
 import com.chy.muscletome.ui.components.MicroTag
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.PlateRing
 import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
 import com.chy.muscletome.ui.components.SetTicks
-import com.chy.muscletome.ui.components.dragReorderItem
-import com.chy.muscletome.ui.components.rememberDragReorderState
 import com.chy.muscletome.ui.library.ExerciseInfoContent
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -109,8 +109,6 @@ fun ActiveWorkoutScreen(
     var showFinishConfirm by remember { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<SetLogEntity?>(null) }
 
-    // The rest-timer notification needs POST_NOTIFICATIONS on Android 13+.
-    // The countdown alarm + beep work regardless; ask once up front.
     val context = LocalContext.current
     val notifPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -129,8 +127,6 @@ fun ActiveWorkoutScreen(
         if (state.finished) onFinished()
     }
 
-    // A workout stays on its route when system back is pressed. The explicit
-    // toolbar back remains available for intentionally leaving the session open.
     BackHandler(enabled = !state.finished) { }
 
     val lastPerformance = state.lastSessions.firstOrNull()
@@ -141,15 +137,13 @@ fun ActiveWorkoutScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            current?.exercise?.name ?: "Workout",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
+                            (current?.exercise?.name ?: "WORKOUT").uppercase(Locale.US),
+                            style = MuscleTomeTextStyles.heading,
                         )
                     },
                     navigationIcon = {
-                        // Explicit toolbar back leaves this session open.
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "LEAVE SESSION OPEN")
                         }
                     },
                     actions = {
@@ -157,7 +151,7 @@ fun ActiveWorkoutScreen(
                             onClick = { showInfo = true },
                             enabled = current != null,
                         ) {
-                            Icon(Icons.Filled.Info, contentDescription = "Exercise info")
+                            Icon(Icons.Filled.Info, contentDescription = "EXERCISE INFO")
                         }
                     },
                 )
@@ -173,16 +167,16 @@ fun ActiveWorkoutScreen(
                         ) {
                             Text(
                                 "LAST PERFORMANCE",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MuscleTomeTextStyles.label,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 lastPerformance?.let {
                                     "${WeightUnits.displayText(it.topWeight)}${state.weightUnitSuffix} · " +
-                                        "${it.setCount} sets · e1RM ${it.bestE1rm.toInt()}"
-                                } ?: "No previous workout",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
+                                        "${it.setCount} SETS · E1RM ${it.bestE1rm.toInt()}"
+                                } ?: "NO PREVIOUS WORKOUT",
+                                style = MuscleTomeTextStyles.tag,
+                                color = MaterialTheme.colorScheme.onBackground,
                             )
                         }
                     }
@@ -197,7 +191,6 @@ fun ActiveWorkoutScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // --- Header zone: exercise position, reason, set ticks ---------
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
@@ -206,7 +199,7 @@ fun ActiveWorkoutScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         MicroTag(
-                            text = "Exercise ${state.currentIndex + 1} / " +
+                            text = "EXERCISE ${state.currentIndex + 1} / " +
                                 state.slots.size.coerceAtLeast(1).toString() +
                                 if (state.slots.size > 1) " ▾" else "",
                             color = MaterialTheme.colorScheme.primary,
@@ -227,14 +220,13 @@ fun ActiveWorkoutScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MonoText(
                             text = if (planned > 0) {
                                 "${state.currentSetNumber.coerceAtMost(planned)} / $planned"
                             } else {
                                 state.currentSetNumber.toString()
                             },
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
                         )
                         SetTicks(
                             done = done,
@@ -244,8 +236,8 @@ fun ActiveWorkoutScreen(
 
                     if (current?.slot != null) {
                         MicroTag(
-                            text = "Target ${current.slot.repRangeMin}–${current.slot.repRangeMax} " +
-                                "reps · rest ${current.slot.restSeconds}s" +
+                            text = "TARGET ${current.slot.repRangeMin}–${current.slot.repRangeMax} " +
+                                "REPS · REST ${current.slot.restSeconds}S" +
                                 (state.targetEffortLabel?.let { " · $it" } ?: ""),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -253,51 +245,31 @@ fun ActiveWorkoutScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (state.slots.size > 1) {
-                            OutlinedButton(onClick = { showExercisePicker = true }) {
-                                Text("Exercises")
-                            }
+                            BrutalistOutlinedButton(text = "EXERCISES", onClick = { showExercisePicker = true })
                         }
                         if (viewModel.canReroll()) {
-                            OutlinedButton(onClick = viewModel::reroll) {
-                                Text("Reroll")
-                            }
+                            BrutalistOutlinedButton(text = "REROLL", onClick = viewModel::reroll)
                         }
                         if (current != null && current.sets.isEmpty()) {
-                            OutlinedButton(onClick = { showSwap = true }) {
-                                Text("Swap")
-                            }
+                            BrutalistOutlinedButton(text = "SWAP", onClick = { showSwap = true })
                         }
                         if (viewModel.canSuperset()) {
-                            OutlinedButton(onClick = { showSuperset = true }) {
-                                Text("Superset")
-                            }
+                            BrutalistOutlinedButton(text = "SUPERSET", onClick = { showSuperset = true })
                         }
                     }
                 }
             }
 
-            // --- Up Next Exercise Preview ----------------------------------
             item {
                 val nextSlot = state.nextSlot
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (nextSlot != null) {
-                                Modifier.clickable { viewModel.selectExercise(nextSlot.result.id) }
-                            } else Modifier,
-                        ),
+                BrutalistCard(
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    onClick = if (nextSlot != null) {
+                        { viewModel.selectExercise(nextSlot.result.id) }
+                    } else null,
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -335,7 +307,7 @@ fun ActiveWorkoutScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                                 Text(
-                                    text = nextSlot.exercise?.name ?: "Next exercise",
+                                    text = (nextSlot.exercise?.name ?: "NEXT EXERCISE").uppercase(Locale.US),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -343,12 +315,12 @@ fun ActiveWorkoutScreen(
                                 val planned = nextSlot.plannedSets
                                 val minReps = nextSlot.slot?.repRangeMin ?: 0
                                 val maxReps = nextSlot.slot?.repRangeMax ?: 0
-                                val repsDetail = if (minReps > 0 && maxReps > 0) " · $minReps–$maxReps reps" else ""
-                                val setsDetail = if (planned > 0) "$planned planned sets$repsDetail" else ""
+                                val repsDetail = if (minReps > 0 && maxReps > 0) " · $minReps–$maxReps REPS" else ""
+                                val setsDetail = if (planned > 0) "$planned PLANNED SETS$repsDetail" else ""
                                 if (setsDetail.isNotBlank()) {
                                     Text(
                                         text = setsDetail,
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = MuscleTomeTextStyles.tag,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -363,9 +335,8 @@ fun ActiveWorkoutScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
-                                    text = "Final exercise in current routine",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
+                                    text = "FINAL EXERCISE IN CURRENT ROUTINE",
+                                    style = MuscleTomeTextStyles.systemMessage,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -374,23 +345,12 @@ fun ActiveWorkoutScreen(
                 }
             }
 
-            // --- Superset banner: the whole group at a glance --------------
             val group = state.currentGroup
             if (group.size > 1) {
                 item {
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
+                    BrutalistCard(borderColor = MaterialTheme.colorScheme.primary) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Row(
@@ -399,11 +359,11 @@ fun ActiveWorkoutScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 MicroTag(
-                                    text = "Superset",
+                                    text = "SUPERSET",
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                                 MicroTag(
-                                    text = "No rest between exercises",
+                                    text = "NO REST BETWEEN EXERCISES",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -421,7 +381,7 @@ fun ActiveWorkoutScreen(
                                         modifier = Modifier.width(64.dp),
                                     )
                                     Text(
-                                        member.exercise?.name ?: "Exercise",
+                                        (member.exercise?.name ?: "EXERCISE").uppercase(Locale.US),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = if (member.result.id == current?.result?.id) {
                                             MaterialTheme.colorScheme.onBackground
@@ -437,7 +397,7 @@ fun ActiveWorkoutScreen(
                                     )
                                     if (member.isComplete) {
                                         MicroTag(
-                                            text = "Done",
+                                            text = "DONE",
                                             color = MaterialTheme.colorScheme.primary,
                                         )
                                     }
@@ -452,7 +412,7 @@ fun ActiveWorkoutScreen(
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         MetricStepper(
-                            label = "Weight",
+                            label = "WEIGHT",
                             value = state.weight,
                             onValueChange = viewModel::onWeightChange,
                             onDelta = viewModel::bumpWeight,
@@ -462,7 +422,7 @@ fun ActiveWorkoutScreen(
                             large = true,
                         )
                         MetricStepper(
-                            label = "Reps",
+                            label = "REPS",
                             value = state.reps,
                             onValueChange = viewModel::onRepsChange,
                             onDelta = { viewModel.bumpReps(it.toInt()) },
@@ -473,19 +433,19 @@ fun ActiveWorkoutScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            OutlinedButton(onClick = { showPlates = true }) { Text("Plates") }
-                            OutlinedButton(onClick = viewModel::toggleUnit) {
-                                Text("Switch to ${state.otherUnit.name.lowercase()}")
-                            }
+                            BrutalistOutlinedButton(text = "PLATES", onClick = { showPlates = true })
+                            BrutalistOutlinedButton(
+                                text = "SWITCH TO ${state.otherUnit.name}",
+                                onClick = viewModel::toggleUnit,
+                            )
                             TextButton(onClick = { showSetDetails = true }) {
-                                Text("RPE & notes")
+                                Text("RPE & NOTES", style = MuscleTomeTextStyles.button)
                             }
                         }
                     }
                 }
             }
 
-            // --- Rest banner: plate-ring countdown -------------------------
             if (state.restSecondsLeft > 0) {
                 item {
                     val plannedRest = if (state.totalRestSeconds > 0) {
@@ -498,19 +458,9 @@ fun ActiveWorkoutScreen(
                     } else {
                         1f
                     }
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
+                    BrutalistCard(borderColor = MaterialTheme.colorScheme.primary) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -533,42 +483,22 @@ fun ActiveWorkoutScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    SectionHeader("Rest")
+                                    SectionHeader("REST")
                                     TextButton(
                                         onClick = viewModel::skipRest,
                                         contentPadding = PaddingValues(horizontal = 8.dp),
                                     ) {
-                                        Text("Skip")
+                                        Text("SKIP", style = MuscleTomeTextStyles.button)
                                     }
                                 }
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.addRest(-30) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp),
-                                    ) {
-                                        Text("-30s")
-                                    }
-                                    OutlinedButton(
-                                        onClick = { viewModel.addRest(-10) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp),
-                                    ) {
-                                        Text("-10s")
-                                    }
-                                    OutlinedButton(
-                                        onClick = { viewModel.addRest(10) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp),
-                                    ) {
-                                        Text("+10s")
-                                    }
-                                    OutlinedButton(
-                                        onClick = { viewModel.addRest(30) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp),
-                                    ) {
-                                        Text("+30s")
-                                    }
+                                    BrutalistOutlinedButton(text = "-30S", onClick = { viewModel.addRest(-30) }, minHeight = 36.dp)
+                                    BrutalistOutlinedButton(text = "-10S", onClick = { viewModel.addRest(-10) }, minHeight = 36.dp)
+                                    BrutalistOutlinedButton(text = "+10S", onClick = { viewModel.addRest(10) }, minHeight = 36.dp)
+                                    BrutalistOutlinedButton(text = "+30S", onClick = { viewModel.addRest(30) }, minHeight = 36.dp)
                                 }
                             }
                         }
@@ -576,56 +506,44 @@ fun ActiveWorkoutScreen(
                 }
             }
 
-            // --- Primary action: LOG SET -----------------------------------
+            // Primary action bar anchored to bottom thumb zone
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
+                    AccentButton(
+                        text = "LOG SET",
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.logSet()
                         },
                         enabled = current != null && !state.finished,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(68.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
-                    ) {
-                        Text(
-                            "Log set".uppercase(),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
+                        minHeight = 64.dp,
+                    )
 
                     if (state.isCurrentComplete && !state.isLastExercise) {
                         val nextName = state.nextSlot?.exercise?.name
                         val buttonText = if (!nextName.isNullOrBlank()) {
-                            "Next exercise: $nextName".uppercase()
+                            "NEXT EXERCISE: ${nextName.uppercase(Locale.US)}"
                         } else {
-                            "Next exercise".uppercase()
+                            "NEXT EXERCISE"
                         }
-                        OutlinedButton(
+                        BrutalistOutlinedButton(
+                            text = buttonText,
                             onClick = viewModel::nextExercise,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                        ) { Text(buttonText) }
+                            modifier = Modifier.fillMaxWidth(),
+                            minHeight = 56.dp,
+                        )
                     }
 
                     if (state.isCurrentComplete && state.isLastExercise) {
-                        Button(
+                        AccentButton(
+                            text = "FINISH WORKOUT",
                             onClick = { showFinishConfirm = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                        ) { Text("Finish workout".uppercase()) }
+                            minHeight = 56.dp,
+                        )
                     }
                 }
             }
 
-            // --- Sets logged this exercise ---------------------------------
             if ((current?.sets?.size ?: 0) > 0) {
                 item {
                     Row(
@@ -633,44 +551,25 @@ fun ActiveWorkoutScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        SectionHeader("Logged sets")
+                        SectionHeader("LOGGED SETS")
                         TextButton(onClick = viewModel::undoLastSet) {
-                            Text("Undo last")
+                            Text("UNDO LAST", style = MuscleTomeTextStyles.button)
                         }
                     }
                 }
                 items(current?.sets ?: emptyList(), key = { it.id }) { set ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { editingSet = set },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MonoText(
-                            text = "SET ${set.setNumber.toString().padStart(2, '0')}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            MonoText(
-                                text = "${WeightUnits.displayText(set.weight)}${state.weightUnitSuffix} × ${set.reps}",
-                            )
-                            if (set.id in state.prSetIds) {
-                                MicroTag("PR", color = MaterialTheme.colorScheme.primary)
-                            }
-                            set.rpe?.let { rpe ->
-                                MicroTag("RPE ${rpe.toInt()}")
-                                EffortScales.rirFor(rpe)?.let { MicroTag("RIR $it") }
-                            }
-                        }
-                    }
+                    val weightDisplay = "${MuscleTomeTextStyles.formatWeight(set.weight)}${state.weightUnitSuffix.trim()} × ${set.reps}"
+                    val prTag = if (set.id in state.prSetIds) "PR" else null
+                    LedgerRow(
+                        index = set.setNumber,
+                        primaryText = "SET ${set.setNumber.toString().padStart(2, '0')}",
+                        dataText = weightDisplay,
+                        bracketTag = prTag,
+                        onClick = { editingSet = set },
+                    )
                 }
             }
 
-            // --- History + progress chart ----------------------------------
             item {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(16.dp))
@@ -696,14 +595,17 @@ fun ActiveWorkoutScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Set details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("SET DETAILS", style = MuscleTomeTextStyles.heading)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(state.effortScale.name, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        state.effortScale.name,
+                        style = MuscleTomeTextStyles.label,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (state.effortEntryLabel.isNotBlank()) {
                         MicroTag(state.effortEntryLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -732,24 +634,24 @@ fun ActiveWorkoutScreen(
                     }
                 }
                 if (state.rpe.isNotBlank()) {
-                    TextButton(onClick = { viewModel.onRpeChange("") }) { Text("Clear effort") }
+                    TextButton(onClick = { viewModel.onRpeChange("") }) { Text("CLEAR EFFORT", style = MuscleTomeTextStyles.button) }
                 }
-                com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                SelectOnFocusOutlinedTextField(
                     value = state.sessionNote,
                     onValueChange = viewModel::onSessionNoteChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Session note") },
-                    placeholder = { Text("How'd it feel? Remarks for this workout…") },
-                    supportingText = { Text("Saved automatically · this workout only") },
+                    label = { Text("SESSION NOTE", style = MuscleTomeTextStyles.label) },
+                    placeholder = { Text("REMARKS FOR THIS WORKOUT...", style = MuscleTomeTextStyles.tag) },
+                    supportingText = { Text("SAVED AUTOMATICALLY · THIS WORKOUT ONLY", style = MuscleTomeTextStyles.tag) },
                     minLines = 2,
                 )
-                com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                SelectOnFocusOutlinedTextField(
                     value = state.note,
                     onValueChange = viewModel::onNoteChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Exercise cues") },
-                    placeholder = { Text("Cues, setup, form reminders…") },
-                    supportingText = { Text("Saved automatically · shared across workouts") },
+                    label = { Text("EXERCISE CUES", style = MuscleTomeTextStyles.label) },
+                    placeholder = { Text("CUES, SETUP, FORM REMINDERS...", style = MuscleTomeTextStyles.tag) },
+                    supportingText = { Text("SAVED AUTOMATICALLY · SHARED ACROSS WORKOUTS", style = MuscleTomeTextStyles.tag) },
                     minLines = 2,
                 )
                 Spacer(Modifier.height(24.dp))
@@ -757,13 +659,15 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // Finish is an explicit, confirmed action — never a side effect of Back.
     if (showFinishConfirm) {
         AlertDialog(
             onDismissRequest = { showFinishConfirm = false },
-            title = { Text("Finish workout?") },
+            title = { Text("FINISH WORKOUT?", style = MuscleTomeTextStyles.heading) },
             text = {
-                Text("Your session will be saved and closed. The rest timer will be cancelled.")
+                Text(
+                    "SESSION WILL BE SAVED AND CLOSED. REST TIMER CANCELLED.",
+                    style = MuscleTomeTextStyles.systemMessage,
+                )
             },
             confirmButton = {
                 TextButton(
@@ -771,15 +675,14 @@ fun ActiveWorkoutScreen(
                         showFinishConfirm = false
                         viewModel.finishWorkout()
                     },
-                ) { Text("Finish") }
+                ) { Text("FINISH", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = {
-                TextButton(onClick = { showFinishConfirm = false }) { Text("Keep training") }
+                TextButton(onClick = { showFinishConfirm = false }) { Text("KEEP TRAINING", style = MuscleTomeTextStyles.button) }
             },
         )
     }
 
-    // Tap-to-edit a logged set: fix fat-fingered numbers, or delete the set.
     editingSet?.let { set ->
         var weightField by remember(set.id) { mutableStateOf(set.weight.toString()) }
         var repsField by remember(set.id) { mutableStateOf(set.reps.toString()) }
@@ -787,7 +690,6 @@ fun ActiveWorkoutScreen(
         var rirField by remember(set.id) {
             mutableStateOf(EffortScales.rirFor(set.rpe)?.toString() ?: "")
         }
-        // Editing either field re-derives its twin from the entered one.
         fun onRpeEdit(value: String) {
             rpeField = value
             rirField = EffortScales.rirFor(value.toFloatOrNull())?.toString() ?: ""
@@ -800,31 +702,31 @@ fun ActiveWorkoutScreen(
         val repsValue = repsField.toIntOrNull()
         AlertDialog(
             onDismissRequest = { editingSet = null },
-            title = { Text("Edit set ${set.setNumber}") },
+            title = { Text("EDIT SET ${set.setNumber}", style = MuscleTomeTextStyles.heading) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = weightField,
                         onValueChange = { weightField = it },
-                        label = { Text("Weight (${state.weightUnitSuffix.trim()})") },
+                        label = { Text("WEIGHT (${state.weightUnitSuffix.trim()})", style = MuscleTomeTextStyles.label) },
                         singleLine = true,
                     )
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = repsField,
                         onValueChange = { repsField = it },
-                        label = { Text("Reps") },
+                        label = { Text("REPS", style = MuscleTomeTextStyles.label) },
                         singleLine = true,
                     )
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = rpeField,
                         onValueChange = ::onRpeEdit,
-                        label = { Text("RPE (optional)") },
+                        label = { Text("RPE (OPTIONAL)", style = MuscleTomeTextStyles.label) },
                         singleLine = true,
                     )
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = rirField,
                         onValueChange = ::onRirEdit,
-                        label = { Text("RIR (optional)") },
+                        label = { Text("RIR (OPTIONAL)", style = MuscleTomeTextStyles.label) },
                         singleLine = true,
                     )
                 }
@@ -838,25 +740,21 @@ fun ActiveWorkoutScreen(
                             set = set,
                             weight = weightValue ?: 0.0,
                             reps = repsValue ?: 0,
-                            // RPE is canon; RIR was already folded back into it.
                             rpe = rpeField.toFloatOrNull(),
                         )
                         editingSet = null
                     },
-                ) { Text("Save") }
+                ) { Text("SAVE", style = MuscleTomeTextStyles.button) }
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { editingSet = null }) { Text("Cancel") }
+                    TextButton(onClick = { editingSet = null }) { Text("CANCEL", style = MuscleTomeTextStyles.button) }
                     TextButton(
                         onClick = {
                             viewModel.deleteSet(set)
                             editingSet = null
                         },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    ) { Text("Delete") }
+                    ) { Text("DELETE", style = MuscleTomeTextStyles.button, color = MaterialTheme.colorScheme.error) }
                 }
             },
         )
@@ -868,15 +766,15 @@ fun ActiveWorkoutScreen(
                 showSwap = false
                 viewModel.onSwapQueryChange("")
             },
-            title = { Text("Replace exercise") },
+            title = { Text("REPLACE EXERCISE", style = MuscleTomeTextStyles.heading) },
             text = {
                 Column {
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = state.swapQuery,
                         onValueChange = viewModel::onSwapQueryChange,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("Search exercises") },
+                        label = { Text("SEARCH EXERCISES", style = MuscleTomeTextStyles.label) },
                     )
                     LazyColumn {
                         items(state.catalogExercises, key = { it.id }) { exercise ->
@@ -902,15 +800,15 @@ fun ActiveWorkoutScreen(
                                         contentScale = ContentScale.Crop,
                                     )
                                 }
-                                Text(exercise.name)
+                                Text(exercise.name.uppercase(Locale.US), style = MuscleTomeTextStyles.button)
                             }
                         }
                         if (state.catalogExercises.isEmpty()) {
                             item {
                                 Text(
-                                    "No exercises match your search",
+                                    "NO MATCHING EXERCISES",
                                     modifier = Modifier.padding(vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MuscleTomeTextStyles.systemMessage,
                                 )
                             }
                         }
@@ -918,29 +816,27 @@ fun ActiveWorkoutScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showSwap = false }) { Text("Cancel") }
+                TextButton(onClick = { showSwap = false }) { Text("CANCEL", style = MuscleTomeTextStyles.button) }
             },
         )
     }
 
     if (showSuperset) {
-        // Ad-hoc modes: alternate the remaining sets (classic superset) or
-        // insert a single one-off partner set. Both ride the same flow.
         var oneShot by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = {
                 showSuperset = false
                 viewModel.onSupersetQueryChange("")
             },
-            title = { Text("Superset with…") },
+            title = { Text("SUPERSET WITH", style = MuscleTomeTextStyles.heading) },
             text = {
                 Column {
-                    com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+                    SelectOnFocusOutlinedTextField(
                         value = state.supersetQuery,
                         onValueChange = viewModel::onSupersetQueryChange,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("Search exercises") },
+                        label = { Text("SEARCH EXERCISES", style = MuscleTomeTextStyles.label) },
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -949,12 +845,12 @@ fun ActiveWorkoutScreen(
                         FilterChip(
                             selected = !oneShot,
                             onClick = { oneShot = false },
-                            label = { Text("Alternate remaining sets") },
+                            label = { Text("ALTERNATE REMAINING SETS", style = MuscleTomeTextStyles.tag) },
                         )
                         FilterChip(
                             selected = oneShot,
                             onClick = { oneShot = true },
-                            label = { Text("Just this one set") },
+                            label = { Text("ONE SET ONLY", style = MuscleTomeTextStyles.tag) },
                         )
                     }
                     LazyColumn(
@@ -983,15 +879,15 @@ fun ActiveWorkoutScreen(
                                         contentScale = ContentScale.Crop,
                                     )
                                 }
-                                Text(exercise.name)
+                                Text(exercise.name.uppercase(Locale.US), style = MuscleTomeTextStyles.button)
                             }
                         }
                         if (state.supersetExercises.isEmpty()) {
                             item {
                                 Text(
-                                    "No exercises match your search",
+                                    "NO MATCHING EXERCISES",
                                     modifier = Modifier.padding(vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MuscleTomeTextStyles.systemMessage,
                                 )
                             }
                         }
@@ -1002,7 +898,7 @@ fun ActiveWorkoutScreen(
                 TextButton(onClick = {
                     showSuperset = false
                     viewModel.onSupersetQueryChange("")
-                }) { Text("Cancel") }
+                }) { Text("CANCEL", style = MuscleTomeTextStyles.button) }
             },
         )
     }
@@ -1031,9 +927,8 @@ fun ActiveWorkoutScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
-                        exercise.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
+                        exercise.name.uppercase(Locale.US),
+                        style = MuscleTomeTextStyles.heading,
                     )
                     ExerciseInfoContent(
                         exercise = exercise,
@@ -1047,7 +942,6 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // Plate loader: how to build the entry-field weight from bar + plates.
     if (showPlates) {
         PlateCalculatorSheet(
             targetWeight = state.weight.toDoubleOrNull() ?: 0.0,
@@ -1060,7 +954,6 @@ fun ActiveWorkoutScreen(
         )
     }
 
-    // Exercise picker sheet: select any exercise in the routine during workout
     if (showExercisePicker) {
         ModalBottomSheet(
             onDismissRequest = { showExercisePicker = false },
@@ -1074,13 +967,12 @@ fun ActiveWorkoutScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "Select Exercise",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    text = "SELECT EXERCISE",
+                    style = MuscleTomeTextStyles.heading,
                 )
                 Text(
-                    text = "Choose an exercise from your routine. Progress on skipped exercises is preserved.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "CHOOSE EXERCISE FROM ROUTINE. SKIPPED EXERCISE PROGRESS PRESERVED.",
+                    style = MuscleTomeTextStyles.systemMessage,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -1092,32 +984,16 @@ fun ActiveWorkoutScreen(
                     val loggedSetsCount = slot.sets.size
                     val plannedSetsCount = slot.plannedSets
 
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerLow
+                    BrutalistCard(
+                        borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        spineColor = if (isSelected) MaterialTheme.colorScheme.primary else null,
+                        onClick = {
+                            viewModel.selectExercise(slot.result.id)
+                            showExercisePicker = false
                         },
-                        border = BorderStroke(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.selectExercise(slot.result.id)
-                                showExercisePicker = false
-                            },
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -1132,27 +1008,27 @@ fun ActiveWorkoutScreen(
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 Text(
-                                    text = "${index + 1}. ${slot.exercise?.name ?: "Exercise"}",
+                                    text = "${index + 1}. ${(slot.exercise?.name ?: "EXERCISE").uppercase(Locale.US)}",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
 
                                 val repDetail = if ((slot.slot?.repRangeMin ?: 0) > 0) {
-                                    " · ${slot.slot?.repRangeMin}–${slot.slot?.repRangeMax} reps"
+                                    " · ${slot.slot?.repRangeMin}–${slot.slot?.repRangeMax} REPS"
                                 } else ""
                                 Text(
-                                    text = "$loggedSetsCount / $plannedSetsCount sets logged$repDetail",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    text = "$loggedSetsCount / $plannedSetsCount SETS LOGGED$repDetail",
+                                    style = MuscleTomeTextStyles.tag,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
 
                             when {
-                                isSelected -> MicroTag("Current", color = MaterialTheme.colorScheme.primary)
-                                isDone -> MicroTag("Complete", color = MaterialTheme.colorScheme.primary)
-                                loggedSetsCount > 0 -> MicroTag("In Progress", color = MaterialTheme.colorScheme.secondary)
-                                else -> MicroTag("Upcoming", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                isSelected -> MicroTag("CURRENT", color = MaterialTheme.colorScheme.primary)
+                                isDone -> MicroTag("COMPLETE", color = MaterialTheme.colorScheme.primary)
+                                loggedSetsCount > 0 -> MicroTag("IN PROGRESS", color = MaterialTheme.colorScheme.secondary)
+                                else -> MicroTag("UPCOMING", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -1164,10 +1040,6 @@ fun ActiveWorkoutScreen(
     }
 }
 
-/**
- * History for the exercise on screen: the last 3 sessions' stats and a
- * best-e1RM-per-session line chart with a selectable time span.
- */
 @Composable
 fun ExerciseHistorySection(
     lastSessions: List<ExerciseSessionSummary>,
@@ -1176,14 +1048,14 @@ fun ExerciseHistorySection(
     onSpanChange: (ProgressSpan) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.US) }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionHeader("Last 3 workouts")
+        SectionHeader("LAST 3 WORKOUTS")
         if (lastSessions.isEmpty()) {
             Text(
-                "No history for this exercise yet.",
-                style = MaterialTheme.typography.bodySmall,
+                "NO HISTORY FOR THIS EXERCISE YET",
+                style = MuscleTomeTextStyles.systemMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
@@ -1193,34 +1065,34 @@ fun ExerciseHistorySection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     MonoText(
-                        text = dateFormat.format(Date(session.sessionStartEpochMs)),
+                        text = dateFormat.format(Date(session.sessionStartEpochMs)).uppercase(Locale.US),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     MonoText(
-                        text = "${session.setCount} sets · top ${session.topWeight} · " +
-                            "e1RM ${session.bestE1rm.toInt()}",
+                        text = "${session.setCount} SETS · TOP ${MuscleTomeTextStyles.formatWeight(session.topWeight)} · " +
+                            "E1RM ${session.bestE1rm.toInt()}",
                     )
                 }
             }
         }
 
         Spacer(Modifier.height(8.dp))
-        SectionHeader("Progress")
+        SectionHeader("PROGRESS")
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ProgressSpan.entries.forEach { span ->
                 FilterChip(
                     selected = progressSpan == span,
                     onClick = { onSpanChange(span) },
-                    label = { Text(span.label) },
+                    label = { Text(span.label.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                 )
             }
         }
 
         if (progressPoints.isEmpty()) {
             Text(
-                "Nothing logged in this period yet.",
-                style = MaterialTheme.typography.bodySmall,
+                "NO LOGGED DATA IN THIS PERIOD",
+                style = MuscleTomeTextStyles.systemMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
@@ -1234,7 +1106,6 @@ fun ExerciseHistorySection(
     }
 }
 
-/** Line chart of best e1RM per session over time — amber line, amber fill. */
 @Composable
 private fun ProgressChart(
     points: List<ProgressPoint>,
@@ -1243,11 +1114,10 @@ private fun ProgressChart(
     val primary = MaterialTheme.colorScheme.primary
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val lineColor = MaterialTheme.colorScheme.outlineVariant
-    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.US) }
 
     Canvas(modifier = modifier) {
         if (points.size < 2) {
-            // Single point: draw a dot, no line possible.
             if (points.size == 1) {
                 drawCircle(
                     color = primary,
@@ -1280,7 +1150,6 @@ private fun ProgressChart(
             return chartBottom - ((value - minVal) / valueRange).toFloat() * chartHeight
         }
 
-        // Horizontal grid lines at min and max
         listOf(minVal, maxVal).forEach { gridValue ->
             drawLine(
                 color = lineColor,
@@ -1290,7 +1159,6 @@ private fun ProgressChart(
             )
         }
 
-        // Fill under the curve — a low amber wash, like sunrise on steel.
         val fill = Path()
         fill.moveTo(xFor(points.first().sessionStartEpochMs), chartBottom)
         points.forEach { point ->
@@ -1300,7 +1168,6 @@ private fun ProgressChart(
         fill.close()
         drawPath(fill, color = primary.copy(alpha = 0.15f), style = Fill)
 
-        // The line
         val path = Path()
         points.forEachIndexed { index, point ->
             val x = xFor(point.sessionStartEpochMs)
@@ -1309,7 +1176,6 @@ private fun ProgressChart(
         }
         drawPath(path, color = primary, style = Stroke(width = 4f, cap = StrokeCap.Round))
 
-        // Points on top
         points.forEach { point ->
             drawCircle(
                 color = primary,
@@ -1319,18 +1185,17 @@ private fun ProgressChart(
         }
     }
 
-    // Min/max labels and x-axis date range under the chart — mono, steel.
     val values = points.map { it.bestE1rm }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         MonoText(
-            text = "${values.min().toInt()} – ${values.max().toInt()} e1RM",
-            style = MaterialTheme.typography.labelSmall,
+            text = "${values.min().toInt()} – ${values.max().toInt()} E1RM",
+            style = MuscleTomeTextStyles.tag,
             color = onSurfaceVariant,
         )
         MonoText(
-            text = dateFormat.format(Date(points.first().sessionStartEpochMs)) + " – " +
-                dateFormat.format(Date(points.last().sessionStartEpochMs)),
-            style = MaterialTheme.typography.labelSmall,
+            text = (dateFormat.format(Date(points.first().sessionStartEpochMs)) + " – " +
+                dateFormat.format(Date(points.last().sessionStartEpochMs))).uppercase(Locale.US),
+            style = MuscleTomeTextStyles.tag,
             color = onSurfaceVariant,
         )
     }

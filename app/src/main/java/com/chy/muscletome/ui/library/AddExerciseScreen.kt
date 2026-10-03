@@ -11,14 +11,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,10 +27,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.chy.muscletome.domain.model.MovementType
-import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.Difficulty
+import com.chy.muscletome.domain.model.MovementPattern
+import com.chy.muscletome.domain.model.MovementType
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,10 +52,10 @@ fun AddExerciseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.isEdit) "Edit exercise" else "New exercise") },
+                title = { Text(if (state.isEdit) "EDIT EXERCISE" else "NEW EXERCISE", style = MuscleTomeTextStyles.heading) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                     }
                 },
             )
@@ -65,148 +69,146 @@ fun AddExerciseScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Name") },
+                label = { Text("NAME", style = MuscleTomeTextStyles.label) },
                 singleLine = true,
                 isError = state.nameTaken,
                 supportingText = if (state.nameTaken) {
-                    { Text("An exercise with this name already exists") }
-                } else {
-                    null
-                },
+                    { Text("EXERCISE WITH THIS NAME ALREADY EXISTS", style = MuscleTomeTextStyles.systemMessage) }
+                } else null,
             )
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Description") },
+                label = { Text("DESCRIPTION", style = MuscleTomeTextStyles.label) },
             )
 
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.instructionsText,
                 onValueChange = viewModel::onInstructionsChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Form steps (one per line)") },
+                label = { Text("FORM STEPS (ONE PER LINE)", style = MuscleTomeTextStyles.label) },
                 minLines = 3,
             )
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.mediaUri,
                 onValueChange = viewModel::onMediaUriChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Optional media URI") },
+                label = { Text("OPTIONAL MEDIA URI", style = MuscleTomeTextStyles.label) },
                 singleLine = true,
             )
 
-            SectionHeader("Primary muscle")
+            SectionHeader("PRIMARY MUSCLE")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.muscles.forEach { muscle ->
                     FilterChip(
                         selected = state.primaryMuscleGroupId == muscle.id,
                         onClick = { viewModel.onPrimaryMuscleSelected(muscle.id) },
-                        label = { Text(muscle.name) },
+                        label = { Text(muscle.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            SectionHeader("Secondary muscle targets")
+            SectionHeader("SECONDARY MUSCLE TARGETS")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.muscles.filter { it.id != state.primaryMuscleGroupId }.forEach { muscle ->
                     FilterChip(
                         selected = muscle.id in state.secondaryMuscleIds,
                         onClick = { viewModel.toggleSecondaryMuscle(muscle.id) },
-                        label = { Text(muscle.name) },
+                        label = { Text(muscle.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            SectionHeader("Movement type")
+            SectionHeader("MOVEMENT TYPE")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MovementType.entries.forEach { type ->
                     FilterChip(
                         selected = state.movementType == type,
                         onClick = { viewModel.onMovementTypeSelected(type) },
-                        label = { Text(type.name) },
+                        label = { Text(type.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            SectionHeader("Movement pattern")
+            SectionHeader("MOVEMENT PATTERN")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MovementPattern.entries.forEach { pattern ->
                     FilterChip(
                         selected = state.movementPattern == pattern,
                         onClick = { viewModel.onMovementPatternSelected(pattern) },
-                        label = { Text(pattern.name) },
+                        label = { Text(pattern.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            SectionHeader("Difficulty")
+            SectionHeader("DIFFICULTY")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Difficulty.entries.forEach { difficulty ->
                     FilterChip(
                         selected = state.difficulty == difficulty,
                         onClick = { viewModel.onDifficultySelected(difficulty) },
-                        label = { Text(difficulty.name) },
+                        label = { Text(difficulty.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Unilateral", modifier = Modifier.weight(1f))
+                Text("UNILATERAL", style = MuscleTomeTextStyles.label, modifier = Modifier.weight(1f))
                 Switch(checked = state.unilateral, onCheckedChange = viewModel::onUnilateralChange)
             }
 
-            SectionHeader("Movement family")
+            SectionHeader("MOVEMENT FAMILY")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.families.forEach { family ->
                     FilterChip(
                         selected = state.selectedFamilyId == family.id,
                         onClick = {
-                            // Tap again to clear — family is optional.
                             viewModel.onFamilySelected(
                                 if (state.selectedFamilyId == family.id) null else family.id,
                             )
                         },
-                        label = { Text(family.displayName) },
+                        label = { Text(family.displayName.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
-            com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField(
+            SelectOnFocusOutlinedTextField(
                 value = state.newFamilyName,
                 onValueChange = viewModel::onNewFamilyNameChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("New family…") },
+                label = { Text("NEW FAMILY...", style = MuscleTomeTextStyles.label) },
                 singleLine = true,
                 isError = state.newFamilyError != null,
                 supportingText = state.newFamilyError?.let { error ->
-                    { Text(error) }
+                    { Text(error.uppercase(Locale.US), style = MuscleTomeTextStyles.systemMessage) }
                 },
             )
-            Button(onClick = viewModel::createFamily, modifier = Modifier.fillMaxWidth()) {
-                Text("Create family")
-            }
+            BrutalistOutlinedButton(
+                text = "CREATE FAMILY",
+                onClick = viewModel::createFamily,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-            SectionHeader("Equipment")
+            SectionHeader("EQUIPMENT")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.equipment.forEach { item ->
                     FilterChip(
                         selected = item.id in state.selectedEquipmentIds,
                         onClick = { viewModel.toggleEquipment(item.id) },
-                        label = { Text(item.name) },
+                        label = { Text(item.name.uppercase(Locale.US), style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            Button(
+            AccentButton(
+                text = "SAVE EXERCISE",
                 onClick = viewModel::save,
                 enabled = state.canSave,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save")
-            }
+                minHeight = 56.dp,
+            )
         }
     }
 }

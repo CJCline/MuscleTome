@@ -18,16 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -64,8 +60,12 @@ import com.chy.muscletome.domain.model.Difficulty
 import com.chy.muscletome.domain.model.MovementPattern
 import com.chy.muscletome.domain.model.MovementType
 import com.chy.muscletome.domain.session.WeightUnits
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,7 +85,7 @@ fun ExerciseDetailScreen(
     val blockedMessage = state.deleteBlockedMessage
     LaunchedEffect(blockedMessage) {
         if (blockedMessage != null) {
-            snackbarHostState.showSnackbar(blockedMessage)
+            snackbarHostState.showSnackbar(blockedMessage.uppercase(Locale.US))
             viewModel.dismissDeleteBlocked()
         }
     }
@@ -94,19 +94,19 @@ fun ExerciseDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(state.exercise?.name ?: "Exercise") },
+                title = { Text((state.exercise?.name ?: "EXERCISE").uppercase(Locale.US), style = MuscleTomeTextStyles.heading) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                     }
                 },
                 actions = {
                     if (state.userOwned && state.exercise != null) {
                         IconButton(onClick = { state.exercise?.let { onEdit(it.id) } }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit exercise")
+                            Icon(Icons.Default.Edit, contentDescription = "EDIT EXERCISE")
                         }
                         IconButton(onClick = viewModel::deleteUserExercise) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete exercise")
+                            Icon(Icons.Default.Delete, contentDescription = "DELETE EXERCISE")
                         }
                     }
                 },
@@ -128,7 +128,7 @@ fun ExerciseDetailScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Exercise not found")
+                Text("EXERCISE NOT FOUND", style = MuscleTomeTextStyles.systemMessage)
             }
             else -> ExerciseDetailContent(
                 state = state,
@@ -140,7 +140,7 @@ fun ExerciseDetailScreen(
                     viewModel.replaceInActiveWorkout(result)
                     val newName = state.exercise?.name.orEmpty()
                     scope.launch {
-                        snackbarHostState.showSnackbar("Replaced \"$oldName\" with \"$newName\" in active workout")
+                        snackbarHostState.showSnackbar("REPLACED \"${oldName.uppercase(Locale.US)}\" WITH \"${newName.uppercase(Locale.US)}\"")
                     }
                 },
             )
@@ -167,20 +167,11 @@ internal fun ExerciseDetailContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (state.activeSessionSlots.isNotEmpty()) {
-            OutlinedButton(
+            BrutalistOutlinedButton(
+                text = "REPLACE IN ACTIVE WORKOUT",
                 onClick = { showReplaceDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-            ) {
-                Icon(
-                    Icons.Default.SwapHoriz,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Text("Replace in active workout")
-            }
+            )
         }
 
         ExerciseInfoContent(
@@ -193,7 +184,7 @@ internal fun ExerciseDetailContent(
         val instructions = canonical?.instructions.orEmpty().sortedBy { it.sortOrder }
         if (instructions.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("How to perform")
+                SectionHeader("HOW TO PERFORM")
                 instructions.forEachIndexed { index, step ->
                     Text("${index + 1}. ${step.instruction}", style = MaterialTheme.typography.bodyLarge)
                 }
@@ -204,59 +195,64 @@ internal fun ExerciseDetailContent(
         val fallbackUri = exercise.demoUri?.takeIf { legacy -> media.none { it.uri == legacy } }
         if (media.isNotEmpty() || fallbackUri != null) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("Media")
+                SectionHeader("MEDIA")
                 if (state.downloadableMedia && !state.mediaFullyCached) {
-                    Button(
+                    AccentButton(
+                        text = "DOWNLOAD / SHOW OFFLINE",
                         onClick = onDownloadMedia,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Download / Show offline")
-                    }
+                    )
                 }
                 if (state.mediaFullyCached) {
                     Text(
-                        "Saved for offline",
-                        style = MaterialTheme.typography.bodySmall,
+                        "SAVED FOR OFFLINE",
+                        style = MuscleTomeTextStyles.tag,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 (media.map { it.type to it.uri } + listOfNotNull(fallbackUri?.let { "IMAGE" to it })).forEach { (type, uri) ->
                     if (type == "VIDEO") {
                         Text(
-                            "Open video: $uri",
+                            "OPEN VIDEO: $uri",
                             color = MaterialTheme.colorScheme.primary,
+                            style = MuscleTomeTextStyles.button,
                             modifier = Modifier.clickable { runCatching { uriHandler.openUri(uri) } },
                         )
                     } else {
                         val cached = state.cachedMediaUris[media.firstOrNull { it.uri == uri }?.id]
                         Image(
                             painter = rememberAsyncImagePainter(cached ?: uri),
-                            contentDescription = "Exercise media",
+                            contentDescription = "EXERCISE MEDIA",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxWidth().height(220.dp)
-                                .semantics { contentDescription = "Exercise image" },
+                                .semantics { contentDescription = "EXERCISE IMAGE" },
                         )
                     }
                     val record = media.firstOrNull { it.uri == uri }
                     val attribution = mediaAttribution(record)
                     if (attribution.isNotBlank()) {
-                        Text(attribution, style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            attribution.uppercase(Locale.US),
+                            style = MuscleTomeTextStyles.tag,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
         } else {
-            Text("No exercise media available", style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "NO EXERCISE MEDIA AVAILABLE",
+                style = MuscleTomeTextStyles.systemMessage,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionHeader("History")
+            SectionHeader("HISTORY")
             val history = state.history
             if (history.lastSet == null) {
                 Text(
-                    "No sets logged yet",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "NO SETS LOGGED YET",
+                    style = MuscleTomeTextStyles.systemMessage,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
@@ -265,18 +261,18 @@ internal fun ExerciseDetailContent(
                     modifier = Modifier.padding(start = 13.dp),
                 ) {
                     MonoText(
-                        text = "Last set: ${WeightUnits.displayText(history.lastSet.weight)}" +
+                        text = "LAST SET: ${MuscleTomeTextStyles.formatWeight(history.lastSet.weight)}" +
                             "${WeightUnits.suffix(state.weightUnit)} × ${history.lastSet.reps}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     MonoText(
-                        text = "Best weight: " +
+                        text = "BEST WEIGHT: " +
                             WeightUnits.display(history.bestWeight ?: 0.0, state.weightUnit),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     MonoText(
-                        text = "Logged in ${history.sessionCount} session" +
-                            if (history.sessionCount == 1) "" else "s",
+                        text = "LOGGED IN ${history.sessionCount} SESSION" +
+                            if (history.sessionCount == 1) "" else "S",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -288,12 +284,12 @@ internal fun ExerciseDetailContent(
     if (showReplaceDialog) {
         AlertDialog(
             onDismissRequest = { showReplaceDialog = false },
-            title = { Text("Replace in active workout") },
+            title = { Text("REPLACE IN ACTIVE WORKOUT", style = MuscleTomeTextStyles.heading) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Which exercise in your current workout do you want to replace with \"${exercise.name}\"?",
-                        style = MaterialTheme.typography.bodyMedium,
+                        "WHICH EXERCISE DO YOU WANT TO REPLACE WITH \"${exercise.name.uppercase(Locale.US)}\"?",
+                        style = MuscleTomeTextStyles.systemMessage,
                     )
                     LazyColumn(
                         modifier = Modifier.height(240.dp),
@@ -301,7 +297,7 @@ internal fun ExerciseDetailContent(
                     ) {
                         items(state.activeSessionSlots) { option ->
                             Surface(
-                                shape = MaterialTheme.shapes.medium,
+                                shape = MaterialTheme.shapes.small,
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -321,7 +317,7 @@ internal fun ExerciseDetailContent(
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                     Text(
-                                        text = option.currentExerciseName,
+                                        text = option.currentExerciseName.uppercase(Locale.US),
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                 }
@@ -333,7 +329,7 @@ internal fun ExerciseDetailContent(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showReplaceDialog = false }) {
-                    Text("Cancel")
+                    Text("CANCEL", style = MuscleTomeTextStyles.button)
                 }
             },
         )

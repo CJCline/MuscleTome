@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.chy.muscletome.data.local.entity.PendingExerciseImportEntity
+import com.chy.muscletome.ui.components.AccentButton
+import com.chy.muscletome.ui.components.BrutalistCard
+import com.chy.muscletome.ui.components.BrutalistOutlinedButton
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,16 +40,20 @@ fun ExerciseImportReviewScreen(
     val pending by viewModel.pending.collectAsState(emptyList())
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Exercise import review") },
+            title = { Text("EXERCISE IMPORT REVIEW", style = MuscleTomeTextStyles.heading) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "BACK")
                 }
             },
         )
     }) { padding ->
         if (pending.isEmpty()) {
-            Text("No imports need review", modifier = Modifier.padding(padding).padding(24.dp))
+            Text(
+                "NO IMPORTS NEED REVIEW",
+                style = MuscleTomeTextStyles.systemMessage,
+                modifier = Modifier.padding(padding).padding(24.dp),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -61,26 +68,43 @@ fun ExerciseImportReviewScreen(
 @Composable
 private fun ReviewCard(item: PendingExerciseImportEntity, viewModel: ExerciseImportReviewViewModel) {
     val candidates = Json.decodeFromString<List<String>>(item.candidateExerciseIdsJson)
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(item.displayName, style = MaterialTheme.typography.titleMedium)
-            Text("Source: ${item.sourceKey ?: "Unknown"} · ${item.externalExerciseId ?: "No external ID"}")
-            Text("Matching signals: name, movement pattern and target overlap")
+    BrutalistCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(item.displayName.uppercase(Locale.US), style = MaterialTheme.typography.titleMedium)
             Text(
-                "Merge links this source to the existing exercise and keeps its current name, instructions, targets, and equipment. Incoming edits to those fields will not be applied.",
-                style = MaterialTheme.typography.bodySmall,
+                "SOURCE: ${(item.sourceKey ?: "UNKNOWN").uppercase(Locale.US)} · ${(item.externalExerciseId ?: "NO EXTERNAL ID").uppercase(Locale.US)}",
+                style = MuscleTomeTextStyles.tag,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "MATCHING SIGNALS: NAME, MOVEMENT PATTERN AND TARGET OVERLAP",
+                style = MuscleTomeTextStyles.tag,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "MERGE LINKS THIS SOURCE TO EXISTING EXERCISE AND KEEPS CURRENT NAME, INSTRUCTIONS, TARGETS AND EQUIPMENT.",
+                style = MuscleTomeTextStyles.systemMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             candidates.forEach { candidate ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { viewModel.merge(item.id, candidate) }) {
-                        Text("Merge into ${candidate.take(12)}")
-                    }
+                    AccentButton(
+                        text = "MERGE INTO ${candidate.take(12).uppercase(Locale.US)}",
+                        onClick = { viewModel.merge(item.id, candidate) },
+                    )
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { viewModel.keepBoth(item.id) }) { Text("Keep Both") }
-                Button(onClick = { viewModel.discard(item.id) }) { Text("Discard") }
+                BrutalistOutlinedButton(
+                    text = "KEEP BOTH",
+                    onClick = { viewModel.keepBoth(item.id) },
+                    modifier = Modifier.weight(1f),
+                )
+                BrutalistOutlinedButton(
+                    text = "DISCARD",
+                    onClick = { viewModel.discard(item.id) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }

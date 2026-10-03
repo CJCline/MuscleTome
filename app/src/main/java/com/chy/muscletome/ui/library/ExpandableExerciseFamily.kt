@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.ui.components.LedgerDivider
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
+import java.util.Locale
 
 @Composable
 internal fun ExpandableExerciseFamily(
@@ -33,16 +35,16 @@ internal fun ExpandableExerciseFamily(
                 .fillMaxWidth()
                 .clickable(onClick = onToggle)
                 .semantics {
-                    contentDescription = "$familyLabel exercise family"
-                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                    contentDescription = "$familyLabel EXERCISE FAMILY"
+                    stateDescription = if (expanded) "EXPANDED" else "COLLAPSED"
                 }
                 .padding(vertical = 12.dp, horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text(familyLabel, style = MaterialTheme.typography.titleMedium)
-                Text("${members.size} variations", style = MaterialTheme.typography.bodySmall)
+                Text(familyLabel.uppercase(Locale.US), style = MuscleTomeTextStyles.sectionTitle)
+                Text("${members.size} VARIATIONS", style = MuscleTomeTextStyles.tag, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge)
         }

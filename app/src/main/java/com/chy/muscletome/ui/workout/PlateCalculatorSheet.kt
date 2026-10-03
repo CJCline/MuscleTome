@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -34,14 +33,14 @@ import androidx.compose.ui.unit.dp
 import com.chy.muscletome.domain.model.WeightUnit
 import com.chy.muscletome.domain.session.PlateMath
 import com.chy.muscletome.domain.session.WeightUnits
+import com.chy.muscletome.ui.components.AccentButton
 import com.chy.muscletome.ui.components.MonoText
 import com.chy.muscletome.ui.components.SectionHeader
+import com.chy.muscletome.ui.theme.MuscleTomeTextStyles
 
 /**
  * Plate loader sheet: how to build the weight-field target from a bar plus
- * standard plates, per side. Read-only math — the only write is [onUseLoadable],
- * which snaps the weight field to the nearest loadable total when the exact
- * target isn't on the rack.
+ * standard plates, per side.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -51,7 +50,6 @@ fun PlateCalculatorSheet(
     onDismiss: () -> Unit,
     onUseLoadable: (Double) -> Unit,
 ) {
-    // Bar choice resets when the unit flips — a 45 lb bar means nothing in kg.
     var barWeight by rememberSaveable(unit) { mutableStateOf(PlateMath.defaultBar(unit)) }
     val breakdown = remember(targetWeight, barWeight, unit) {
         PlateMath.breakdown(targetWeight = targetWeight, barWeight = barWeight, unit = unit)
@@ -69,9 +67,8 @@ fun PlateCalculatorSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionHeader("Plate loader")
+            SectionHeader("PLATE LOADER")
 
-            // --- Target vs bar -------------------------------------------
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,7 +77,7 @@ fun PlateCalculatorSheet(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         "TARGET",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MuscleTomeTextStyles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     MonoText(
@@ -94,7 +91,7 @@ fun PlateCalculatorSheet(
                 ) {
                     Text(
                         "BAR",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MuscleTomeTextStyles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     MonoText(
@@ -104,22 +101,20 @@ fun PlateCalculatorSheet(
                 }
             }
 
-            // --- Bar picker ----------------------------------------------
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlateMath.barsFor(unit).forEach { bar ->
                     FilterChip(
                         selected = bar == barWeight,
                         onClick = { barWeight = bar },
-                        label = { Text("${WeightUnits.displayText(bar)} bar") },
+                        label = { Text("${WeightUnits.displayText(bar)} BAR", style = MuscleTomeTextStyles.tag) },
                     )
                 }
             }
 
-            // --- Per-side plates -----------------------------------------
             if (breakdown.plates.isEmpty() && breakdown.isAchievable) {
                 Text(
-                    "Just the bar — no plates needed.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "BAR ONLY — NO PLATES REQUIRED",
+                    style = MuscleTomeTextStyles.systemMessage,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
@@ -144,7 +139,7 @@ fun PlateCalculatorSheet(
                                 )
                             }
                             MonoText(
-                                text = "× ${pair.countPerSide} / side",
+                                text = "× ${pair.countPerSide} / SIDE",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -152,29 +147,27 @@ fun PlateCalculatorSheet(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
-                        text = "Per side: ${breakdown.perSideLabel}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "PER SIDE: ${breakdown.perSideLabel.uppercase()}",
+                        style = MuscleTomeTextStyles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            // --- Gap warning ---------------------------------------------
             when {
                 breakdown.isAchievable -> Unit
                 breakdown.leftoverPerSide < 0 -> Text(
-                    "Target is below the bar — add plates or lower the target.",
-                    style = MaterialTheme.typography.bodySmall,
+                    "TARGET IS BELOW BAR WEIGHT",
+                    style = MuscleTomeTextStyles.systemMessage,
                     color = MaterialTheme.colorScheme.error,
                 )
                 else -> Text(
-                    "No plate for the last ${WeightUnits.display(breakdown.leftoverPerSide, unit)} per side.",
-                    style = MaterialTheme.typography.bodySmall,
+                    "NO PLATE FOR REMAINING ${WeightUnits.display(breakdown.leftoverPerSide, unit)} PER SIDE",
+                    style = MuscleTomeTextStyles.systemMessage,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            // --- Footer: what the bar actually loads ----------------------
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -184,7 +177,7 @@ fun PlateCalculatorSheet(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         "LOADS AS",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MuscleTomeTextStyles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     MonoText(
@@ -193,9 +186,11 @@ fun PlateCalculatorSheet(
                     )
                 }
                 if (!breakdown.isAchievable && (breakdown.leftoverPerSide > 0)) {
-                    Button(onClick = { onUseLoadable(breakdown.loadableWeight) }) {
-                        Text("Use ${WeightUnits.displayText(breakdown.loadableWeight)}")
-                    }
+                    AccentButton(
+                        text = "USE ${WeightUnits.displayText(breakdown.loadableWeight)}",
+                        onClick = { onUseLoadable(breakdown.loadableWeight) },
+                        minHeight = 44.dp,
+                    )
                 } else {
                     Spacer(Modifier.width(8.dp))
                 }
@@ -204,11 +199,6 @@ fun PlateCalculatorSheet(
     }
 }
 
-/**
- * One plate silhouette: a steel disc sized by relative weight with the
- * signature hub hole. Discs scale within the current breakdown's largest
- * plate so the ladder reads at a glance.
- */
 @Composable
 private fun PlateDisc(
     weight: Double,
