@@ -75,12 +75,6 @@ data class EquipmentEntity(
             childColumns = ["createdByUserId"],
             onDelete = ForeignKey.SET_NULL,
         ),
-        ForeignKey(
-            entity = ExerciseEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["parentExerciseId"],
-            onDelete = ForeignKey.SET_NULL,
-        ),
     ],
     indices = [
         Index("primaryMuscleGroupId"),

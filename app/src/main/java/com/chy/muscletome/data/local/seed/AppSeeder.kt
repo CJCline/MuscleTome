@@ -106,7 +106,7 @@ class AppSeeder @Inject constructor(
             val canonicalName = item.name.uppercase(Locale.US).trim()
             val category = item.category.uppercase(Locale.US).trim()
             val muscleGroup = item.muscleGroup.uppercase(Locale.US).trim()
-            val primaryMuscleId = category.lowercase(Locale.US)
+            val primaryMuscleId = mapPrimaryMuscleGroupId(category, muscleGroup)
             val parentId = "seed_${slugify(canonicalName)}"
 
             val parentEntity = ExerciseEntity(
@@ -157,6 +157,19 @@ class AppSeeder @Inject constructor(
         return input.lowercase(Locale.US)
             .replace(Regex("[^a-z0-9]+"), "_")
             .trim('_')
+    }
+
+    private fun mapPrimaryMuscleGroupId(category: String, muscleGroup: String): String {
+        val categoryLower = category.lowercase(Locale.US)
+        val muscleLower = muscleGroup.lowercase(Locale.US).replace(" ", "_")
+        return when {
+            muscleLower in listOf("lats", "biceps", "triceps", "quads", "hamstrings", "glutes", "calves", "abs") -> muscleLower
+            muscleLower == "pectoralis" -> "chest"
+            muscleLower == "erector_spinae" || muscleLower == "rhomboids" || muscleLower == "traps" -> "back"
+            muscleLower == "deltoids" || muscleLower.contains("delts") -> "shoulders"
+            categoryLower in listOf("chest", "back", "shoulders", "arms", "legs", "core") -> categoryLower
+            else -> "chest"
+        }
     }
 
     private fun inferMovementPattern(category: String): MovementPattern {
