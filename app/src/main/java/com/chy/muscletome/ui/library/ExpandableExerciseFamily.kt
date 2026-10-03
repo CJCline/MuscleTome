@@ -49,8 +49,8 @@ internal fun ExpandableExerciseFamily(
             Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge)
         }
         if (expanded) {
-            members.forEachIndexed { index, variant ->
-                ExerciseRow(variant, firstRowIndex + index) { onOpenExercise(variant.id) }
+            members.forEach { variant ->
+                ParentExerciseRow(variant) { onOpenExercise(variant.id) }
             }
         }
         LedgerDivider()

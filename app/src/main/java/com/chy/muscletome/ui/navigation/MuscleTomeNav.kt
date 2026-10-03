@@ -32,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.chy.muscletome.ui.home.HomeScreen
 import com.chy.muscletome.ui.library.AddExerciseScreen
+import com.chy.muscletome.ui.library.CreateExerciseScreen
 import com.chy.muscletome.ui.library.ExerciseDetailScreen
 import com.chy.muscletome.ui.library.ExerciseImportReviewScreen
 import com.chy.muscletome.ui.library.ExerciseLibraryScreen
@@ -230,7 +231,7 @@ fun MuscleTomeNav() {
                         },
                     ),
                 ) {
-                    AddExerciseScreen(onBack = { navController.popBackStack() })
+                    CreateExerciseScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.EXERCISE_IMPORT_REVIEW) {
                     ExerciseImportReviewScreen(onBack = { navController.popBackStack() })

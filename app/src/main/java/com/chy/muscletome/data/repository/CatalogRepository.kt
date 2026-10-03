@@ -45,6 +45,9 @@ class CatalogRepository @Inject constructor(
     private val familyRepository: FamilyRepository,
 ) {
     fun observeExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeExercises()
+    fun observeAllExercises(query: String): Flow<List<ExerciseEntity>> = catalogDao.observeAllExercises(escapeLike(query))
+    fun observeParentExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeParentExercises()
+    suspend fun getParentExercises(): List<ExerciseEntity> = catalogDao.getParentExercises()
     fun observeMuscleGroups(): Flow<List<MuscleGroupEntity>> = catalogDao.observeMuscleGroups()
     fun observeEquipment(): Flow<List<EquipmentEntity>> = catalogDao.observeEquipment()
 
@@ -95,11 +98,14 @@ class CatalogRepository @Inject constructor(
         unilateral: Boolean = false,
         movementFamilyId: String? = null,
         media: List<ExerciseMedia> = emptyList(),
+        category: String = "",
+        muscleGroup: String = "",
+        parentExerciseId: String? = null,
     ): CreateExerciseResult =
         when (createCustomExerciseId(
             name, description, primaryMuscleGroupId, movementType, movementPattern,
             difficulty, equipmentIds, secondaryMuscleGroupIds, instructions,
-            unilateral, movementFamilyId, media,
+            unilateral, movementFamilyId, media, category, muscleGroup, parentExerciseId,
         )) {
             is CreateCustomExerciseResult.Success -> CreateExerciseResult.SUCCESS
             is CreateCustomExerciseResult.Failed -> CreateExerciseResult.NAME_TAKEN
@@ -123,23 +129,32 @@ class CatalogRepository @Inject constructor(
         unilateral: Boolean = false,
         movementFamilyId: String? = null,
         media: List<ExerciseMedia> = emptyList(),
+        category: String = "",
+        muscleGroup: String = "",
+        parentExerciseId: String? = null,
     ): CreateCustomExerciseResult {
-        val trimmedName = name.trim()
+        val trimmedName = name.trim().uppercase(java.util.Locale.US)
         if (catalogDao.getExerciseByName(trimmedName) != null) {
             return CreateCustomExerciseResult.Failed(CreateExerciseResult.NAME_TAKEN)
         }
         val id = "user_${UUID.randomUUID()}"
+        val computedCategory = category.ifBlank { primaryMuscleGroupId }.uppercase(java.util.Locale.US)
+        val computedMuscleGroup = muscleGroup.ifBlank { primaryMuscleGroupId }.uppercase(java.util.Locale.US)
         catalogDao.insertExercises(
             listOf(
                 ExerciseEntity(
                     id = id,
-                    name = name.trim(),
+                    name = trimmedName,
+                    category = computedCategory,
+                    muscleGroup = computedMuscleGroup,
                     description = description.trim(),
                     movementPattern = movementPattern,
                     movementType = movementType,
                     primaryMuscleGroupId = primaryMuscleGroupId,
                     difficulty = difficulty,
+                    parentExerciseId = parentExerciseId,
                     isCustom = true,
+                    isDefault = false,
                     createdByUserId = SeedCatalog.LOCAL_USER_ID,
                     source = ExerciseSource.USER_CREATED,
                     unilateral = unilateral,

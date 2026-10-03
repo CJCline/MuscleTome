@@ -38,6 +38,23 @@ interface CatalogDao {
     @Query("SELECT * FROM exercises ORDER BY name")
     fun observeExercises(): Flow<List<ExerciseEntity>>
 
+    @Query(
+        """
+        SELECT * FROM exercises
+        WHERE (:query = '' OR UPPER(name) LIKE '%' || UPPER(:query) || '%' OR UPPER(category) LIKE '%' || UPPER(:query) || '%' OR UPPER(muscleGroup) LIKE '%' || UPPER(:query) || '%')
+        ORDER BY CASE WHEN category = '' THEN primaryMuscleGroupId ELSE category END,
+                 CASE WHEN parentExerciseId IS NULL THEN 0 ELSE 1 END,
+                 name
+        """,
+    )
+    fun observeAllExercises(query: String): Flow<List<ExerciseEntity>>
+
+    @Query("SELECT * FROM exercises WHERE parentExerciseId IS NULL ORDER BY name")
+    fun observeParentExercises(): Flow<List<ExerciseEntity>>
+
+    @Query("SELECT * FROM exercises WHERE parentExerciseId IS NULL ORDER BY name")
+    suspend fun getParentExercises(): List<ExerciseEntity>
+
     @Transaction
     @Query(
         """

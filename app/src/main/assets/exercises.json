@@ -1,0 +1,165 @@
+[
+  {
+    "name": "BARBELL BENCH PRESS",
+    "category": "CHEST",
+    "muscleGroup": "PECTORALIS",
+    "isCustom": false,
+    "variations": [
+      "CLOSE GRIP BENCH PRESS",
+      "PAUSE BENCH PRESS",
+      "INCLINE BENCH PRESS",
+      "DECLINE BENCH PRESS"
+    ]
+  },
+  {
+    "name": "DUMBBELL BENCH PRESS",
+    "category": "CHEST",
+    "muscleGroup": "PECTORALIS",
+    "isCustom": false,
+    "variations": [
+      "INCLINE DUMBBELL PRESS",
+      "DECLINE DUMBBELL PRESS",
+      "DUMBBELL FLY"
+    ]
+  },
+  {
+    "name": "BARBELL ROW",
+    "category": "BACK",
+    "muscleGroup": "LATS",
+    "isCustom": false,
+    "variations": [
+      "PENDLAY ROW",
+      "UNDERHAND BARBELL ROW",
+      "MEADOWS ROW"
+    ]
+  },
+  {
+    "name": "PULL UP",
+    "category": "BACK",
+    "muscleGroup": "LATS",
+    "isCustom": false,
+    "variations": [
+      "WEIGHTED PULL UP",
+      "CHIN UP",
+      "NEUTRAL GRIP PULL UP"
+    ]
+  },
+  {
+    "name": "DEADLIFT",
+    "category": "BACK",
+    "muscleGroup": "ERECTOR SPINAE",
+    "isCustom": false,
+    "variations": [
+      "SUMO DEADLIFT",
+      "ROMANIAN DEADLIFT",
+      "DEFICIT DEADLIFT"
+    ]
+  },
+  {
+    "name": "BARBELL SQUAT",
+    "category": "LEGS",
+    "muscleGroup": "QUADRICEPS",
+    "isCustom": false,
+    "variations": [
+      "FRONT SQUAT",
+      "PAUSE SQUAT",
+      "SAFETY BAR SQUAT",
+      "BOX SQUAT"
+    ]
+  },
+  {
+    "name": "LEG PRESS",
+    "category": "LEGS",
+    "muscleGroup": "QUADRICEPS",
+    "isCustom": false,
+    "variations": [
+      "SINGLE LEG PRESS",
+      "NARROW STANCE LEG PRESS",
+      "WIDE STANCE LEG PRESS"
+    ]
+  },
+  {
+    "name": "LEG EXTENSION",
+    "category": "LEGS",
+    "muscleGroup": "QUADRICEPS",
+    "isCustom": false,
+    "variations": [
+      "SINGLE LEG EXTENSION",
+      "PAUSE LEG EXTENSION"
+    ]
+  },
+  {
+    "name": "LEG CURL",
+    "category": "LEGS",
+    "muscleGroup": "HAMSTRINGS",
+    "isCustom": false,
+    "variations": [
+      "SEATED LEG CURL",
+      "LYING LEG CURL",
+      "SINGLE LEG CURL"
+    ]
+  },
+  {
+    "name": "OVERHEAD PRESS",
+    "category": "SHOULDERS",
+    "muscleGroup": "DELTOIDS",
+    "isCustom": false,
+    "variations": [
+      "SEATED OVERHEAD PRESS",
+      "PUSH PRESS",
+      "BEHIND THE NECK PRESS"
+    ]
+  },
+  {
+    "name": "LATERAL RAISE",
+    "category": "SHOULDERS",
+    "muscleGroup": "DELTOIDS",
+    "isCustom": false,
+    "variations": [
+      "CABLE LATERAL RAISE",
+      "DUMBBELL LATERAL RAISE"
+    ]
+  },
+  {
+    "name": "BARBELL CURL",
+    "category": "ARMS",
+    "muscleGroup": "BICEPS",
+    "isCustom": false,
+    "variations": [
+      "EZ BAR CURL",
+      "PREACHER CURL",
+      "SPIDER CURL"
+    ]
+  },
+  {
+    "name": "DUMBBELL CURL",
+    "category": "ARMS",
+    "muscleGroup": "BICEPS",
+    "isCustom": false,
+    "variations": [
+      "INCLINE DUMBBELL CURL",
+      "HAMMER CURL",
+      "CONCENTRATION CURL"
+    ]
+  },
+  {
+    "name": "TRICEPS PUSHDOWN",
+    "category": "ARMS",
+    "muscleGroup": "TRICEPS",
+    "isCustom": false,
+    "variations": [
+      "ROPE TRICEPS PUSHDOWN",
+      "V-BAR TRICEPS PUSHDOWN"
+    ]
+  },
+  {
+    "name": "PLANK",
+    "category": "CORE",
+    "muscleGroup": "ABS",
+    "isCustom": false,
+    "variations": [
+      "SIDE PLANK",
+      "WEIGHTED PLANK"
+    ]
+  }
+]

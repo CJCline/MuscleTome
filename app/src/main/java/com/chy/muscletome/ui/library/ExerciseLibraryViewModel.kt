@@ -33,28 +33,18 @@ class ExerciseLibraryViewModel @Inject constructor(
     private val repository: CatalogRepository,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
-    private val selectedMuscleId = MutableStateFlow<String?>(null)
 
-    private val exerciseResults = combine(query, selectedMuscleId) { q, m -> q to m }
+    private val allExercises = query
         .debounce(150.milliseconds)
-        .flatMapLatest { (q, m) -> repository.searchLibraryRows(q, m) }
+        .flatMapLatest { q -> repository.observeAllExercises(q) }
 
     val uiState = combine(
-        exerciseResults,
-        repository.observeMuscleGroups(),
-        repository.searchLibraryRows("", null),
+        allExercises,
         query,
-        selectedMuscleId,
-    ) { results, muscles, allRows, currentQuery, muscleId ->
+    ) { exercisesList, currentQuery ->
         ExerciseLibraryUiState(
             query = currentQuery,
-            selectedMuscleId = muscleId,
-            muscleGroups = muscles,
-            exercises = results.map { it.exercise },
-            familyIds = allRows.mapNotNull { row ->
-                row.metadata?.movementFamilyId?.let { row.exercise.id to it }
-            }.toMap(),
-            libraryRows = results,
+            exercises = exercisesList,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -63,5 +53,4 @@ class ExerciseLibraryViewModel @Inject constructor(
     )
 
     fun onQueryChange(value: String) { query.value = value }
-    fun onMuscleSelected(muscleId: String?) { selectedMuscleId.value = muscleId }
 }
