@@ -47,6 +47,7 @@ import com.chy.muscletome.data.local.dao.ExerciseLibraryRow
 import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.domain.model.MovementFamilies
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
 import com.chy.muscletome.ui.components.AccentButton
 import com.chy.muscletome.ui.components.BrutalistOutlinedButton
 import com.chy.muscletome.ui.components.ExerciseDemoImage
@@ -240,7 +241,7 @@ fun AddSlotScreen(
                             } else {
                                 item(key = "family:$familyId") {
                                     val matchesSearch = state.query.isNotBlank() && members.any {
-                                        it.name.contains(state.query, ignoreCase = true)
+                                        ExerciseSearchEngine.matches(it, state.query)
                                     }
                                     val expanded = matchesSearch || expandedFamilies[familyId] == true
                                     val allSelected = members.all { it.id in state.selectedExerciseIds }

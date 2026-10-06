@@ -23,6 +23,7 @@ import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.SelectionReason
 import com.chy.muscletome.domain.model.SlotType
 import com.chy.muscletome.domain.model.WeightUnit
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
 import com.chy.muscletome.domain.session.EffortScales
 import com.chy.muscletome.domain.session.PersonalRecords
 import com.chy.muscletome.domain.session.PrCandidate
@@ -351,13 +352,9 @@ class ActiveWorkoutViewModel @Inject constructor(
             restSecondsLeft = rest,
             totalRestSeconds = totalRest,
             finished = isFinished,
-            catalogExercises = exercises.filter {
-                it.name.contains(swapFilter, ignoreCase = true)
-            },
+            catalogExercises = ExerciseSearchEngine.filterAndRank(exercises, swapFilter),
             swapQuery = swapFilter,
-            supersetExercises = exercises.filter {
-                it.name.contains(supersetFilter, ignoreCase = true)
-            },
+            supersetExercises = ExerciseSearchEngine.filterAndRank(exercises, supersetFilter),
             supersetQuery = supersetFilter,
             lastSessions = buildLastSessions(exerciseSetPoints, limit = 3),
             progressPoints = buildProgressPoints(exerciseSetPoints, span),

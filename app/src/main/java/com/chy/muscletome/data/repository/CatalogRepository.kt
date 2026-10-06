@@ -29,6 +29,9 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
+import kotlinx.coroutines.flow.map
+
 enum class CreateExerciseResult { SUCCESS, NAME_TAKEN }
 
 /** [createCustomExerciseId] outcome: the new exercise id, or the failure reason. */
@@ -45,17 +48,24 @@ class CatalogRepository @Inject constructor(
     private val familyRepository: FamilyRepository,
 ) {
     fun observeExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeExercises()
-    fun observeAllExercises(query: String): Flow<List<ExerciseEntity>> = catalogDao.observeAllExercises(escapeLike(query))
+    fun observeAllExercises(query: String): Flow<List<ExerciseEntity>> =
+        catalogDao.observeAllExercises("").map { exercises ->
+            ExerciseSearchEngine.filterAndRank(exercises, query)
+        }
     fun observeParentExercises(): Flow<List<ExerciseEntity>> = catalogDao.observeParentExercises()
     suspend fun getParentExercises(): List<ExerciseEntity> = catalogDao.getParentExercises()
     fun observeMuscleGroups(): Flow<List<MuscleGroupEntity>> = catalogDao.observeMuscleGroups()
     fun observeEquipment(): Flow<List<EquipmentEntity>> = catalogDao.observeEquipment()
 
     fun searchExercises(query: String, muscleGroupId: String?): Flow<List<ExerciseEntity>> =
-        catalogDao.searchExercises(escapeLike(query), muscleGroupId)
+        catalogDao.searchExercises("", muscleGroupId).map { exercises ->
+            ExerciseSearchEngine.filterAndRank(exercises, query)
+        }
 
     fun searchLibraryRows(query: String, muscleGroupId: String?): Flow<List<ExerciseLibraryRow>> =
-        catalogDao.searchLibraryRows(escapeLike(query), muscleGroupId)
+        catalogDao.searchLibraryRows("", muscleGroupId).map { rows ->
+            ExerciseSearchEngine.filterAndRankRows(rows, query)
+        }
 
     fun observeExercise(id: String): Flow<ExerciseEntity?> = catalogDao.observeExercise(id)
 
@@ -308,8 +318,4 @@ class CatalogRepository @Inject constructor(
         catalogDao.deleteExercise(exerciseId)
         return true
     }
-
-    /** Escapes SQL LIKE wildcards so user input matches literally (DAO uses ESCAPE '\\'). */
-    private fun escapeLike(input: String): String =
-        input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 }

@@ -1,6 +1,7 @@
 package com.chy.muscletome.ui.routine
 
 import androidx.compose.animation.AnimatedVisibility
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -569,9 +570,7 @@ fun DayDetailScreen(
             )
         } else {
             val filteredCatalog = remember(pickerSearchQuery, state.catalogExercises) {
-                state.catalogExercises.filter {
-                    it.name.contains(pickerSearchQuery, ignoreCase = true)
-                }
+                ExerciseSearchEngine.filterAndRank(state.catalogExercises, pickerSearchQuery)
             }
             AlertDialog(
                 onDismissRequest = {

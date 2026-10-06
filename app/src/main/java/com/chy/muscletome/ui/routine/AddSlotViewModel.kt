@@ -8,6 +8,7 @@ import com.chy.muscletome.data.local.entity.MuscleGroupEntity
 import com.chy.muscletome.data.repository.CatalogRepository
 import com.chy.muscletome.data.repository.RoutineRepository
 import com.chy.muscletome.domain.model.TargetMovementType
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -105,7 +106,19 @@ class AddSlotViewModel @Inject constructor(
         val wantsSuperset = values[7] as Boolean
         val isSaved = values[8] as Boolean
 
-        val filteredMuscles = allMuscles.filter { it.name.contains(currentQuery, ignoreCase = true) }
+        val filteredMuscles = if (currentQuery.isBlank()) {
+            allMuscles
+        } else {
+            val tokens = ExerciseSearchEngine.tokenize(currentQuery)
+            allMuscles.filter { muscle ->
+                tokens.all { token ->
+                    val nameLower = muscle.name.lowercase()
+                    val idLower = muscle.id.lowercase()
+                    nameLower.contains(token.raw) || nameLower.contains(token.stem) ||
+                        idLower.contains(token.raw) || idLower.contains(token.stem)
+                }
+            }
+        }
 
         val canSave = if (isTargetMode) selectedMuscles.isNotEmpty() else selectedIds.isNotEmpty()
 

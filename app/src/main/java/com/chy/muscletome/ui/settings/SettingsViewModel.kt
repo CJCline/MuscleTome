@@ -18,6 +18,7 @@ import com.chy.muscletome.domain.model.EffortScale
 import com.chy.muscletome.domain.model.MatchStrictness
 import com.chy.muscletome.domain.model.WeightStep
 import com.chy.muscletome.domain.model.WeightUnit
+import com.chy.muscletome.domain.search.ExerciseSearchEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -135,11 +136,9 @@ class SettingsViewModel @Inject constructor(
         if (query.isBlank()) {
             emptyList()
         } else {
-            state.exercises.asSequence()
-                .filter { it.id !in state.excludedExerciseIds }
-                .filter { it.name.contains(query, ignoreCase = true) }
+            val available = state.exercises.filter { it.id !in state.excludedExerciseIds }
+            ExerciseSearchEngine.filterAndRank(available, query)
                 .take(MAX_EXCLUDE_SEARCH_RESULTS)
-                .toList()
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
