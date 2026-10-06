@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512">
+    <!-- OLED Ink Base -->
+    <rect width="108" height="108" fill="#0A0C0E" />
+
+    <!-- Subtle Tactical Grid -->
+    <path fill="none" stroke="#182017" stroke-width="0.8" d="M18,0V108 M36,0V108 M54,0V108 M72,0V108 M90,0V108 M0,18H108 M0,36H108 M0,54H108 M0,72H108 M0,90H108" />
+
+    <!-- Tactical Safe-Zone Corner Marks -->
+    <path fill="none" stroke="#2C3A28" stroke-width="1.2" d="M24,24h8 M24,24v8 M84,24h-8 M84,24v8 M24,84h8 M24,84v-8 M84,84h-8 M84,84v-8" />
+
+    <!-- Subtle Tactical Inner Surface -->
+    <circle cx="54" cy="54" r="33" fill="#121A12" />
+
+    <!-- Barbell Shaft -->
+    <path fill="#EAE6DF" d="M22,52h64v4h-64z" />
+
+    <!-- Left Weight Plates -->
+    <!-- Outer Plate -->
+    <path fill="#8B9A46" stroke="#EAE6DF" stroke-width="0.8" d="M23,36h4v36h-4z" />
+    <!-- Inner Plate -->
+    <path fill="#EAE6DF" d="M28,40h4v28h-4z" />
+    <!-- Collar -->
+    <path fill="#FF5500" d="M33,46h2v16h-2z" />
+
+    <!-- Right Weight Plates -->
+    <!-- Collar -->
+    <path fill="#FF5500" d="M73,46h2v16h-2z" />
+    <!-- Inner Plate -->
+    <path fill="#EAE6DF" d="M76,40h4v28h-4z" />
+    <!-- Outer Plate -->
+    <path fill="#8B9A46" stroke="#EAE6DF" stroke-width="0.8" d="M81,36h4v36h-4z" />
+
+    <!-- Central Brutalist "M" Monogram -->
+    <!-- Left Vertical Leg -->
+    <path fill="#FF5500" d="M37,32h6v42h-6z" />
+    <!-- Right Vertical Leg -->
+    <path fill="#FF5500" d="M65,32h6v42h-6z" />
+    <!-- Left Diagonal Stroke -->
+    <path fill="#FF5500" d="M43,32 L54,56 L54,62 L43,38 Z" />
+    <!-- Right Diagonal Stroke -->
+    <path fill="#FF5500" d="M65,32 L54,56 L54,62 L65,38 Z" />
+
+    <!-- Cream Top & Bottom Caps on "M" -->
+    <path fill="#EAE6DF" d="M37,32h6v3h-6z M65,32h6v3h-6z M37,71h6v3h-6z M65,71h6v3h-6z" />
+</svg>
