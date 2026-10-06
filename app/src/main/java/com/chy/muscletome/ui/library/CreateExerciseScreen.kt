@@ -1,5 +1,6 @@
 package com.chy.muscletome.ui.library
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -28,11 +31,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chy.muscletome.data.local.entity.ExerciseEntity
 import com.chy.muscletome.ui.components.AccentButton
 import com.chy.muscletome.ui.components.SectionHeader
 import com.chy.muscletome.ui.components.SelectOnFocusOutlinedTextField
@@ -50,6 +57,7 @@ fun CreateExerciseScreen(
     viewModel: CreateExerciseViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var parentSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -150,11 +158,74 @@ fun CreateExerciseScreen(
             )
 
             SectionHeader("LINK AS VARIATION OF PARENT EXERCISE (OPTIONAL)")
+            CreateExerciseParentVariationCard(
+                parentExercises = state.parentExercises,
+                selectedParentId = state.parentExerciseId,
+                expanded = parentSectionExpanded,
+                onToggleExpand = { parentSectionExpanded = !parentSectionExpanded },
+                onSelectParent = viewModel::onParentExerciseSelected,
+            )
+
+            AccentButton(
+                text = "SAVE CUSTOM EXERCISE",
+                onClick = viewModel::save,
+                enabled = state.canSave,
+                minHeight = 56.dp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun CreateExerciseParentVariationCard(
+    parentExercises: List<ExerciseEntity>,
+    selectedParentId: String?,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onSelectParent: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val selectedParent = parentExercises.find { it.id == selectedParentId }
+    val selectedParentName = selectedParent?.name?.uppercase(Locale.US) ?: "NONE (STANDALONE PARENT EXERCISE)"
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(width = 1.dp, color = MutedGrayBorder, shape = RoundedCornerShape(2.dp)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggleExpand)
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CURRENT LINK",
+                    style = MuscleTomeTextStyles.label,
+                    color = MutedGrayBorder,
+                )
+                Text(
+                    text = selectedParentName,
+                    style = MuscleTomeTextStyles.button,
+                    color = ArchivalCream,
+                )
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "COLLAPSE PARENT EXERCISE OPTIONS" else "EXPAND PARENT EXERCISE OPTIONS",
+                tint = ArchivalCream,
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(width = 1.dp, color = MutedGrayBorder, shape = RoundedCornerShape(2.dp))
-                    .padding(8.dp),
+                    .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(
@@ -162,21 +233,21 @@ fun CreateExerciseScreen(
                         .fillMaxWidth()
                         .border(
                             width = 1.dp,
-                            color = if (state.parentExerciseId == null) ArchivalCream else AgedPaper,
+                            color = if (selectedParentId == null) ArchivalCream else AgedPaper,
                             shape = RoundedCornerShape(2.dp),
                         )
-                        .clickable { viewModel.onParentExerciseSelected(null) }
+                        .clickable { onSelectParent(null) }
                         .padding(12.dp),
                 ) {
                     Text(
                         "NONE (STANDALONE PARENT EXERCISE)",
                         style = MuscleTomeTextStyles.button,
-                        color = if (state.parentExerciseId == null) ArchivalCream else AgedPaper,
+                        color = if (selectedParentId == null) ArchivalCream else AgedPaper,
                     )
                 }
 
-                state.parentExercises.forEach { parent ->
-                    val isSelected = state.parentExerciseId == parent.id
+                parentExercises.forEach { parent ->
+                    val isSelected = selectedParentId == parent.id
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -185,7 +256,7 @@ fun CreateExerciseScreen(
                                 color = if (isSelected) ArchivalCream else MutedGrayBorder,
                                 shape = RoundedCornerShape(2.dp),
                             )
-                            .clickable { viewModel.onParentExerciseSelected(parent.id) }
+                            .clickable { onSelectParent(parent.id) }
                             .padding(12.dp),
                     ) {
                         Row(
@@ -205,14 +276,6 @@ fun CreateExerciseScreen(
                     }
                 }
             }
-
-            AccentButton(
-                text = "SAVE CUSTOM EXERCISE",
-                onClick = viewModel::save,
-                enabled = state.canSave,
-                minHeight = 56.dp,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }
