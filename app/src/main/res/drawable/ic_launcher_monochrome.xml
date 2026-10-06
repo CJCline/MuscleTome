@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Barbell Shaft -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,52h64v4h-64z" />
+
+    <!-- Left Weight Plates -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M23,36h4v36h-4z M28,40h4v28h-4z M33,46h2v16h-2z" />
+
+    <!-- Right Weight Plates -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73,46h2v16h-2z M76,40h4v28h-4z M81,36h4v36h-4z" />
+
+    <!-- Central "M" Monogram -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,32h6v42h-6z M65,32h6v42h-6z M43,32 L54,56 L54,62 L43,38 Z M65,32 L54,56 L54,62 L65,38 Z" />
+
+</vector>
