@@ -272,4 +272,13 @@ interface WorkoutDao {
         """,
     )
     suspend fun getOpenSession(userId: String): WorkoutSessionEntity?
+
+    @Query("UPDATE session_slot_results SET isRemovedFromSession = :isRemoved WHERE id = :id")
+    suspend fun setSlotResultRemoved(id: String, isRemoved: Boolean)
+
+    @Query("DELETE FROM session_slot_results WHERE id = :id")
+    suspend fun deleteSlotResult(id: String)
+
+    @Query("SELECT COUNT(*) FROM set_logs WHERE sessionSlotResultId = :resultId")
+    suspend fun countSetsForSlotResult(resultId: String): Int
 }

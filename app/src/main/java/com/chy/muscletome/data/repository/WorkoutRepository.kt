@@ -376,6 +376,40 @@ class WorkoutRepository @Inject constructor(
         }
     }
 
+    suspend fun removeSlotFromActiveSession(sessionId: String, resultId: String) {
+        database.withTransaction {
+            val setCount = workoutDao.countSetsForSlotResult(resultId)
+            if (setCount > 0) {
+                workoutDao.setSlotResultRemoved(resultId, true)
+            } else {
+                workoutDao.deleteSlotResult(resultId)
+            }
+        }
+    }
+
+    suspend fun syncActiveSessionSlotOrderFromRoutine(dayId: String, orderedSlotIds: List<String>) {
+        val openSession = workoutDao.getOpenSession(SeedCatalog.LOCAL_USER_ID) ?: return
+        if (openSession.routineDayId != dayId) return
+        val results = workoutDao.getSlotResults(openSession.id)
+        val resultBySlotId = results.filter { it.routineSlotId != null }.associateBy { it.routineSlotId }
+        database.withTransaction {
+            orderedSlotIds.forEachIndexed { index, slotId ->
+                val result = resultBySlotId[slotId]
+                if (result != null) {
+                    workoutDao.updateSlotResultSortOrder(result.id, index)
+                }
+            }
+        }
+    }
+
+    suspend fun removeRoutineSlotFromActiveSession(dayId: String, routineSlotId: String) {
+        val openSession = workoutDao.getOpenSession(SeedCatalog.LOCAL_USER_ID) ?: return
+        if (openSession.routineDayId != dayId) return
+        val results = workoutDao.getSlotResults(openSession.id)
+        val target = results.find { it.routineSlotId == routineSlotId } ?: return
+        removeSlotFromActiveSession(openSession.id, target.id)
+    }
+
     private suspend fun buildCatalog(): List<EngineCandidate> {
         val exercises = catalogDao.getExercises()
         val equipmentLinks = catalogDao.getExerciseEquipment().groupBy { it.exerciseId }

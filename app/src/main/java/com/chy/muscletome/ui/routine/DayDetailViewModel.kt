@@ -221,13 +221,17 @@ class DayDetailViewModel @Inject constructor(
     fun deleteSlot(id: String) {
         viewModelScope.launch {
             routineRepository.deleteSlot(id)
+            workoutRepository.removeRoutineSlotFromActiveSession(dayId, id)
             drafts.value = drafts.value - id
         }
     }
 
     /** Persists a drag-reorder; called when the drag gesture ends. */
     fun reorderSlots(orderedIds: List<String>) {
-        viewModelScope.launch { routineRepository.reorderSlots(dayId, orderedIds) }
+        viewModelScope.launch {
+            routineRepository.reorderSlots(dayId, orderedIds)
+            workoutRepository.syncActiveSessionSlotOrderFromRoutine(dayId, orderedIds)
+        }
     }
 
     /** Groups the slot with the next one in day order (extends a chain when

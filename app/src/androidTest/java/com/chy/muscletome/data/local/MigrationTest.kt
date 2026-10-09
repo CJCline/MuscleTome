@@ -108,6 +108,22 @@ class MigrationTest {
         }
     }
 
+    @Test fun migrate14To15AddsIsRemovedFromSessionColumn() {
+        val db = helper.createDatabase("migration-14-15", 14)
+        db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty) VALUES ('local-user', 'You', 'KG', 90, 'STRICT', 1, 'ADVANCED')")
+        db.execSQL("INSERT INTO workout_sessions (id, userId, routineDayId, startedAtEpochMs) VALUES ('session-1', 'local-user', NULL, 1000)")
+        db.execSQL("INSERT INTO exercises (id, name, description, movementPattern, movementType, primaryMuscleGroupId, difficulty, isCustom, createdByUserId, unilateral, source, notes, demoUri) VALUES ('barbell_bench_press', 'Bench Press', '', 'PUSH', 'COMPOUND', 'chest', 'INTERMEDIATE', 0, NULL, 0, 'SEED', '', NULL)")
+        db.execSQL("INSERT INTO session_slot_results (id, sessionId, routineSlotId, resolvedExerciseId, selectionReason, sortOrder) VALUES ('result-1', 'session-1', NULL, 'barbell_bench_press', 'FIXED', 0)")
+        db.close()
+
+        helper.runMigrationsAndValidate("migration-14-15", 15, true, MuscleTomeMigrations.MIGRATION_14_15).use { migrated ->
+            migrated.query(SimpleSQLiteQuery("SELECT isRemovedFromSession FROM session_slot_results WHERE id = 'result-1'")).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     @Test fun migrateAllFromV1PreservesData() {
         val db = helper.createDatabase("migration-test", 1)
         db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty, subscriptionStatus) VALUES ('local-user', 'You', 'KG', 90, 'STRICT', 1, 'ADVANCED', 'FREE')")
@@ -115,7 +131,7 @@ class MigrationTest {
         db.execSQL("INSERT INTO exercises (id, name, description, movementPattern, movementType, primaryMuscleGroupId, difficulty, isCustom, createdByUserId, unilateral, source, notes, demoUri) VALUES ('barbell_bench_press', 'Bench Press', '', 'PUSH', 'COMPOUND', 'chest', 'INTERMEDIATE', 0, NULL, 0, 'SEED', '', 'https://legacy.example/demo.png')")
         db.close()
 
-        helper.runMigrationsAndValidate("migration-test", 14, true, *MuscleTomeMigrations.ALL).use { migrated ->
+        helper.runMigrationsAndValidate("migration-test", 15, true, *MuscleTomeMigrations.ALL).use { migrated ->
             migrated.query(SimpleSQLiteQuery("SELECT defaultRepPreference FROM users WHERE id = 'local-user'")).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("MINIMUM", cursor.getString(0))

@@ -234,24 +234,24 @@ class ActiveWorkoutViewModel @Inject constructor(
                 if (dayId != null) {
                     slotsByDay.value = routineDao.getSlots(dayId)
                 }
-                if (session != null && results.isNotEmpty() && currentResultId.value == null) {
-                    val orderedResults = results.sortedBy { it.sortOrder }
+                val activeResults = results.filter { !it.isRemovedFromSession }.sortedBy { it.sortOrder }
+                if (session != null && activeResults.isNotEmpty() && currentResultId.value == null) {
                     val setsByResult = sets.groupBy { it.sessionSlotResultId }
 
                     val initialResultId = when {
-                        session.lastActiveResultId != null && orderedResults.any { it.id == session.lastActiveResultId } -> {
+                        session.lastActiveResultId != null && activeResults.any { it.id == session.lastActiveResultId } -> {
                             session.lastActiveResultId
                         }
                         sets.isNotEmpty() -> {
                             val latestSet = sets.maxByOrNull { it.completedAtEpochMs }
-                            val latestResult = orderedResults.find { it.id == latestSet?.sessionSlotResultId }
+                            val latestResult = activeResults.find { it.id == latestSet?.sessionSlotResultId }
                             if (latestResult != null) {
                                 val slotMap = slotsByDay.value.associateBy { it.id }
                                 val resultSets = setsByResult[latestResult.id].orEmpty()
                                 val plannedSets = latestResult.plannedSets ?: slotMap[latestResult.routineSlotId]?.sets ?: 0
                                 if (plannedSets in 1..resultSets.size) {
-                                    val currentIndex = orderedResults.indexOf(latestResult)
-                                    val nextIncomplete = orderedResults.drop(currentIndex + 1).firstOrNull { result ->
+                                    val currentIndex = activeResults.indexOf(latestResult)
+                                    val nextIncomplete = activeResults.drop(currentIndex + 1).firstOrNull { result ->
                                         val pSets = result.plannedSets ?: slotMap[result.routineSlotId]?.sets ?: 0
                                         val rSets = setsByResult[result.id].orEmpty().size
                                         pSets <= 0 || rSets < pSets
@@ -261,10 +261,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                                     latestResult.id
                                 }
                             } else {
-                                orderedResults.firstOrNull()?.id
+                                activeResults.firstOrNull()?.id
                             }
                         }
-                        else -> orderedResults.firstOrNull()?.id
+                        else -> activeResults.firstOrNull()?.id
                     }
 
                     if (initialResultId != null) {
@@ -286,9 +286,9 @@ class ActiveWorkoutViewModel @Inject constructor(
         workoutRepository.observeSlotResults(sessionId),
         currentResultId,
     ) { results, resultId ->
-        val ordered = results.sortedBy { it.sortOrder }
-        val result = if (resultId == null) ordered.firstOrNull()
-        else ordered.find { it.id == resultId } ?: ordered.firstOrNull()
+        val activeResults = results.filter { !it.isRemovedFromSession }.sortedBy { it.sortOrder }
+        val result = if (resultId == null) activeResults.firstOrNull()
+        else activeResults.find { it.id == resultId } ?: activeResults.firstOrNull()
         result?.resolvedExerciseId
     }
 
@@ -376,8 +376,8 @@ class ActiveWorkoutViewModel @Inject constructor(
         // Sort by the session's own snapshot order: ad-hoc rows have no
         // routine slot, and routine edits mid-session must not reshuffle a
         // running workout.
-        val orderedResults = results.sortedBy { it.sortOrder }
-        val orderedSlots = orderedResults.map { result ->
+        val activeResults = results.filter { !it.isRemovedFromSession }.sortedBy { it.sortOrder }
+        val orderedSlots = activeResults.map { result ->
             ActiveSlot(
                 result = result,
                 slot = slotMap[result.routineSlotId],
@@ -751,6 +751,17 @@ class ActiveWorkoutViewModel @Inject constructor(
         flushNoteSave()
         viewModelScope.launch {
             workoutRepository.rerollSlot(current.result, state.currentIndex)
+        }
+    }
+
+    /** Removes the current exercise from the active session copy. */
+    fun removeCurrentExercise() {
+        val state = uiState.value
+        val current = state.current ?: return
+        flushNoteSave()
+        flushSessionNoteSave()
+        viewModelScope.launch {
+            workoutRepository.removeSlotFromActiveSession(sessionId, current.result.id)
         }
     }
 

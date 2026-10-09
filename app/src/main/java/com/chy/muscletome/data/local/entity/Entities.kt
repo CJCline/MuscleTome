@@ -266,6 +266,11 @@ data class SessionSlotResultEntity(
      * null = slot-backed, use `RoutineSlotEntity.sets`.
      */
     val plannedSets: Int? = null,
+    /**
+     * Set to true if this exercise was removed mid-session after sets were already logged.
+     * Keeps logged sets in DB/history while hiding the exercise from active session rotation.
+     */
+    @ColumnInfo(defaultValue = "0") val isRemovedFromSession: Boolean = false,
 )
 
 @Serializable
