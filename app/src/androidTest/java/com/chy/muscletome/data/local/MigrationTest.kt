@@ -94,6 +94,20 @@ class MigrationTest {
         }
     }
 
+    @Test fun migrate13To14AddsLastActiveResultIdColumn() {
+        val db = helper.createDatabase("migration-13-14", 13)
+        db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty) VALUES ('local-user', 'You', 'KG', 90, 'STRICT', 1, 'ADVANCED')")
+        db.execSQL("INSERT INTO workout_sessions (id, userId, routineDayId, startedAtEpochMs) VALUES ('session-1', 'local-user', NULL, 1000)")
+        db.close()
+
+        helper.runMigrationsAndValidate("migration-13-14", 14, true, MuscleTomeMigrations.MIGRATION_13_14).use { migrated ->
+            migrated.query(SimpleSQLiteQuery("SELECT lastActiveResultId FROM workout_sessions WHERE id = 'session-1'")).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertNull(cursor.getString(0))
+            }
+        }
+    }
+
     @Test fun migrateAllFromV1PreservesData() {
         val db = helper.createDatabase("migration-test", 1)
         db.execSQL("INSERT INTO users (id, name, weightUnit, defaultRestSeconds, primaryMatchStrictness, preferCompoundEarly, maxDifficulty, subscriptionStatus) VALUES ('local-user', 'You', 'KG', 90, 'STRICT', 1, 'ADVANCED', 'FREE')")
@@ -101,7 +115,7 @@ class MigrationTest {
         db.execSQL("INSERT INTO exercises (id, name, description, movementPattern, movementType, primaryMuscleGroupId, difficulty, isCustom, createdByUserId, unilateral, source, notes, demoUri) VALUES ('barbell_bench_press', 'Bench Press', '', 'PUSH', 'COMPOUND', 'chest', 'INTERMEDIATE', 0, NULL, 0, 'SEED', '', 'https://legacy.example/demo.png')")
         db.close()
 
-        helper.runMigrationsAndValidate("migration-test", 13, true, *MuscleTomeMigrations.ALL).use { migrated ->
+        helper.runMigrationsAndValidate("migration-test", 14, true, *MuscleTomeMigrations.ALL).use { migrated ->
             migrated.query(SimpleSQLiteQuery("SELECT defaultRepPreference FROM users WHERE id = 'local-user'")).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("MINIMUM", cursor.getString(0))

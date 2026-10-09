@@ -207,6 +207,7 @@ data class WorkoutSessionEntity(
     val routineDayId: String?,
     val startedAtEpochMs: Long,
     val endedAtEpochMs: Long? = null,
+    val lastActiveResultId: String? = null,
 )
 
 @Serializable

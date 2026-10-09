@@ -111,8 +111,12 @@ class HomeViewModel @Inject constructor(
         val effectiveActiveId = activeRoutineId
             ?.takeIf { id -> routines.any { it.id == id } }
             ?: routines.firstOrNull()?.id
-        val next = nextDay(effectiveActiveId, lastCompleted, days)
-        val preview = next?.let { day ->
+        val currentDay = if (open?.routineDayId != null) {
+            days.find { it.id == open.routineDayId } ?: nextDay(effectiveActiveId, lastCompleted, days)
+        } else {
+            nextDay(effectiveActiveId, lastCompleted, days)
+        }
+        val preview = currentDay?.let { day ->
             workoutRepository.dayPreview(day.id).let { (shown, more) ->
                 shown.map {
                     PreviewExercise(name = it.name, targetLabel = it.targetLabel)
@@ -124,8 +128,8 @@ class HomeViewModel @Inject constructor(
             .getSessionsSince(SeedCatalog.LOCAL_USER_ID, window.first)
         HomeUiState(
             openSession = open,
-            nextDay = next,
-            nextRoutineName = routines.find { it.id == next?.routineId }?.name,
+            nextDay = currentDay,
+            nextRoutineName = routines.find { it.id == currentDay?.routineId }?.name,
             preview = preview?.first.orEmpty(),
             previewMore = preview?.second ?: 0,
             lastCompleted = lastCompleted,
@@ -158,6 +162,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun startNextDay() {
+        val open = uiState.value.openSession
+        if (open != null) {
+            resumeOpenSession()
+            return
+        }
         val dayId = uiState.value.nextDay?.id ?: return
         if (_startingWorkout.value) return
         viewModelScope.launch {

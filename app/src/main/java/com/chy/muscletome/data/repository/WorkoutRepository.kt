@@ -67,6 +67,13 @@ class WorkoutRepository @Inject constructor(
     fun observeOpenSession() =
         workoutDao.observeOpenSession(SeedCatalog.LOCAL_USER_ID)
 
+    suspend fun getOpenSession(): WorkoutSessionEntity? =
+        workoutDao.getOpenSession(SeedCatalog.LOCAL_USER_ID)
+
+    suspend fun updateLastActiveResultId(sessionId: String, resultId: String?) {
+        workoutDao.updateLastActiveResultId(sessionId, resultId)
+    }
+
     fun observeLastCompletedSession() =
         workoutDao.observeLastCompletedSession(SeedCatalog.LOCAL_USER_ID)
 

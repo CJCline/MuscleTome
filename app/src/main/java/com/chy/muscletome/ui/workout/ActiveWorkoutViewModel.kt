@@ -223,9 +223,55 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            workoutRepository.observeSession(sessionId).collect { session ->
-                val dayId = session?.routineDayId ?: return@collect
-                slotsByDay.value = routineDao.getSlots(dayId)
+            combine(
+                workoutRepository.observeSession(sessionId),
+                workoutRepository.observeSlotResults(sessionId),
+                workoutRepository.observeSets(sessionId),
+            ) { session, results, sets ->
+                Triple(session, results, sets)
+            }.collect { (session, results, sets) ->
+                val dayId = session?.routineDayId
+                if (dayId != null) {
+                    slotsByDay.value = routineDao.getSlots(dayId)
+                }
+                if (session != null && results.isNotEmpty() && currentResultId.value == null) {
+                    val orderedResults = results.sortedBy { it.sortOrder }
+                    val setsByResult = sets.groupBy { it.sessionSlotResultId }
+
+                    val initialResultId = when {
+                        session.lastActiveResultId != null && orderedResults.any { it.id == session.lastActiveResultId } -> {
+                            session.lastActiveResultId
+                        }
+                        sets.isNotEmpty() -> {
+                            val latestSet = sets.maxByOrNull { it.completedAtEpochMs }
+                            val latestResult = orderedResults.find { it.id == latestSet?.sessionSlotResultId }
+                            if (latestResult != null) {
+                                val slotMap = slotsByDay.value.associateBy { it.id }
+                                val resultSets = setsByResult[latestResult.id].orEmpty()
+                                val plannedSets = latestResult.plannedSets ?: slotMap[latestResult.routineSlotId]?.sets ?: 0
+                                if (plannedSets in 1..resultSets.size) {
+                                    val currentIndex = orderedResults.indexOf(latestResult)
+                                    val nextIncomplete = orderedResults.drop(currentIndex + 1).firstOrNull { result ->
+                                        val pSets = result.plannedSets ?: slotMap[result.routineSlotId]?.sets ?: 0
+                                        val rSets = setsByResult[result.id].orEmpty().size
+                                        pSets <= 0 || rSets < pSets
+                                    }
+                                    nextIncomplete?.id ?: latestResult.id
+                                } else {
+                                    latestResult.id
+                                }
+                            } else {
+                                orderedResults.firstOrNull()?.id
+                            }
+                        }
+                        else -> orderedResults.firstOrNull()?.id
+                    }
+
+                    if (initialResultId != null) {
+                        currentResultId.value = initialResultId
+                        workoutRepository.updateLastActiveResultId(sessionId, initialResultId)
+                    }
+                }
             }
         }
         // The rest countdown outlives the process — pick it back up here.
@@ -611,6 +657,9 @@ class ActiveWorkoutViewModel @Inject constructor(
         flushNoteSave()
         flushSessionNoteSave()
         currentResultId.value = resultId
+        viewModelScope.launch {
+            workoutRepository.updateLastActiveResultId(sessionId, resultId)
+        }
     }
 
     /** Undoes the most recent set of the on-screen exercise. */

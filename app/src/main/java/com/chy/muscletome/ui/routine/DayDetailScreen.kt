@@ -164,7 +164,7 @@ fun DayDetailScreen(
                         enabled = state.slots.isNotEmpty() && !state.hasUnsavedChanges,
                     ) {
                         Text(
-                            "START",
+                            if (state.hasActiveSession) "RESUME" else "START",
                             style = MuscleTomeTextStyles.button,
                             color = if (state.slots.isNotEmpty() && !state.hasUnsavedChanges) {
                                 MaterialTheme.colorScheme.primary

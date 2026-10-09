@@ -259,4 +259,17 @@ interface WorkoutDao {
 
     @Query("UPDATE session_slot_results SET sortOrder = :sortOrder WHERE id = :id")
     suspend fun updateSlotResultSortOrder(id: String, sortOrder: Int)
+
+    @Query("UPDATE workout_sessions SET lastActiveResultId = :resultId WHERE id = :sessionId")
+    suspend fun updateLastActiveResultId(sessionId: String, resultId: String?)
+
+    @Query(
+        """
+        SELECT * FROM workout_sessions
+        WHERE userId = :userId AND endedAtEpochMs IS NULL
+        ORDER BY startedAtEpochMs DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getOpenSession(userId: String): WorkoutSessionEntity?
 }

@@ -129,34 +129,17 @@ fun HomeScreen(
                 }
             }
 
-            if ((state.openSession != null) && !state.startingWorkout) {
+            val hasActiveSession = (state.openSession != null) && !state.startingWorkout
+            if (hasActiveSession || state.nextDay != null) {
                 item {
-                    BrutalistCard(spineColor = MaterialTheme.colorScheme.error) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            MicroTag(
-                                text = "WORKOUT IN PROGRESS",
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AccentButton(
-                                    text = "RESUME",
-                                    onClick = viewModel::resumeOpenSession,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                BrutalistOutlinedButton(
-                                    text = "DISCARD",
-                                    onClick = { showDiscardConfirm = true },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                    }
-                }
-            } else if (state.nextDay != null) {
-                item {
-                    BrutalistCard(spineColor = MaterialTheme.colorScheme.primary) {
+                    BrutalistCard(
+                        spineColor = if (hasActiveSession) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            MicroTag(text = "UP NEXT")
+                            MicroTag(
+                                text = if (hasActiveSession) "WORKOUT IN PROGRESS" else "UP NEXT",
+                                color = if (hasActiveSession) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            )
                             Text(
                                 listOfNotNull(state.nextRoutineName, state.nextDay?.name)
                                     .joinToString(" · ")
@@ -193,11 +176,26 @@ fun HomeScreen(
                                     )
                                 }
                             }
-                            AccentButton(
-                                text = "START WORKOUT",
-                                onClick = viewModel::startNextDay,
-                                enabled = !state.startingWorkout,
-                            )
+                            if (hasActiveSession) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    AccentButton(
+                                        text = "RESUME",
+                                        onClick = viewModel::resumeOpenSession,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    BrutalistOutlinedButton(
+                                        text = "DISCARD",
+                                        onClick = { showDiscardConfirm = true },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            } else {
+                                AccentButton(
+                                    text = "START WORKOUT",
+                                    onClick = viewModel::startNextDay,
+                                    enabled = !state.startingWorkout,
+                                )
+                            }
                         }
                     }
                 }

@@ -82,6 +82,7 @@ data class DayDetailUiState(
     val effortScale: EffortScale = EffortScale.RPE,
     val activeSessionSlots: List<ActiveSlotOverrideOption> = emptyList(),
     val catalogExercises: List<ExerciseEntity> = emptyList(),
+    val hasActiveSession: Boolean = false,
 )
 
 @HiltViewModel
@@ -128,6 +129,7 @@ class DayDetailViewModel @Inject constructor(
         drafts,
         _savedTick,
         activeSessionSlots,
+        workoutRepository.observeOpenSession(),
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val day = values[0] as RoutineDayEntity?
@@ -143,6 +145,7 @@ class DayDetailViewModel @Inject constructor(
         val tick = values[6] as Int
         @Suppress("UNCHECKED_CAST")
         val activeSlots = values[7] as List<ActiveSlotOverrideOption>
+        val openSession = values[8] as com.chy.muscletome.data.local.entity.WorkoutSessionEntity?
 
         val effortScalePref = user?.effortScale ?: EffortScale.RPE
         val names = exercises.associate { it.id to it.name }
@@ -201,6 +204,7 @@ class DayDetailViewModel @Inject constructor(
             effortScale = effortScalePref,
             activeSessionSlots = activeSlots,
             catalogExercises = exercises,
+            hasActiveSession = openSession != null,
         )
     }.stateIn(
         viewModelScope,
